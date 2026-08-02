@@ -44,6 +44,8 @@ class OrderCart {
 
   bool get isEmpty => _byId.isEmpty;
 
+  bool get isNotEmpty => _byId.isNotEmpty;
+
   OrderCart setQuantity(Product product, int quantity) {
     final next = Map<String, CartLine>.from(_byId);
     if (quantity <= 0) {

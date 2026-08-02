@@ -5,9 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalog/catalog_models.dart';
+import 'desk_settings_api.dart';
+import 'desk_settings_models.dart';
 import 'navigation_link.dart';
+import 'new_order_voice.dart';
 import 'order_api.dart';
 import 'order_models.dart';
+import 'wait_time_badge.dart';
 
 /// Poll interval for Order Desk new-order detection (MVP).
 ///
@@ -40,23 +44,53 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
   bool _loading = true;
   String? _error;
   Timer? _pollTimer;
+  Timer? _alertTimer;
+  Timer? _tickTimer;
   bool _fetchInFlight = false;
   bool _hasSynced = false;
   Set<String> _knownIds = {};
+  DeskSettings _desk = DeskSettings.defaults;
+  DateTime _now = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadDeskSettings();
     _load();
     _startPolling();
+    _tickTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _alertTimer?.cancel();
+    _tickTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> _loadDeskSettings() async {
+    try {
+      final s = await ref.read(deskSettingsApiProvider).get();
+      if (!mounted) return;
+      setState(() => _desk = s);
+      _restartAlertTimer();
+    } catch (_) {}
+  }
+
+  void _restartAlertTimer() {
+    _alertTimer?.cancel();
+    _alertTimer = null;
+    if (!_desk.alertEnabled) return;
+    final every = Duration(seconds: _desk.alertIntervalSec);
+    _alertTimer = Timer.periodic(every, (_) {
+      final n = _items?.length ?? 0;
+      if (n > 0) NewOrderVoice.announcePending(n);
+    });
   }
 
   @override
@@ -133,18 +167,23 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
 
   void _notifyNewOrders(int count) {
     final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            count == 1 ? 'Có 1 đơn mới' : 'Có $count đơn mới',
+    if (messenger != null) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              count == 1 ? 'Có 1 đơn mới' : 'Có $count đơn mới',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
           ),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+        );
+    }
+    if (_desk.alertEnabled) {
+      final pending = _items?.length ?? count;
+      NewOrderVoice.announcePending(pending);
+    }
   }
 
   @override
@@ -247,6 +286,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
           final order = items[index];
           return _OrderDeskTile(
             order: order,
+            settings: _desk,
+            now: _now,
             onTap: () => widget.onOpenOrder(order),
           );
         },
@@ -258,10 +299,14 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
 class _OrderDeskTile extends StatelessWidget {
   const _OrderDeskTile({
     required this.order,
+    required this.settings,
+    required this.now,
     required this.onTap,
   });
 
   final AdminOrder order;
+  final DeskSettings settings;
+  final DateTime now;
   final VoidCallback onTap;
 
   @override
@@ -285,11 +330,24 @@ class _OrderDeskTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      order.customerName.isEmpty ? '—' : order.customerName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            order.customerName.isEmpty
+                                ? '—'
+                                : order.customerName,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        WaitTimeBadge(
+                          createdAt: order.createdAt,
+                          settings: settings,
+                          now: now,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(

@@ -139,6 +139,6 @@ Không dùng GitHub Secrets. Trigger: PR + push `main` khi đổi `apps/mobile/*
 | Checklist verify Web | Mục 3.1 |
 | Checklist verify Android Emulator | Mục 3.2 |
 | iOS Simulator **hoặc** CI macOS | Mục 3.3 + workflow `ios-build` |
-| Docs workdocs | `workdocs_platform_checklist_02082026/` |
+| Docs workdocs | `docs/workdocs_platform_checklist_02082026/` |
 
 Khi Flutter chưa trên PATH máy hiện tại: audit + docs + CI đủ để đóng task; chạy tay mục 3 sau khi cài SDK / trên máy có emulator.

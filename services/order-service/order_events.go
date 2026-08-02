@@ -32,12 +32,19 @@ type orderCompletedEvent struct {
 type orderPublisher interface {
 	PublishOrderPlaced(e orderPlacedEvent) error
 	PublishOrderCompleted(e orderCompletedEvent) error
+	PublishOrderCancelled(e orderCancelledEvent) error
+}
+
+type orderCancelledEvent struct {
+	OrderID string
+	Items   []orderItemView
 }
 
 type noopOrderPublisher struct{}
 
 func (noopOrderPublisher) PublishOrderPlaced(orderPlacedEvent) error       { return nil }
 func (noopOrderPublisher) PublishOrderCompleted(orderCompletedEvent) error { return nil }
+func (noopOrderPublisher) PublishOrderCancelled(orderCancelledEvent) error { return nil }
 
 type jsOrderPublisher struct {
 	js nats.JetStreamContext
@@ -85,6 +92,26 @@ func (j *jsOrderPublisher) PublishOrderCompleted(e orderCompletedEvent) error {
 	return err
 }
 
+func (j *jsOrderPublisher) PublishOrderCancelled(e orderCancelledEvent) error {
+	if j == nil || j.js == nil {
+		return fmt.Errorf("jetstream publisher not configured")
+	}
+	items := make([]map[string]any, 0, len(e.Items))
+	for _, it := range e.Items {
+		items = append(items, map[string]any{
+			"product_id": it.ProductID,
+			"qty":        it.Qty,
+			"sku":        it.ProductSKU,
+		})
+	}
+	env := events.NewEnvelope(events.OrderCancelled, uuid.NewString(), map[string]any{
+		"order_id": e.OrderID,
+		"items":    items,
+	})
+	_, err := natsx.PublishEnvelope(j.js, env)
+	return err
+}
+
 func (s *orderService) publishOrderPlaced(e orderPlacedEvent) {
 	if s.bus == nil {
 		return
@@ -100,5 +127,14 @@ func (s *orderService) publishOrderCompleted(e orderCompletedEvent) {
 	}
 	if err := s.bus.PublishOrderCompleted(e); err != nil {
 		slog.Error("publish order.completed", "order_id", e.OrderID, "err", err)
+	}
+}
+
+func (s *orderService) publishOrderCancelled(e orderCancelledEvent) {
+	if s.bus == nil {
+		return
+	}
+	if err := s.bus.PublishOrderCancelled(e); err != nil {
+		slog.Error("publish order.cancelled", "order_id", e.OrderID, "err", err)
 	}
 }

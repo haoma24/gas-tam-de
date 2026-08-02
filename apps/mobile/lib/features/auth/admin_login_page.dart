@@ -48,8 +48,9 @@ class _AdminLoginPageState extends ConsumerState<AdminLoginPage> {
             password: password,
           );
       if (!mounted) return;
-      ref.read(authSessionProvider.notifier).state =
-          AuthSession.fromAdminLogin(result);
+      await ref.read(authSessionProvider.notifier).setSession(
+            AuthSession.fromAdminLogin(result),
+          );
       widget.onLoggedIn();
     } on AuthApiException catch (e) {
       if (!mounted) return;

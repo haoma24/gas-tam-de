@@ -29,6 +29,10 @@ func (r *recordingOrderPublisher) PublishOrderCompleted(e orderCompletedEvent) e
 	return nil
 }
 
+func (r *recordingOrderPublisher) PublishOrderCancelled(e orderCancelledEvent) error {
+	return nil
+}
+
 func TestCreateOrderPublishesOrderPlaced(t *testing.T) {
 	geo := &stubGeo{result: geoCheckResult{DistanceKm: 3.2, InRange: true, MaxRadiusKm: 10}}
 	catalog := &stubCatalog{products: []catalogProduct{

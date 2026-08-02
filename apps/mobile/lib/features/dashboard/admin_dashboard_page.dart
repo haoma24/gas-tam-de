@@ -14,16 +14,22 @@ class AdminDashboardPage extends ConsumerStatefulWidget {
     required this.onOpenOrders,
     required this.onOpenProducts,
     required this.onOpenDeliveryFee,
+    required this.onOpenStore,
+    required this.onOpenDeskSettings,
     required this.onOpenDebts,
     required this.onOpenInventory,
+    this.onLoggedOut,
   });
 
   final VoidCallback onBack;
   final VoidCallback onOpenOrders;
   final VoidCallback onOpenProducts;
   final VoidCallback onOpenDeliveryFee;
+  final VoidCallback onOpenStore;
+  final VoidCallback onOpenDeskSettings;
   final VoidCallback onOpenDebts;
   final VoidCallback onOpenInventory;
+  final VoidCallback? onLoggedOut;
 
   @override
   ConsumerState<AdminDashboardPage> createState() => _AdminDashboardPageState();
@@ -96,6 +102,15 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             icon: const Icon(Icons.refresh),
             onPressed: _loading ? null : _load,
           ),
+          if (widget.onLoggedOut != null)
+            IconButton(
+              tooltip: 'Đăng xuất',
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                await ref.read(authSessionProvider.notifier).clear();
+                widget.onLoggedOut!();
+              },
+            ),
         ],
       ),
       body: SafeArea(
@@ -169,6 +184,20 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 title: 'Phí giao hàng',
                 subtitle: 'Bật / tắt và bậc theo khoảng cách',
                 onTap: widget.onOpenDeliveryFee,
+              ),
+              const SizedBox(height: 12),
+              _AdminNavTile(
+                icon: Icons.store_mall_directory_outlined,
+                title: 'Vị trí cửa hàng',
+                subtitle: 'Tọa độ gốc và bán kính giao hàng',
+                onTap: widget.onOpenStore,
+              ),
+              const SizedBox(height: 12),
+              _AdminNavTile(
+                icon: Icons.tune,
+                title: 'Cấu hình Order Desk',
+                subtitle: 'Màu thời gian chờ + chu kỳ thông báo giọng nói',
+                onTap: widget.onOpenDeskSettings,
               ),
               const SizedBox(height: 12),
               _AdminNavTile(

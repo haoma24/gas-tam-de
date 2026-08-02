@@ -69,6 +69,47 @@ class OrderQuote {
   }
 }
 
+/// Last order snapshot for returning customers (`GET /v1/orders/me/defaults`).
+class OrderDefaults {
+  const OrderDefaults({
+    required this.hasDefaults,
+    this.customerName,
+    this.addressText,
+    this.lat,
+    this.lng,
+    this.orderedAt,
+  });
+
+  final bool hasDefaults;
+  final String? customerName;
+  final String? addressText;
+  final double? lat;
+  final double? lng;
+  final String? orderedAt;
+
+  factory OrderDefaults.fromJson(Map<String, dynamic> json) {
+    final has = json['has_defaults'] == true;
+    if (!has) return const OrderDefaults(hasDefaults: false);
+    final name = (json['customer_name'] as String?)?.trim();
+    final address = (json['address_text'] as String?)?.trim();
+    return OrderDefaults(
+      hasDefaults: true,
+      customerName: (name == null || name.isEmpty) ? null : name,
+      addressText: (address == null || address.isEmpty) ? null : address,
+      lat: _optDouble(json['lat']),
+      lng: _optDouble(json['lng']),
+      orderedAt: json['ordered_at'] as String?,
+    );
+  }
+
+  static double? _optDouble(Object? v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
+}
+
 /// Request body for `POST /v1/orders`.
 class CreateOrderRequest {
   const CreateOrderRequest({

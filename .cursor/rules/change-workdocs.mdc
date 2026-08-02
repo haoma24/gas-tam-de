@@ -9,4 +9,4 @@ Khi sửa repo gas-tam-de có ý nghĩa (feature, fix, docs lớn, refactor):
 
 1. Đọc và tuân thủ skill `.cursor/skills/change-workdocs/SKILL.md`.
 2. Ghi entry mới (trên cùng) vào `CHANGESLOG.md`.
-3. Khi implement chức năng: tạo/cập nhật `workdocs_<mo-ta>_<ddmmyyyy>/` kèm README.
+3. Khi implement chức năng: tạo/cập nhật `docs/workdocs_<mo-ta>_<ddmmyyyy>/` kèm README.

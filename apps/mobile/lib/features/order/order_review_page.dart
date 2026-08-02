@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_session.dart';
+import '../auth/me_api.dart';
 import '../catalog/catalog_models.dart';
+import 'customer_order_prefill.dart';
 import 'order_address_selection.dart';
 import 'order_api.dart';
 import 'order_cart.dart';
@@ -34,7 +36,20 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadQuote());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadPrefillName();
+      if (mounted) await _loadQuote();
+    });
+  }
+
+  Future<void> _loadPrefillName() async {
+    try {
+      final prefill = await ref.read(customerOrderPrefillProvider.future);
+      if (!mounted) return;
+      if (prefill.hasName && _nameController.text.trim().isEmpty) {
+        setState(() => _nameController.text = prefill.fullName!.trim());
+      }
+    } catch (_) {}
   }
 
   @override
@@ -196,6 +211,13 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
             ),
           );
       if (!mounted) return;
+      try {
+        await ref.read(meApiProvider).patchFullName(name);
+      } catch (_) {
+        // Order already placed — profile sync is best-effort.
+      }
+      ref.invalidate(customerProfileProvider);
+      ref.invalidate(customerOrderPrefillProvider);
       ref.read(orderCartProvider.notifier).clear();
       widget.onPlaced(order);
     } on OrderApiException catch (e) {
@@ -231,6 +253,13 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
     final geo = ref.watch(orderGeoCheckProvider);
     final session = ref.watch(authSessionProvider);
     final quote = _quote;
+    final prefillAsync = ref.watch(customerOrderPrefillProvider);
+    final prefillHint = prefillAsync.maybeWhen(
+      data: (p) => p.hasName
+          ? 'Đã nhớ tên theo SĐT — chỉnh nếu cần.'
+          : 'Lần đầu đặt gas: nhập họ tên để cửa hàng gọi giao.',
+      orElse: () => 'Lần đầu đặt gas: nhập họ tên để cửa hàng gọi giao.',
+    );
 
     final subtotal = quote?.subtotal ?? cart.totalAmount;
     final deliveryFee = quote?.deliveryFee;
@@ -360,6 +389,7 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
                     decoration: InputDecoration(
                       labelText: 'Tên người nhận',
                       hintText: 'VD: Nguyễn Văn A',
+                      helperText: prefillHint,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

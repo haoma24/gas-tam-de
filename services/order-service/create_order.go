@@ -14,11 +14,12 @@ import (
 )
 
 type orderService struct {
-	db      *sql.DB
-	geo     geoChecker
-	catalog productCatalog
-	billing billingRecorder
-	bus     orderPublisher
+	db        *sql.DB
+	geo       geoChecker
+	catalog   productCatalog
+	billing   billingRecorder
+	inventory stockReserver
+	bus       orderPublisher
 }
 
 type createOrderItemBody struct {
@@ -249,6 +250,30 @@ func (s *orderService) handleCreateOrder(w http.ResponseWriter, r *http.Request)
 		slog.Error("commit create order", "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not create order")
 		return
+	}
+
+	if s.inventory != nil {
+		lines := make([]stockLine, 0, len(itemViews))
+		for _, it := range itemViews {
+			lines = append(lines, stockLine{
+				ProductID: it.ProductID,
+				SKU:       it.ProductSKU,
+				Qty:       int64(it.Qty),
+			})
+		}
+		if err := s.inventory.Reserve(r.Context(), orderID, lines); err != nil {
+			slog.Error("inventory reserve", "order_id", orderID, "err", err)
+			// Best-effort rollback of PENDING order so stock stays consistent.
+			_, _ = s.db.Exec(`UPDATE orders SET status = 'CANCELLED', cancelled_at = ? WHERE id = ?`,
+				time.Now().UTC().Format(time.RFC3339Nano), orderID)
+			msg := "Không đủ tồn kho cho một hoặc nhiều sản phẩm."
+			if strings.Contains(err.Error(), "insufficient") || strings.Contains(err.Error(), "INSUFFICIENT") {
+				httpx.Error(w, http.StatusConflict, "INSUFFICIENT_STOCK", msg)
+				return
+			}
+			httpx.Error(w, http.StatusBadGateway, "INVENTORY_UNAVAILABLE", "Không trừ được tồn kho. Thử lại.")
+			return
+		}
 	}
 
 	// Publish after commit; failures are logged only (order already persisted).

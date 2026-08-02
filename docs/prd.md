@@ -449,7 +449,7 @@ Không trì hoãn iOS sang sau MVP: mọi feature Flutter phải giữ tương t
 - [ ] Flutter **Web + Android + iOS** chạy được phần việc của sprint (Web + Android Emulator bắt buộc local; iOS Simulator hoặc artifact CI macOS)
 - [ ] Event publish/consume (nếu story liên quan) có log xác nhận
 - [ ] Cập nhật ngắn trong PR / note liên kết PRD AC
-- [ ] Ghi `CHANGESLOG.md` + `workdocs_*` theo skill change-workdocs
+- [ ] Ghi `CHANGESLOG.md` + `docs/workdocs_*` theo skill change-workdocs
 
 ### Chiến lược test không máy Android thật
 

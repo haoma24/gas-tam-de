@@ -1,7 +1,7 @@
 ---
 name: change-workdocs
 description: >-
-  Records every change in CHANGESLOG.md and creates workdocs_<mo-ta>_<ngaythangnam>
+  Records every change in CHANGESLOG.md and creates docs/workdocs_<mo-ta>_<ngaythangnam>
   folders for feature implementation history on Gas Tam Đệ. Use when implementing
   a feature, finishing a change, writing docs that alter the system, scaffolding
   code, fixing bugs, or when the user mentions changelog, CHANGESLOG, workdocs,
@@ -15,7 +15,7 @@ Bắt buộc tuân thủ skill này cho mọi thay đổi có ý nghĩa trong re
 ## Quy tắc vàng
 
 1. **Mỗi change đều sẽ được ghi vào CHANGESLOG.md.**
-2. **Mỗi khi implement 1 chức năng sẽ tạo một thư mục `workdocs_mô_tả_ngày_tháng_năm` để lưu lại lịch sử.**
+2. **Mỗi khi implement 1 chức năng sẽ tạo một thư mục `docs/workdocs_mô_tả_ngày_tháng_năm` để lưu lại lịch sử.**
 3. Không kết thúc task implement nếu thiếu một trong hai mục trên (trừ khi user nói rõ “bỏ qua changelog”).
 
 ## Khi nào áp dụng
@@ -31,18 +31,18 @@ Bắt buộc tuân thủ skill này cho mọi thay đổi có ý nghĩa trong re
 Format:
 
 ```text
-workdocs_<mo-ta>_<ddmmyyyy>
+docs/workdocs_<mo-ta>_<ddmmyyyy>
 ```
 
 - `<mo-ta>`: tiếng Việt không dấu, chữ thường, nối bằng `_` hoặc `-`, ngắn (≤ 40 ký tự).
 - `<ddmmyyyy>`: ngày **bắt đầu** (hoặc ngày hoàn thành nếu làm trong một ngày) theo lịch local user.
-- Đặt tại **root repo**: `workdocs_.../` (không đặt trong `docs/` trừ khi user yêu cầu).
+- Đặt tại **`docs/`**: `docs/workdocs_.../` (không đặt ở root repo).
 
 Ví dụ:
 
-- `workdocs_scaffold_monorepo_02082026`
-- `workdocs_otp_auth_15082026`
-- `workdocs_dat_giao_gas_geo_01092026`
+- `docs/workdocs_scaffold_monorepo_02082026`
+- `docs/workdocs_otp_auth_15082026`
+- `docs/workdocs_dat_giao_gas_geo_01092026`
 
 Nếu thư mục cùng mô tả+ngày đã tồn tại: **tái sử dụng** thư mục đó, bổ sung file bên trong; không tạo bản trùng.
 
@@ -52,7 +52,7 @@ Copy checklist và đánh dấu khi làm:
 
 ```text
 Change Progress:
-- [ ] 1. Tạo / mở thư mục workdocs_<mo-ta>_<ddmmyyyy>
+- [ ] 1. Tạo / mở thư mục docs/workdocs_<mo-ta>_<ddmmyyyy>
 - [ ] 2. Viết hoặc cập nhật workdocs (mục tiêu, phạm vi, quyết định, file đụng tới)
 - [ ] 3. Implement code/docs theo yêu cầu
 - [ ] 4. Cập nhật workdocs phần "Đã làm" + ghi chú lệch so với plan (nếu có)
@@ -65,7 +65,7 @@ Change Progress:
 Tạo thư mục và các file tối thiểu:
 
 ```text
-workdocs_<mo-ta>_<ddmmyyyy>/
+docs/workdocs_<mo-ta>_<ddmmyyyy>/
   README.md          # bắt buộc
   decisions.md       # optional — quyết định kỹ thuật
   notes.md           # optional — nhật ký / blocker
@@ -99,7 +99,7 @@ File tại **root repo**: `CHANGESLOG.md`.
 - **Tóm tắt:** <1–3 câu>
 - **Chi tiết:**
   - ...
-- **Workdocs:** `workdocs_<mo-ta>_<ddmmyyyy>/` (hoặc `n/a` nếu thay đổi nhỏ)
+- **Workdocs:** `docs/workdocs_<mo-ta>_<ddmmyyyy>/` (hoặc `n/a` nếu thay đổi nhỏ)
 - **Liên quan:** <PRD story / sprint / issue nếu có>
 ```
 
@@ -118,6 +118,6 @@ Vẫn **bắt buộc** một entry CHANGESLOG ngắn. Ghi `Workdocs: n/a` và l�
 
 Implement OTP:
 
-1. Tạo `workdocs_otp_auth_02082026/README.md`
+1. Tạo `docs/workdocs_otp_auth_02082026/README.md`
 2. Code `services/auth-service/...` + Flutter màn OTP
 3. Prefixed entry trong `CHANGESLOG.md` loại `feature`, link workdocs

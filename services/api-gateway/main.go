@@ -137,10 +137,13 @@ func newGatewayRouter(jwtSecret string, corsOrigins []string, u upstreams, rl *r
 		v1.Handle("/products/*", catalogProxy)
 		v1.Get("/geo/store", geoProxy.ServeHTTP)
 		v1.Get("/geo/search", geoProxy.ServeHTTP)
+		v1.Get("/stock/levels", inventoryProxy.ServeHTTP)
 
 		// Customer-authenticated geo check + orders (place-order rate limited by IP + user).
 		v1.Group(func(cust chi.Router) {
 			cust.Use(RequireJWT(jwtSecret), RequireRole(roleCustomer), RateLimitPlaceOrder(rl))
+			cust.Get("/me", authProxy.ServeHTTP)
+			cust.Patch("/me", authProxy.ServeHTTP)
 			cust.Post("/geo/check", geoProxy.ServeHTTP)
 			cust.Handle("/orders", orderProxy)
 			cust.Handle("/orders/*", orderProxy)
@@ -159,6 +162,7 @@ func newGatewayRouter(jwtSecret string, corsOrigins []string, u upstreams, rl *r
 			admin.Handle("/admin/orders", orderProxy)
 			admin.Handle("/admin/orders/*", orderProxy)
 			admin.Handle("/admin/delivery-fee", orderProxy)
+			admin.Handle("/admin/desk-settings", orderProxy)
 
 			admin.Handle("/admin/inventory", inventoryProxy)
 			admin.Handle("/admin/inventory/*", inventoryProxy)

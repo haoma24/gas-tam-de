@@ -47,6 +47,7 @@ func main() {
 
 	otp := newOTPService(db, jwtSecret, accessTTL, refreshTTL)
 	tokens := newTokenService(db, jwtSecret, accessTTL, refreshTTL)
+	me := &meService{db: db}
 
 	r := httpx.NewRouter(serviceName)
 	httpx.MountHealth(r, serviceName)
@@ -55,6 +56,8 @@ func main() {
 	r.Post("/v1/auth/otp/verify", otp.handleOTPVerify)
 	r.Post("/v1/auth/admin/login", tokens.handleAdminLogin)
 	r.Post("/v1/auth/refresh", tokens.handleRefresh)
+	r.Get("/v1/me", me.handleGetMe)
+	r.Patch("/v1/me", me.handlePatchMe)
 
 	if err := httpx.ListenAndServe(addr, serviceName, r); err != nil {
 		slog.Error("server stopped", "err", err)

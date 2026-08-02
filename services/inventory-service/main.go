@@ -66,6 +66,9 @@ func main() {
 	// Admin inventory (T7.1.2). Authz enforced at gateway when proxied (/v1/admin/*).
 	r.Get("/v1/admin/inventory", svc.handleListStock)
 	r.Post("/v1/admin/inventory", svc.handlePostMovement)
+	r.Get("/v1/stock/levels", svc.handleListStockLevels)
+	r.Post("/v1/internal/stock/reserve", svc.handleReserveStock)
+	r.Post("/v1/internal/stock/release", svc.handleReleaseStock)
 
 	slog.Info("upstream urls", "nats", natsURL)
 

@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func TestCORS_PreflightAllowedOrigin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodOptions, "/v1/auth/otp/request", nil)
 	req.Header.Set("Origin", "http://localhost:54321")
 	req.Header.Set("Access-Control-Request-Method", "POST")
-	req.Header.Set("Access-Control-Request-Headers", "authorization, content-type")
+	req.Header.Set("Access-Control-Request-Headers", "authorization, content-type, x-phone-masked, x-user-id")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -23,8 +24,14 @@ func TestCORS_PreflightAllowedOrigin(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:54321" {
 		t.Fatalf("Allow-Origin=%q", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" {
+	allowHeaders := strings.ToLower(rec.Header().Get("Access-Control-Allow-Headers"))
+	if allowHeaders == "" {
 		t.Fatal("missing Allow-Headers")
+	}
+	for _, need := range []string{"authorization", "x-phone-masked", "x-user-id", "x-user-role"} {
+		if !strings.Contains(allowHeaders, need) {
+			t.Fatalf("Allow-Headers missing %q: %q", need, allowHeaders)
+		}
 	}
 }
 

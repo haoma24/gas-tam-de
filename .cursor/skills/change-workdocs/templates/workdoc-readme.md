@@ -1,6 +1,6 @@
 # <Tên chức năng / thay đổi>
 
-- **Thư mục:** `workdocs_<mo-ta>_<ddmmyyyy>`
+- **Thư mục:** `docs/workdocs_<mo-ta>_<ddmmyyyy>`
 - **Ngày:** <dd/mm/yyyy>
 - **Loại:** feature | fix | docs | refactor | chore | security
 - **Liên quan:** <US-x.x / Sprint / PRD section>
