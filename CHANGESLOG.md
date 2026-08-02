@@ -5,6 +5,16 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-02] Track Flutter pubspec.lock
+
+- **Loại:** chore
+- **Phạm vi:** `apps/mobile`
+- **Tóm tắt:** Commit `pubspec.lock` để khóa phiên bản dependency Flutter/Dart, build tái lập được giữa máy dev và CI.
+- **Chi tiết:**
+  - Thêm `apps/mobile/pubspec.lock` (trước đó untracked)
+- **Workdocs:** n/a (chore nhỏ — chỉ lockfile)
+- **Liên quan:** Sprint 0 / apps/mobile
+
 ## [2026-08-02] Platform checklist Web + Android + iOS (T9.2.5)
 
 - **Loại:** docs / chore
