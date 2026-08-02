@@ -5,6 +5,17 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-02] Cursor Cloud env setup + OrderCart.isNotEmpty
+
+- **Loại:** chore / fix / docs
+- **Phạm vi:** `AGENTS.md`, `apps/mobile`, Cloud Agent DX
+- **Tóm tắt:** Chuẩn bị môi trường Cloud (Go modules, Flutter pub, NATS/Docker, chạy full stack) và ghi chú vận hành; sửa thiếu getter `OrderCart.isNotEmpty` khiến Flutter Web không compile.
+- **Chi tiết:**
+  - `AGENTS.md` — Cursor Cloud specific instructions (NATS, services, Chrome `--no-sandbox`, hash routes)
+  - `order_cart.dart` — thêm `bool get isNotEmpty => !isEmpty`
+  - Verify: `make test`, API hello-world (OTP + place + complete), Flutter admin login → dashboard
+- **Workdocs:** `workdocs_cursor_cloud_env_02082026/`
+- **Liên quan:** DevEx / Cursor Cloud
 ## [2026-08-02] Desk wait badge / TTS interval / stock reserve / hủy đơn
 
 - **Loại:** feature
