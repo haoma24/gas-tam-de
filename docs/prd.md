@@ -10,7 +10,7 @@
 | Mục | Nội dung |
 |-----|----------|
 | Tên sản phẩm | **Gas Tam Đệ** |
-| Loại hình | Website + Mobile app (ưu tiên Android), định hướng phát triển mobile |
+| Loại hình | Website + Mobile app (**Web + Android + iOS** phát triển song song, một codebase Flutter) |
 | Đối tượng | Cửa hàng gas gia đình: bán gas dân dụng, bếp gas, phụ kiện |
 | Vấn đề giải quyết | Khách đặt giao gas nhanh; chủ cửa hàng theo dõi và giao theo thứ tự, quản lý phí ship, tồn kho, công nợ, lợi nhuận |
 | Chức năng mũi nhọn | **Đặt giao gas** — CTA dễ nhìn thấy ngay khi mở web/app |
@@ -22,12 +22,24 @@
 3. Minh bạch phí giao hàng theo khoảng cách (admin cấu hình).
 4. Theo dõi thanh toán (đủ / một phần / nợ) và tồn kho để tính lợi nhuận.
 
-### 1.2 Out of scope (MVP)
+### 1.2 Target platforms (đã chốt)
+
+| Platform | MVP | Ghi chú test |
+|----------|-----|--------------|
+| **Web** | Có | Chrome/Edge — kênh dev/UAT chính khi chưa có máy thật |
+| **Android** | Có | Android Emulator (không bắt buộc máy thật) |
+| **iOS** | Có (cùng sprint với Android) | iOS Simulator cần macOS; nếu không có Mac dùng CI macOS (GitHub Actions / Codemagic) |
+
+Không trì hoãn iOS sang sau MVP: mọi feature Flutter phải giữ tương thích 3 target từ đầu (tránh plugin/Web-only hoặc Android-only nếu chưa có fallback).
+
+**Ngoài scope MVP:** nộp / duyệt store (Play Store, App Store) — có thể phân phối nội bộ (APK / TestFlight / ad hoc) trước.
+
+### 1.3 Out of scope (MVP)
 
 - Thanh toán online (VNPay, MoMo, thẻ).
 - Chat realtime khách–cửa hàng.
 - Đa chi nhánh / đa cửa hàng.
-- iOS App Store (có thể build Flutter sau; không ưu tiên MVP).
+- Phát hành chính thức lên App Store / Play Store (build iOS/Android vẫn nằm trong scope).
 - Chương trình khuyến mãi phức tạp, loyalty điểm thưởng.
 - Định tuyến tối ưu nhiều điểm giao trong một chuyến (route optimization).
 
@@ -75,19 +87,21 @@
 - Admin: dẫn đường tới điểm giao.
 - Tồn kho cơ bản: nhập/xuất, giá nhập, giá bán theo mã SP → phục vụ tính lợi nhuận.
 - Bảo mật: cô lập dữ liệu giữa user; mask PII trên API response.
+- Flutter chạy được trên **Web + Android + iOS** (cùng feature set MVP; test bằng emulator/simulator/web).
 
 #### Should have
 
 - Dashboard nhỏ: doanh thu, công nợ, lợi nhuận, tồn.
 - Lịch sử đơn của khách (chỉ đơn của chính họ).
 - Audit log hành động admin quan trọng.
+- CI build kiểm tra `flutter build` cho web/android/ios (ios trên runner macOS).
 
 #### Could have
 
 - Push notification đơn mới cho admin.
 - Ước tính thời gian giao.
-- iOS build.
 - In hóa đơn / chia sẻ đơn qua Zalo.
+- Phát hành store công khai.
 
 #### Won’t have (giai đoạn này)
 
@@ -211,7 +225,7 @@
 | NFR-2 | Privacy | Response mask SĐT; không IDOR giữa khách; admin mới xem full list |
 | NFR-3 | Hiệu năng | Place order p95 &lt; 2s trên mạng tốt (không tính SMS OTP) |
 | NFR-4 | Sẵn sàng | MVP chấp nhận single-node; backup file SQLite định kỳ |
-| NFR-5 | Khả dụng | Flutter Web + Android; UI tiếng Việt |
+| NFR-5 | Khả dụng | Flutter Web + Android + iOS; UI tiếng Việt; responsive web |
 | NFR-6 | Quan sát | Log có correlation id; không log OTP plaintext / full PII |
 
 ### 3.5 Acceptance criteria (luồng chính)
@@ -259,19 +273,19 @@
 #### US-1.1 Gửi và xác thực OTP khách
 **Story:** Là khách, tôi muốn xác thực SĐT bằng OTP để đặt hàng an toàn.  
 **Tasks:**
-- T1.1.1 API `POST /auth/otp/request` + rate limit
-- T1.1.2 API `POST /auth/otp/verify` → JWT
-- T1.1.3 Adapter SMS (mock + interface production)
-- T1.1.4 Flutter: màn nhập SĐT + OTP
-- T1.1.5 Lưu `otp_challenges` (hash OTP, expiry) trên SQLite auth
+- [DONE] T1.1.1 API `POST /auth/otp/request` + rate limit
+- [DONE] T1.1.2 API `POST /auth/otp/verify` → JWT
+- [DONE] T1.1.3 Adapter SMS (mock + interface production)
+- [DONE] T1.1.4 Flutter: màn nhập SĐT + OTP
+- [DONE] T1.1.5 Lưu `otp_challenges` (hash OTP, expiry) trên SQLite auth
 
 #### US-1.2 Đăng nhập Admin
 **Story:** Là CCH, tôi muốn đăng nhập bằng tài khoản admin.  
 **Tasks:**
-- T1.2.1 Seed admin account (password hash)
-- T1.2.2 API login admin + refresh
-- T1.2.3 Flutter admin login screen
-- T1.2.4 Middleware RBAC trên gateway
+- [DONE] T1.2.1 Seed admin account (password hash)
+- [DONE] T1.2.2 API login admin + refresh
+- [DONE] T1.2.3 Flutter admin login screen
+- [DONE] T1.2.4 Middleware RBAC trên gateway
 
 ---
 
@@ -280,16 +294,16 @@
 #### US-2.1 Admin quản lý sản phẩm
 **Story:** Là admin, tôi muốn thêm/sửa/ẩn sản phẩm và giá bán.  
 **Tasks:**
-- T2.1.1 CRUD APIs catalog
-- T2.1.2 Schema `products`, `product_prices`
-- T2.1.3 Event `catalog.product.updated`
-- T2.1.4 Flutter admin: màn sản phẩm
+- [DONE] T2.1.1 CRUD APIs catalog
+- [DONE] T2.1.2 Schema `products`, `product_prices`
+- [DONE] T2.1.3 Event `catalog.product.updated`
+- [DONE] T2.1.4 Flutter admin: màn sản phẩm
 
 #### US-2.2 Khách xem sản phẩm để đặt
 **Story:** Là khách, tôi muốn chọn sản phẩm đang bán khi đặt giao gas.  
 **Tasks:**
-- T2.2.1 API list products `active` (public/authenticated)
-- T2.2.2 Flutter: bước chọn SP trong flow đặt hàng
+- [DONE] T2.2.1 API list products `active` (public/authenticated)
+- [DONE] T2.2.2 Flutter: bước chọn SP trong flow đặt hàng
 
 ---
 
@@ -298,24 +312,24 @@
 #### US-3.1 Chọn địa chỉ (GPS / search)
 **Story:** Là khách, tôi muốn dùng vị trí hiện tại hoặc search địa chỉ có gợi ý.  
 **Tasks:**
-- T3.1.1 Xin quyền location (Android/Web)
-- T3.1.2 Proxy search geocode (Photon/Nominatim) qua geo-service
-- T3.1.3 Flutter: map/picker + autocomplete
+- [DONE] T3.1.1 Xin quyền location (Web / Android / iOS)
+- [DONE] T3.1.2 Proxy search geocode (Photon/Nominatim) qua geo-service
+- [DONE] T3.1.3 Flutter: map/picker + autocomplete
 
 #### US-3.2 Kiểm tra bán kính giao
 **Story:** Là khách, tôi muốn biết địa chỉ có nằm trong phạm vi giao không.  
 **Tasks:**
-- T3.2.1 Store settings: lat/lng, `max_radius_km`
-- T3.2.2 API tính Haversine distance + `in_range`
-- T3.2.3 UI thông báo ngoài phạm vi
+- [DONE] T3.2.1 Store settings: lat/lng, `max_radius_km`
+- [DONE] T3.2.2 API tính Haversine distance + `in_range`
+- [DONE] T3.2.3 UI thông báo ngoài phạm vi
 
 #### US-3.3 Đặt đơn giao gas
 **Story:** Là khách, tôi muốn xác nhận đơn sau khi đủ thông tin.  
 **Tasks:**
-- T3.3.1 API `POST /orders` (validate JWT, items, geo, fee)
-- T3.3.2 Persist order + items; publish `order.placed`
-- T3.3.3 Flutter: review + success screen
-- T3.3.4 Mask PII trong response
+- [DONE] T3.3.1 API `POST /orders` (validate JWT, items, geo, fee)
+- [DONE] T3.3.2 Persist order + items; publish `order.placed`
+- [DONE] T3.3.3 Flutter: review + success screen
+- [DONE] T3.3.4 Mask PII trong response
 
 ---
 
@@ -324,16 +338,16 @@
 #### US-4.1 Cấu hình bậc phí và bật/tắt
 **Story:** Là admin, tôi muốn bật/tắt phí ship và set bậc theo km.  
 **Tasks:**
-- T4.1.1 Schema `delivery_fee_settings`, `delivery_fee_rules`
-- T4.1.2 Admin APIs cấu hình phí
-- T4.1.3 Engine tính phí khi preview/place order
-- T4.1.4 Flutter admin: màn phí giao hàng
+- [DONE] T4.1.1 Schema `delivery_fee_settings`, `delivery_fee_rules`
+- [DONE] T4.1.2 Admin APIs cấu hình phí
+- [DONE] T4.1.3 Engine tính phí khi preview/place order
+- [DONE] T4.1.4 Flutter admin: màn phí giao hàng
 
 #### US-4.2 Preview phí trước khi đặt
 **Story:** Là khách, tôi muốn thấy phí giao trước khi xác nhận.  
 **Tasks:**
-- T4.2.1 API quote: distance + fee + total
-- T4.2.2 Hiển thị trên Flutter review step
+- [DONE] T4.2.1 API quote: distance + fee + total
+- [DONE] T4.2.2 Hiển thị trên Flutter review step
 
 ---
 
@@ -342,17 +356,17 @@
 #### US-5.1 Danh sách đơn FIFO
 **Story:** Là admin, tôi muốn xem đơn chờ giao theo thứ tự cũ nhất trước.  
 **Tasks:**
-- T5.1.1 API list orders (admin), sort `created_at ASC`
-- T5.1.2 Cột STT, tên, SĐT, địa chỉ, km, thời gian
-- T5.1.3 Flutter Order Desk UI
-- T5.1.4 (Should) Polling hoặc SSE/NATS bridge báo đơn mới
+- [DONE] T5.1.1 API list orders (admin), sort `created_at ASC`
+- [DONE] T5.1.2 Cột STT, tên, SĐT, địa chỉ, km, thời gian
+- [DONE] T5.1.3 Flutter Order Desk UI
+- [DONE] T5.1.4 (Should) Polling hoặc SSE/NATS bridge báo đơn mới
 
 #### US-5.2 Dẫn đường tới điểm giao
 **Story:** Là CCH, tôi muốn mở chỉ đường từ vị trí hiện tại tới khách.  
 **Tasks:**
-- T5.2.1 Lấy lat/lng đơn
-- T5.2.2 Deep-link Google Maps / geo intent
-- T5.2.3 Nút “Dẫn đường” trên chi tiết đơn
+- [DONE] T5.2.1 Lấy lat/lng đơn
+- [DONE] T5.2.2 Deep-link Google Maps / geo intent
+- [DONE] T5.2.3 Nút “Dẫn đường” trên chi tiết đơn
 
 ---
 
@@ -361,16 +375,16 @@
 #### US-6.1 Hoàn tất giao + ghi nhận thanh toán
 **Story:** Là admin, khi giao xong tôi muốn chọn đã thu đủ / một phần / nợ.  
 **Tasks:**
-- T6.1.1 API `POST /orders/{id}/complete` + payment payload
-- T6.1.2 Billing ghi `payments` + cập nhật `debts`
-- T6.1.3 Events `order.completed`, `billing.payment.recorded`, `billing.debt.updated`
-- T6.1.4 Flutter dialog hoàn tất
+- [DONE] T6.1.1 API `POST /orders/{id}/complete` + payment payload
+- [DONE] T6.1.2 Billing ghi `payments` + cập nhật `debts`
+- [DONE] T6.1.3 Events `order.completed`, `billing.payment.recorded`, `billing.debt.updated`
+- [DONE] T6.1.4 Flutter dialog hoàn tất
 
 #### US-6.2 Xem công nợ khách (admin)
 **Story:** Là admin, tôi muốn xem khách còn nợ bao nhiêu.  
 **Tasks:**
-- T6.2.1 API list/aggregate debts
-- T6.2.2 UI đơn giản trong dashboard hoặc tab Công nợ
+- [DONE] T6.2.1 API list/aggregate debts
+- [DONE] T6.2.2 UI đơn giản trong dashboard hoặc tab Công nợ
 
 ---
 
@@ -379,16 +393,16 @@
 #### US-7.1 Nhập / xuất tồn theo mã SP
 **Story:** Là admin, tôi muốn nhập xuất kho và giữ giá nhập/giá bán.  
 **Tasks:**
-- T7.1.1 Schema stock + movements + cost
-- T7.1.2 APIs nhập/xuất/điều chỉnh
-- T7.1.3 Consumer `order.placed` / `order.completed` trừ tồn (chốt: trừ khi placed hoặc completed — mặc định **trừ khi complete** để tránh giữ tồn ảo nếu hủy; document trong architecture)
-- T7.1.4 Flutter màn tồn kho
+- [DONE] T7.1.1 Schema stock + movements + cost
+- [DONE] T7.1.2 APIs nhập/xuất/điều chỉnh
+- [DONE] T7.1.3 Consumer `order.placed` / `order.completed` trừ tồn (chốt: trừ khi placed hoặc completed — mặc định **trừ khi complete** để tránh giữ tồn ảo nếu hủy; document trong architecture)
+- [DONE] T7.1.4 Flutter màn tồn kho
 
 #### US-7.2 Cơ sở tính lợi nhuận
 **Story:** Là admin, tôi muốn hệ thống có giá vốn để tính lãi.  
 **Tasks:**
-- T7.2.1 Lưu cost tại thời điểm xuất/bán (snapshot)
-- T7.2.2 Công thức profit cho report-service
+- [DONE] T7.2.1 Lưu cost tại thời điểm xuất/bán (snapshot)
+- [DONE] T7.2.2 Công thức profit cho report-service
 
 ---
 
@@ -397,9 +411,9 @@
 #### US-8.1 Dashboard kinh doanh nhỏ
 **Story:** Là CCH, tôi muốn xem doanh thu, công nợ, lợi nhuận, tồn.  
 **Tasks:**
-- T8.1.1 report-service subscribe events → `daily_stats`
-- T8.1.2 API dashboard summary
-- T8.1.3 Flutter dashboard widgets
+- [DONE] T8.1.1 report-service subscribe events → `daily_stats`
+- [DONE] T8.1.2 API dashboard summary
+- [DONE] T8.1.3 Flutter dashboard widgets
 
 ---
 
@@ -408,17 +422,18 @@
 #### US-9.1 API Gateway & cứng hóa
 **Story:** Là hệ thống, mọi request đi qua gateway an toàn.  
 **Tasks:**
-- T9.1.1 Routing, CORS, JWT validation
-- T9.1.2 Rate limit OTP / login / place-order
-- T9.1.3 Security headers; không lộ internal error
-- T9.1.4 Audit log admin actions
+- [DONE] T9.1.1 Routing, CORS, JWT validation
+- [DONE] T9.1.2 Rate limit OTP / login / place-order
+- [DONE] T9.1.3 Security headers; không lộ internal error
+- [DONE] T9.1.4 Audit log admin actions
 
 #### US-9.2 Scaffold & DX
 **Tasks:**
-- T9.2.1 Monorepo layout (Go services + Flutter app)
-- T9.2.2 NATS JetStream local
-- T9.2.3 Makefile / scripts chạy dev
-- T9.2.4 CTA shell Flutter Web + Android
+- [DONE] T9.2.1 Monorepo layout (Go services + Flutter app)
+- [DONE] T9.2.2 NATS JetStream local
+- [DONE] T9.2.3 Makefile / scripts chạy dev
+- [DONE] T9.2.4 CTA shell Flutter cho Web + Android + iOS (cùng lúc)
+- [DONE] T9.2.5 Checklist platform: không dùng API chỉ có trên một OS nếu chưa có fallback; verify Web + emulator Android; iOS Simulator hoặc CI macOS
 
 ---
 
@@ -431,21 +446,29 @@
 - [ ] API có authn/authz đúng role
 - [ ] Response không lộ PII thừa; SĐT được mask ở các API khách
 - [ ] Happy-path test (ít nhất manual checklist; ưu tiên unit cho fee/distance)
-- [ ] Flutter Web **và** Android chạy được phần việc của sprint
+- [ ] Flutter **Web + Android + iOS** chạy được phần việc của sprint (Web + Android Emulator bắt buộc local; iOS Simulator hoặc artifact CI macOS)
 - [ ] Event publish/consume (nếu story liên quan) có log xác nhận
 - [ ] Cập nhật ngắn trong PR / note liên kết PRD AC
+- [ ] Ghi `CHANGESLOG.md` + `workdocs_*` theo skill change-workdocs
+
+### Chiến lược test không máy Android thật
+
+1. **Hàng ngày:** Flutter Web (Chrome) — flow UX/API nhanh nhất.
+2. **Mỗi story có quyền location / deep-link / permission:** Android Emulator (Android Studio).
+3. **iOS:** Simulator trên Mac nếu có; nếu không → GitHub Actions `macos-latest` build + (optional) screenshot/test; không để plugin Android-only lọt vào `main`.
+4. **UAT cửa hàng:** ưu tiên Web + máy thật bất kỳ (Android/iOS của CCH) khi có.
 
 ### Sprint 0 — Foundation & CTA
 
-**Mục tiêu:** Skeleton chạy được; brand + CTA đặt gas hiện ngay.
+**Mục tiêu:** Skeleton chạy được trên 3 target; brand + CTA đặt gas hiện ngay.
 
 | Hạng mục | Story / Task |
 |----------|----------------|
-| Platform | T9.2.1–T9.2.4 |
+| Platform | T9.2.1–T9.2.5 |
 | UX | Home Flutter: Gas Tam Đệ + CTA “Đặt giao gas” (flow placeholder) |
 | Infra | Gateway hello; NATS up; health checks |
 
-**Demo:** Mở web/app thấy CTA; ping gateway OK.
+**Demo:** Web + Android Emulator (+ iOS Simulator hoặc CI build) thấy CTA; ping gateway OK.
 
 ### Sprint 1 — OTP, Catalog, Order draft
 
@@ -498,7 +521,7 @@
 ### Milestone sau MVP (không commit sprint)
 
 - Push thông báo đơn mới
-- iOS
+- Phát hành Play Store / App Store công khai
 - Thanh toán online
 - Tối ưu lộ trình nhiều điểm giao
 
@@ -513,6 +536,8 @@
 | Microservices phức tạp cho shop nhỏ | Cao (DX) | Ranh giới rõ nhưng deploy 1 VPS; fee nằm trong order-service |
 | SQLite concurrent write | TB | WAL mode; 1 writer/process; backup định kỳ |
 | Lộ PII | Cao | Mask, encryption-at-rest cho phone, audit, không log full phone |
+| Không có máy Android thật | TB | Emulator + Web; UAT trên máy CCH khi có |
+| Không có Mac để test iOS local | TB | Enable iOS target từ Sprint 0; CI macOS build; mượn Mac/TestFlight khi UAT |
 
 ---
 

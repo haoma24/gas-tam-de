@@ -1,0 +1,65 @@
+# Flutter CI (T9.2.5) — analyze / test / web + iOS no-codesign.
+# No secrets required.
+
+name: Flutter CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/flutter-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/flutter-ci.yml"
+
+defaults:
+  run:
+    working-directory: apps/mobile
+
+jobs:
+  flutter-analyze-web:
+    name: Analyze + test + web build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Unit tests
+        run: flutter test
+
+      - name: Build web
+        run: flutter build web --release
+
+  ios-build:
+    name: iOS compile (no codesign)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      # Compile-check for contributors without a Mac (PRD T9.2.5 / architecture §9.5).
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign

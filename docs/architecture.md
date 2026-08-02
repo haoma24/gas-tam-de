@@ -20,7 +20,7 @@
 
 | Layer | Lựa chọn | Lý do |
 |-------|----------|--------|
-| Frontend | **Flutter** (Web + Android trước; iOS sau) | Một codebase; map/OTP UX tốt trên mobile |
+| Frontend | **Flutter** (Web + Android + iOS **song song**) | Một codebase; không trì hoãn iOS; test Web/emulator khi thiếu máy thật |
 | Backend | **Go 1.22+** | Mục tiêu học Go; binary nhỏ, deploy đơn giản |
 | HTTP | Chi hoặc Fiber (thống nhất một framework/gateway) | Middleware JWT, rate limit |
 | DB | **SQLite** — mỗi service một file `*.db`, chế độ WAL | Miễn phí, nhẹ, đủ quy mô gia đình |
@@ -35,7 +35,7 @@
 ```text
 gas-tam-de/
   apps/
-    mobile/                 # Flutter
+    mobile/                 # Flutter (Web + Android + iOS)
   services/
     api-gateway/
     auth-service/
@@ -100,7 +100,7 @@ flowchart LR
 
 | Service | Trách nhiệm | DB file | Gọi sync từ gateway |
 |---------|-------------|---------|---------------------|
-| `api-gateway` | TLS terminate (hoặc đứng sau reverse proxy), CORS, JWT, rate limit, route, request id | — | — |
+| `api-gateway` | TLS terminate (hoặc đứng sau reverse proxy), CORS (`CORS_ORIGINS`), JWT validate + RBAC, reverse-proxy route (giữ path `/v1/...`; admin split theo service), rate limit OTP/login/place-order (IP/user, `429` + `Retry-After`), security headers (nosniff / frame deny / referrer / CSP frame-ancestors), generic `502`/`500` (không lộ upstream URL / stack), audit log admin mutating (SQLite `gateway.db` + structured `admin_audit` log), request id | `gateway.db` | — |
 | `auth-service` | OTP, session/refresh, admin password, roles | `auth.db` | Có |
 | `catalog-service` | Sản phẩm, giá bán, active flag | `catalog.db` | Có |
 | `geo-service` | Vị trí CH, `max_radius_km`, distance, geocode/search proxy | `geo.db` | Có |
@@ -152,9 +152,13 @@ flowchart LR
 
 **Inventory / Billing / Report**
 
-- `GET/POST /v1/admin/inventory/...`
+- `GET /v1/admin/inventory` — list `stock_items` (`items[]`, `count`)
+- `POST /v1/admin/inventory` — phiếu `IN` / `OUT` / `ADJUST` (body `movement_type`; cập nhật `on_hand` + `cost_price`; ghi `stock_movements`)
+  - `IN`: `qty` + `unit_cost` bắt buộc; tạo `stock_items` nếu chưa có (cần `sku`, `name`); `cost_price` = `unit_cost` (giá nhập hiện tại)
+  - `OUT`: `qty` bắt buộc; `unit_cost` **luôn** snapshot từ `stock_items.cost_price` tại thời điểm xuất (T7.2.1 COGS); body `unit_cost` bị bỏ qua; MVP cho phép `on_hand` âm
+  - `ADJUST`: `delta` (signed, ≠ 0); `qty` lưu `|delta|`; optional `unit_cost` để sửa giá vốn hiện tại (không phải COGS lịch sử)
 - `GET /v1/admin/debts`
-- `GET /v1/admin/dashboard/summary`
+- `GET /v1/admin/dashboard/summary` — query `day=YYYY-MM-DD` **hoặc** `from`+`to` (inclusive, VN); bỏ trống = hôm nay. Aggregate `daily_stats` (`revenue_vnd`, `cogs_vnd`, `delivery_fee_vnd`, `profit_vnd`, `orders_*`) + `debt_total` từ debt read-model
 
 Mọi response khách hàng: mask `phone` → `090***1234` (ví dụ); không trả `phone_e164` plaintext trừ khi policy admin explicit.
 
@@ -232,7 +236,7 @@ sequenceDiagram
 
 ### 5.4 Đảm bảo xử lý event
 
-- JetStream **durable consumers** per service (`inventory-order-completed`, `billing-order-completed`, …).
+- JetStream **durable consumers** per service (`inventory-order-completed`, `report-order-placed`, `report-order-completed`, `report-billing-debt-updated`, …).
 - Consumer **idempotent**: bảng `processed_events(event_id PRIMARY KEY)` trong mỗi DB.
 - Payload kèm `event_id` (ULID/UUID), `occurred_at`, `schema_version`.
 - Retry với backoff; poison message → DLQ subject `*.dlq` + log cảnh báo admin.
@@ -275,6 +279,7 @@ CREATE TABLE otp_challenges (
   created_at    TEXT NOT NULL
 );
 CREATE INDEX idx_otp_phone ON otp_challenges(phone_hash, created_at);
+CREATE INDEX idx_otp_expires ON otp_challenges(expires_at);
 
 CREATE TABLE sessions (
   id            TEXT PRIMARY KEY,
@@ -289,7 +294,7 @@ CREATE TABLE sessions (
 CREATE TABLE admin_accounts (
   id            TEXT PRIMARY KEY,
   username      TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,             -- argon2id / bcrypt
+  password_hash TEXT NOT NULL,             -- bcrypt (seed T1.2.1; argon2id optional later)
   display_name  TEXT,
   created_at    TEXT NOT NULL,
   disabled_at   TEXT
@@ -315,21 +320,23 @@ CREATE TABLE products (
   name        TEXT NOT NULL,
   description TEXT,
   unit        TEXT NOT NULL DEFAULT 'binh',
-  sale_price  INTEGER NOT NULL,            -- VND
-  active      INTEGER NOT NULL DEFAULT 1,
+  sale_price  INTEGER NOT NULL CHECK(sale_price >= 0),  -- VND
+  active      INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
   image_url   TEXT,
-  created_at  TEXT NOT NULL,
+  created_at  TEXT NOT NULL,                            -- RFC3339 UTC
   updated_at  TEXT NOT NULL
 );
+CREATE INDEX idx_products_active ON products(active, created_at DESC);
 
--- optional history
+-- Price audit (PRD "product_prices"); current price on products.sale_price
 CREATE TABLE product_price_history (
   id          TEXT PRIMARY KEY,
-  product_id  TEXT NOT NULL,
-  sale_price  INTEGER NOT NULL,
+  product_id  TEXT NOT NULL REFERENCES products(id),
+  sale_price  INTEGER NOT NULL CHECK(sale_price >= 0),
   changed_at  TEXT NOT NULL,
   changed_by  TEXT
 );
+CREATE INDEX idx_price_history_product ON product_price_history(product_id, changed_at);
 ```
 
 ### 6.3 geo.db
@@ -360,19 +367,20 @@ CREATE TABLE geocode_cache (
 
 ```sql
 CREATE TABLE delivery_fee_settings (
-  id          TEXT PRIMARY KEY,            -- singleton
-  enabled     INTEGER NOT NULL DEFAULT 0,
-  updated_at  TEXT NOT NULL
+  id          TEXT PRIMARY KEY,            -- singleton row 'default'
+  enabled     INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0, 1)),
+  updated_at  TEXT NOT NULL                -- RFC3339 UTC
 );
 
 CREATE TABLE delivery_fee_rules (
   id          TEXT PRIMARY KEY,
-  min_km      REAL NOT NULL,               -- inclusive
-  max_km      REAL,                        -- exclusive; NULL = +inf
-  fee_vnd     INTEGER NOT NULL,
+  min_km      REAL NOT NULL CHECK(min_km >= 0),              -- inclusive
+  max_km      REAL CHECK(max_km IS NULL OR max_km > min_km), -- exclusive; NULL = +inf
+  fee_vnd     INTEGER NOT NULL CHECK(fee_vnd >= 0),          -- VND
   sort_order  INTEGER NOT NULL DEFAULT 0,
-  active      INTEGER NOT NULL DEFAULT 1
+  active      INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1))
 );
+CREATE INDEX idx_delivery_fee_rules_active ON delivery_fee_rules(active, sort_order);
 
 CREATE TABLE orders (
   id              TEXT PRIMARY KEY,
@@ -426,13 +434,14 @@ Nếu `max_radius_km = 10`, bậc `> 10` không bao giờ áp dụng cho đơn h
 ### 6.5 inventory.db
 
 ```sql
+-- T7.1.1: on_hand may be negative (MVP); cost_price / reorder_level >= 0.
 CREATE TABLE stock_items (
   product_id     TEXT PRIMARY KEY,
   sku            TEXT NOT NULL UNIQUE,
   name           TEXT NOT NULL,
-  on_hand        INTEGER NOT NULL DEFAULT 0,
-  cost_price     INTEGER NOT NULL DEFAULT 0,  -- VND giá nhập hiện tại
-  reorder_level  INTEGER NOT NULL DEFAULT 0,
+  on_hand        INTEGER NOT NULL DEFAULT 0,   -- may be negative (MVP)
+  cost_price     INTEGER NOT NULL DEFAULT 0 CHECK(cost_price >= 0),  -- VND giá nhập hiện tại
+  reorder_level  INTEGER NOT NULL DEFAULT 0 CHECK(reorder_level >= 0),
   updated_at     TEXT NOT NULL
 );
 
@@ -440,8 +449,8 @@ CREATE TABLE stock_movements (
   id            TEXT PRIMARY KEY,
   product_id    TEXT NOT NULL,
   movement_type TEXT NOT NULL CHECK(movement_type IN ('IN','OUT','ADJUST')),
-  qty           INTEGER NOT NULL,              -- luôn > 0; sign theo type
-  unit_cost     INTEGER,                       -- bắt buộc với IN; snapshot OUT
+  qty           INTEGER NOT NULL CHECK(qty > 0), -- luôn > 0; sign theo type
+  unit_cost     INTEGER CHECK(unit_cost IS NULL OR unit_cost >= 0), -- IN/OUT bắt buộc (app); OUT = COGS snapshot
   note          TEXT,
   ref_type      TEXT,                          -- ORDER / MANUAL
   ref_id        TEXT,
@@ -456,7 +465,9 @@ CREATE TABLE processed_events (
 );
 ```
 
-Khi `order.completed`: với mỗi item → `OUT` với `unit_cost = stock_items.cost_price` (snapshot), giảm `on_hand`. Nếu `on_hand` không đủ: ghi nhận negative hoặc reject policy — **MVP: cho phép âm + `inventory.low_stock`**, admin xử lý tay.
+**COGS snapshot (T7.2.1):** Mọi phiếu `OUT` (admin xuất tay `ref_type=MANUAL` và bán qua `order.completed` `ref_type=ORDER`) ghi `stock_movements.unit_cost = stock_items.cost_price` **tại thời điểm xuất**. Dòng movement là append-only: IN/ADJUST sau đó chỉ cập nhật `stock_items.cost_price` hiện tại, **không** sửa `unit_cost` của OUT cũ. Report (T7.2.2) dùng `sum(qty * unit_cost)` trên OUT/`ORDER` làm giá vốn hàng bán.
+
+Khi `order.completed`: inventory-service durable consumer `inventory-order-completed` (T7.1.3) với mỗi item → `OUT` (`ref_type=ORDER`, `ref_id=order_id`) với `unit_cost = stock_items.cost_price` (snapshot), giảm `on_hand`, ghi `processed_events(event_id)`. **Không** trừ tồn trên `order.placed`. Nếu `on_hand` không đủ / SP chưa có trong kho: **MVP cho phép âm** (tạo stock placeholder `cost_price=0` nếu thiếu) + (future) `inventory.low_stock`; admin xử lý tay.
 
 ### 6.6 billing.db
 
@@ -510,16 +521,23 @@ CREATE TABLE daily_stats (
   delivery_fee_vnd INTEGER NOT NULL DEFAULT 0,
   orders_completed INTEGER NOT NULL DEFAULT 0,
   orders_placed  INTEGER NOT NULL DEFAULT 0,
-  profit_vnd     INTEGER NOT NULL DEFAULT 0  -- revenue - cogs (MVP)
+  profit_vnd     INTEGER NOT NULL DEFAULT 0  -- revenue - cogs (T7.2.2 MVP)
 );
 
 CREATE TABLE dashboard_snapshot (
   id               TEXT PRIMARY KEY,         -- 'current'
   revenue_today    INTEGER NOT NULL,
   revenue_month    INTEGER NOT NULL,
-  debt_total       INTEGER NOT NULL,
+  debt_total       INTEGER NOT NULL,          -- outstanding SUM (T8.1.2)
   profit_month     INTEGER NOT NULL,
   updated_at       TEXT NOT NULL
+);
+
+-- Absolute per-customer balances from billing.debt.updated (T8.1.2)
+CREATE TABLE customer_debt_balances (
+  customer_key TEXT PRIMARY KEY,
+  balance      INTEGER NOT NULL DEFAULT 0,
+  updated_at   TEXT NOT NULL
 );
 
 CREATE TABLE processed_events (
@@ -528,7 +546,30 @@ CREATE TABLE processed_events (
 );
 ```
 
-**Lợi nhuận MVP:** `profit = sum(sale_line) - sum(COGS_snapshot)` trên đơn completed trong kỳ. Phí ship có thể cộng vào `revenue` hoặc tách chỉ tiêu — mặc định: **subtotal sản phẩm = doanh thu hàng; delivery_fee theo dõi riêng**.
+**Lợi nhuận MVP (T7.2.2):** `profit_vnd = revenue_vnd - cogs_vnd` trên đơn completed trong kỳ (`ComputeProfit` / `BuildDailyStatsAmounts` trong report-service). `revenue_vnd = Σ(qty × unit_price)` (subtotal sản phẩm); `cogs_vnd = Σ(qty × unit_cost)` từ `stock_movements` OUT/`ORDER` snapshot (T7.2.1) — không dùng `stock_items.cost_price` hiện tại. Phí ship theo dõi riêng trên `delivery_fee_vnd` và **không** trừ vào profit.
+
+### 6.8 gateway.db
+
+```sql
+-- Admin HTTP audit at gateway edge (T9.1.4). Mutating methods only.
+CREATE TABLE admin_audit_logs (
+  id          TEXT PRIMARY KEY,
+  actor_id    TEXT NOT NULL,               -- JWT sub
+  method      TEXT NOT NULL,               -- POST|PUT|PATCH|DELETE
+  path        TEXT NOT NULL,               -- e.g. /v1/admin/orders/{id}/complete
+  status      INTEGER NOT NULL,            -- HTTP outcome
+  request_id  TEXT,
+  created_at  TEXT NOT NULL                -- RFC3339 UTC
+);
+CREATE INDEX idx_admin_audit_created ON admin_audit_logs(created_at DESC);
+CREATE INDEX idx_admin_audit_actor ON admin_audit_logs(actor_id, created_at DESC);
+```
+
+`auth.db.audit_logs` vẫn dành cho domain audit sau này; gateway ghi **HTTP-level** audit riêng (không cross-write sang auth).
+
+**Consumer → `daily_stats` (T8.1.1):** Durable JetStream consumers `report-order-placed` / `report-order-completed` (stream `ORDERS`), idempotent qua `processed_events`. `order.placed` → `orders_placed++` theo ngày VN (`Asia/Ho_Chi_Minh`). `order.completed` → cộng `revenue` / `cogs` / `delivery_fee` / `orders_completed` rồi `profit = revenue − cogs`. `delivery_fee` lấy từ payload nếu có, không thì `max(0, total − revenue)`. `unit_cost` trên từng item là optional (thiếu → COGS dòng = 0) cho đến khi publisher kèm snapshot.
+
+**API + debt snapshot (T8.1.2):** `GET /v1/admin/dashboard/summary` SUM `daily_stats` theo `day` / `from`–`to` (mặc định hôm nay VN). Durable consumer `report-billing-debt-updated` (stream `BILLING`) upsert `customer_debt_balances` rồi ghi `dashboard_snapshot.debt_total = SUM(balance > 0)`. Tồn kho theo SP dùng `GET /v1/admin/inventory` (không nhồi vào summary).
 
 ---
 
@@ -548,13 +589,13 @@ CREATE TABLE processed_events (
 | Transport | HTTPS (Caddy/Nginx) trước gateway |
 | AuthN | JWT access ~15–30 phút; refresh xoay vòng; OTP 6 số, TTL 5 phút, max attempts |
 | AuthZ | RBAC middleware; deny by default |
-| Rate limit | Theo IP + phone_hash: OTP request, verify, place order |
+| Rate limit | Gateway: IP (OTP request, admin login) + IP/user (place-order); auth-service: phone_hash + IP cho OTP |
 | PII | `phone_e164_enc`; API trả `phone_masked`; log dùng `phone_hash` |
 | OTP storage | Chỉ `code_hash`; raw OTP không log |
-| Password admin | argon2id/bcrypt; không lưu plaintext |
-| Headers | `nosniff`, frame deny, strict CSP cho web nếu serve static |
+| Password admin | bcrypt (MVP seed/login); không lưu plaintext |
+| Headers | Gateway: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `CSP frame-ancestors 'none'`; strict CSP đầy đủ cho web nếu serve static |
 | Secrets | Env / `.env` không commit; tách key mã hóa phone |
-| Audit | Complete order, đổi fee, đổi radius, nhập/xuất kho |
+| Audit | Gateway: mọi admin mutating (`POST`/`PUT`/`PATCH`/`DELETE` dưới `/v1/admin/**`) → `admin_audit_logs` (actor_id, method, path, status, created_at) + slog `admin_audit`; bao gồm complete order, đổi fee/radius, nhập/xuất kho |
 | SQLite | File permission OS; backup mã hóa nếu đưa ra khỏi máy |
 
 ### 7.3 Threat notes (MVP)
@@ -596,13 +637,27 @@ Có thể dùng **một app** với phân nhánh UI theo `role` trong token (đ�
 - HTTP: `dio` + interceptor gắn JWT
 - State: `riverpod` hoặc `bloc` (chọn một, giữ nhất quán)
 - Map: `flutter_map` (OSM) hoặc Google Maps plugin nếu chấp nhận key
-- Location: `geolocator` + permission_handler
+- Location: `geolocator` (permission + position; Web/Android/iOS)
 - Deep-link maps: `url_launcher` → Google Maps directions URL
 
-### 8.4 Mobile-first
+### 8.4 Multi-platform (Web + Android + iOS)
 
-- Ưu tiên layout Android phone; Web dùng cùng flow, map/search responsive.
+- **Một UI codebase** cho cả ba target; layout mobile-first, Web responsive cùng flow.
 - CTA đặt gas luôn above-the-fold trên home.
+- Chọn package có hỗ trợ **web + android + ios** (hoặc có fallback rõ). Tránh khóa feature vào một platform.
+- **Test khi không có máy Android thật:**
+  1. Flutter Web — vòng lặp dev chính
+  2. Android Emulator — permission, GPS giả lập, deep-link
+  3. iOS — Simulator (macOS) hoặc CI `macos-latest` build IPA/không ký để bắt lỗi compile sớm
+
+### 8.5 Platform matrix (MVP)
+
+| Khả năng | Web | Android Emulator | iOS Simulator / CI |
+|----------|-----|------------------|--------------------|
+| Đặt hàng / admin UI | Chính | Có | Có |
+| Geolocation | Browser permission | Mock location | Simulator Custom Location |
+| Deep-link Maps | `url_launcher` mở maps URL | Intent Google Maps / geo | `maps://` hoặc Google Maps URL |
+| OTP SMS | Không nhận SMS trên web giả — dùng mock/dev code | Emulator có thể nhận qua mock provider | Tương tự mock |
 
 ---
 
@@ -610,14 +665,14 @@ Có thể dùng **một app** với phân nhánh UI theo `role` trong token (đ�
 
 ### 9.1 Chiến lược Git — monorepo (đã chốt)
 
-**Một repository** `gas-tam-de` chứa toàn bộ: Go services, Flutter (Web + Android), `deploy/`, `docs/`.
+**Một repository** `gas-tam-de` chứa toàn bộ: Go services, Flutter (Web + Android + iOS), `deploy/`, `docs/`.
 
 | Cách | Ưu | Nhược | Áp dụng Gas Tam Đệ |
 |------|----|-------|---------------------|
 | **Monorepo (chọn)** | Một PR cross-cutting API+UI; version đồng bộ; CI đơn giản; đúng quy mô 1–2 người | Repo lớn dần theo thời gian | **MVP và giai đoạn học Go** |
-| Polyrepo (`backend` / `frontend` / `mobile` tách) | Quyền truy cập tách bạch; CI độc lập | Đồng bộ contract API khó; overhead thừa khi Flutter đã gộp Web+Android | Chỉ cân nhắc khi team/tổ chức tách biệt thật sự |
+| Polyrepo (`backend` / `frontend` / `mobile` tách) | Quyền truy cập tách bạch; CI độc lập | Đồng bộ contract API khó; overhead thừa khi Flutter đã gộp 3 target | Chỉ cân nhắc khi team/tổ chức tách biệt thật sự |
 
-**Không tách repo `frontend` và `mobile`:** Flutter là một codebase; Web và Android chỉ khác artifact build (`flutter build web` vs `apk`/`aab`), không khác git history.
+**Không tách repo `frontend` và `mobile`:** Flutter là một codebase; Web / Android / iOS chỉ khác artifact build (`flutter build web` / `apk`|`aab` / `ipa`), không khác git history.
 
 Cấu trúc thư mục chuẩn: xem [§2.1](#21-gợi-ý-cấu-trúc-monorepo).
 
@@ -631,7 +686,7 @@ Cấu trúc thư mục chuẩn: xem [§2.1](#21-gợi-ý-cấu-trúc-monorepo).
 
 | Env | Mục đích | Ghi chú |
 |-----|----------|---------|
-| `local` | Dev máy cá nhân | `docker compose` (NATS + services); Flutter chạy emulator/chrome; OTP mock |
+| `local` | Dev máy cá nhân | `docker compose` (NATS + services); Flutter **Chrome + Android Emulator** (+ iOS Simulator nếu có Mac); OTP mock |
 | `staging` (optional) | UAT trước khi lên quán | Cùng compose trên VPS phụ hoặc cùng VPS khác port/subdomain |
 | `production` | Cửa hàng Gas Tam Đệ | 1 VPS; HTTPS; SMS OTP thật; backup SQLite |
 
@@ -648,7 +703,7 @@ flowchart TB
     Data[SQLite_files_volume]
     Web[Flutter_web_static]
   end
-  Clients[Flutter_Web_Android] --> Proxy
+  Clients[Flutter_Web_Android_iOS] --> Proxy
   Proxy --> GW
   Proxy --> Web
   GW --> S1
@@ -665,7 +720,8 @@ flowchart TB
 | NATS JetStream | Container trong cùng compose; chỉ listen internal |
 | SQLite | Volume trên VPS; WAL mode; không expose file ra ngoài |
 | Flutter Web | `flutter build web` → static files qua Caddy/Nginx |
-| Android | `flutter build apk` / `appbundle` — phân phối nội bộ hoặc Play Store sau |
+| Android | `flutter build apk` / `appbundle` — nội bộ / Play sau |
+| iOS | `flutter build ipa` (cần Mac hoặc CI macOS) — TestFlight / ad hoc; App Store sau |
 | TLS / domain | Caddy hoặc Nginx + Let’s Encrypt; ví dụ `api.…` và root cho web |
 
 **Không dùng Kubernetes / service mesh** ở MVP. Nhiều process trên một máy là đủ.
@@ -680,13 +736,17 @@ flowchart TB
 
 ### 9.5 CI/CD tối giản
 
-1. **CI (mỗi PR / push `main`):** `go test ./...` cho services đổi; `flutter analyze` (+ test nếu có).
+1. **CI (mỗi PR / push `main`):**
+   - `go test ./...` cho services đổi
+   - `flutter analyze` (+ test nếu có)
+   - Job Linux: `flutter build web`, `flutter build apk` (hoặc `appbundle` debug)
+   - Job **macOS** (khuyến nghị từ Sprint 0): `flutter build ios --no-codesign` để bắt lỗi iOS sớm khi không có Mac local
 2. **CD production (MVP):** script SSH hoặc GitHub Action:
    - pull tag/commit
    - build/pull images hoặc binaries
    - `docker compose up -d`
    - sync Flutter web build vào thư mục static
-3. **Android:** build artifact khi cần release; không bắt buộc auto-deploy mỗi commit.
+3. **Mobile release:** APK/IPA khi cần phân phối nội bộ; không bắt buộc auto-deploy mỗi commit.
 
 Secrets (`JWT_SECRET`, khóa mã hóa phone, SMS API key, `INTERNAL_TOKEN`) chỉ nằm trên VPS / GitHub Actions secrets — **không commit**.
 
@@ -703,9 +763,10 @@ Secrets (`JWT_SECRET`, khóa mã hóa phone, SMS API key, `INTERNAL_TOKEN`) ch�
 - [ ] Compose chạy đủ gateway, services, NATS
 - [ ] Seed admin account; cấu hình lat/lng cửa hàng + `max_radius_km`
 - [ ] OTP provider thật (hoặc whitelist số test)
-- [ ] Flutter Web publish; APK cài cho CCH
+- [ ] Flutter Web publish; APK và/hoặc IPA nội bộ cho CCH
 - [ ] Backup cron đã chạy thử restore một lần
 - [ ] Rate limit OTP / place-order bật
+- [ ] CI macOS iOS build (no codesign) đang xanh
 
 ---
 
@@ -714,7 +775,8 @@ Secrets (`JWT_SECRET`, khóa mã hóa phone, SMS API key, `INTERNAL_TOKEN`) ch�
 | Chủ đề | Quyết định |
 |--------|------------|
 | Tên thương hiệu | **Gas Tam Đệ** |
-| Frontend | Flutter (Web + Android) |
+| Frontend | Flutter **Web + Android + iOS song song** (không trì hoãn iOS) |
+| Test thiếu máy thật | Web + Android Emulator; iOS qua Simulator hoặc CI macOS |
 | Git | **Monorepo** — không tách backend/frontend/mobile |
 | Deploy | **1 VPS** + Docker Compose + Caddy/Nginx |
 | Fee service | Gộp trong `order-service` |

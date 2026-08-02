@@ -1,0 +1,11 @@
+<!-- Merge into ios/Runner/Info.plist inside the root <dict> — T5.2.2 -->
+<!-- Required for canLaunchUrl / url_launcher map schemes -->
+<key>LSApplicationQueriesSchemes</key>
+<array>
+	<string>comgooglemaps</string>
+	<string>google.navigation</string>
+	<string>maps</string>
+	<string>geo</string>
+	<string>https</string>
+	<string>http</string>
+</array>

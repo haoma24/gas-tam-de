@@ -1,0 +1,58 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+/out/
+
+# Go
+/vendor/
+
+# SQLite local data
+/data/*.db
+/data/*.db-*
+!/data/.gitkeep
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+deploy/.env
+!deploy/.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Flutter / Dart
+apps/mobile/.dart_tool/
+apps/mobile/.packages
+apps/mobile/.pub-cache/
+apps/mobile/.pub/
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/**/Generated.xcconfig
+apps/mobile/**/flutter_export_environment.sh
+apps/mobile/android/local.properties
+apps/mobile/android/.gradle/
+apps/mobile/android/app/debug/
+apps/mobile/android/app/profile/
+apps/mobile/android/app/release/
+apps/mobile/ios/Pods/
+apps/mobile/ios/.symlinks/
+apps/mobile/ios/Flutter/Flutter.framework
+apps/mobile/ios/Flutter/Flutter.podspec
+apps/mobile/ios/Flutter/ephemeral/
+apps/mobile/ios/Flutter/flutter_export_environment.sh
+*.iml
+
+# Coverage / test
+coverage/
+*.out

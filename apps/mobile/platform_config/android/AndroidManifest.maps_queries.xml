@@ -1,0 +1,15 @@
+<!-- Merge into android/app/src/main/AndroidManifest.xml <queries> — T5.2.2 -->
+<!-- Package visibility so url_launcher / canLaunchUrl see Maps intents (API 30+) -->
+<intent>
+    <action android:name="android.intent.action.VIEW" />
+    <data android:scheme="geo" />
+</intent>
+<intent>
+    <action android:name="android.intent.action.VIEW" />
+    <data android:scheme="google.navigation" />
+</intent>
+<intent>
+    <action android:name="android.intent.action.VIEW" />
+    <data android:scheme="https" />
+</intent>
+<package android:name="com.google.android.apps.maps" />

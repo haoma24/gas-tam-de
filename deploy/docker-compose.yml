@@ -1,0 +1,212 @@
+# Local / MVP stack: NATS JetStream + Go services (SQLite files on ./data volume).
+# Usage (from repo root):
+#   docker compose -f deploy/docker-compose.yml up --build
+# Flutter runs on the host (not in this compose) against GATEWAY at :8080.
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - ./nats.conf:/etc/nats/nats.conf:ro
+      - nats-data:/data/jetstream
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - gastamde
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE: api-gateway
+    environment:
+      GATEWAY_ADDR: ":8080"
+      GATEWAY_DB: "/data/gateway.db"
+      CORS_ORIGINS: "http://localhost:*,http://127.0.0.1:*"
+      JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-me}"
+      RATE_LIMIT_OTP_PER_IP_MINUTE: "${RATE_LIMIT_OTP_PER_IP_MINUTE:-10}"
+      RATE_LIMIT_LOGIN_PER_IP_MINUTE: "${RATE_LIMIT_LOGIN_PER_IP_MINUTE:-10}"
+      RATE_LIMIT_ORDER_PER_IP_MINUTE: "${RATE_LIMIT_ORDER_PER_IP_MINUTE:-30}"
+      RATE_LIMIT_ORDER_PER_USER_MINUTE: "${RATE_LIMIT_ORDER_PER_USER_MINUTE:-10}"
+      AUTH_SERVICE_URL: "http://auth-service:8081"
+      CATALOG_SERVICE_URL: "http://catalog-service:8082"
+      GEO_SERVICE_URL: "http://geo-service:8083"
+      ORDER_SERVICE_URL: "http://order-service:8084"
+      INVENTORY_SERVICE_URL: "http://inventory-service:8085"
+      BILLING_SERVICE_URL: "http://billing-service:8086"
+      REPORT_SERVICE_URL: "http://report-service:8087"
+      NATS_URL: "nats://nats:4222"
+    volumes:
+      - ../data:/data
+    ports:
+      - "8080:8080"
+    depends_on:
+      nats:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+      geo-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      billing-service:
+        condition: service_started
+      report-service:
+        condition: service_started
+    networks:
+      - gastamde
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE: auth-service
+    environment:
+      AUTH_ADDR: ":8081"
+      AUTH_DB: "/data/auth.db"
+      NATS_URL: "nats://nats:4222"
+    volumes:
+      - ../data:/data
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - gastamde
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE: catalog-service
+    environment:
+      CATALOG_ADDR: ":8082"
+      CATALOG_DB: "/data/catalog.db"
+      NATS_URL: "nats://nats:4222"
+    volumes:
+      - ../data:/data
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - gastamde
+
+  geo-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE: geo-service
+    environment:
+      GEO_ADDR: ":8083"
+      GEO_DB: "/data/geo.db"
+      NATS_URL: "nats://nats:4222"
+    volumes:
+      - ../data:/data
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - gastamde
+
+  order-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE: order-service
+    environment:
+      ORDER_ADDR: ":8084"
+      ORDER_DB: "/data/order.db"
+      GEO_SERVICE_URL: "http://geo-service:8083"
+      CATALOG_SERVICE_URL: "http://catalog-service:8082"
+      BILLING_SERVICE_URL: "http://billing-service:8086"
+      NATS_URL: "nats://nats:4222"
+    volumes:
+      - ../data:/data
+    depends_on:
+      nats:
+        condition: service_healthy
+      geo-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+      billing-service:
+        condition: service_started
+    networks:
+      - gastamde
+
+  inventory-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE: inventory-service
+    environment:
+      INVENTORY_ADDR: ":8085"
+      INVENTORY_DB: "/data/inventory.db"
+      NATS_URL: "nats://nats:4222"
+    volumes:
+      - ../data:/data
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - gastamde
+
+  billing-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE: billing-service
+    environment:
+      BILLING_ADDR: ":8086"
+      BILLING_DB: "/data/billing.db"
+      NATS_URL: "nats://nats:4222"
+    volumes:
+      - ../data:/data
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - gastamde
+
+  report-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args:
+        SERVICE: report-service
+    environment:
+      REPORT_ADDR: ":8087"
+      REPORT_DB: "/data/report.db"
+      NATS_URL: "nats://nats:4222"
+    volumes:
+      - ../data:/data
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - gastamde
+
+volumes:
+  nats-data:
+
+networks:
+  gastamde:
+    driver: bridge

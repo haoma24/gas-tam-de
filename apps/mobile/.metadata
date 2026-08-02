@@ -1,0 +1,23 @@
+# This file tracks properties of this Flutter project.
+# Used by Flutter tool to assess capabilities and perform upgrades.
+
+version:
+  revision: "stable-shell-t924"
+  channel: "stable"
+
+project_type: app
+
+migration:
+  platforms:
+    - platform: root
+      create_revision: stable-shell-t924
+      base_revision: stable-shell-t924
+    - platform: android
+      create_revision: stable-shell-t924
+      base_revision: stable-shell-t924
+    - platform: ios
+      create_revision: stable-shell-t924
+      base_revision: stable-shell-t924
+    - platform: web
+      create_revision: stable-shell-t924
+      base_revision: stable-shell-t924

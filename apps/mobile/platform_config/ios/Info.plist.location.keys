@@ -1,0 +1,3 @@
+<!-- Merge into ios/Runner/Info.plist inside the root <dict> -->
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Gas Tam Đệ cần vị trí để xác định địa chỉ giao gas.</string>
