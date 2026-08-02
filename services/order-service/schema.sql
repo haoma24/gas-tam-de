@@ -45,6 +45,17 @@ CREATE INDEX IF NOT EXISTS idx_orders_admin_fifo ON orders(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 
+-- Admin Order Desk UX settings (wait badge thresholds + TTS interval).
+CREATE TABLE IF NOT EXISTS desk_settings (
+  id                   TEXT PRIMARY KEY,                              -- singleton 'default'
+  wait_blue_max_min    INTEGER NOT NULL DEFAULT 5 CHECK(wait_blue_max_min > 0),
+  wait_orange_max_min  INTEGER NOT NULL DEFAULT 15 CHECK(wait_orange_max_min > wait_blue_max_min),
+  wait_red_max_min     INTEGER NOT NULL DEFAULT 30 CHECK(wait_red_max_min > wait_orange_max_min),
+  alert_enabled        INTEGER NOT NULL DEFAULT 1 CHECK(alert_enabled IN (0, 1)),
+  alert_interval_sec   INTEGER NOT NULL DEFAULT 300 CHECK(alert_interval_sec >= 30),
+  updated_at           TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS order_items (
   id           TEXT PRIMARY KEY,
   order_id     TEXT NOT NULL,

@@ -23,6 +23,7 @@ func main() {
 	geoURL := config.Get("GEO_SERVICE_URL", "http://127.0.0.1:8083")
 	catalogURL := config.Get("CATALOG_SERVICE_URL", "http://127.0.0.1:8082")
 	billingURL := config.Get("BILLING_SERVICE_URL", "http://127.0.0.1:8086")
+	inventoryURL := config.Get("INVENTORY_SERVICE_URL", "http://127.0.0.1:8085")
 	natsURL := config.Get("NATS_URL", "nats://127.0.0.1:4222")
 
 	db, err := sqlite.Open(dbPath)
@@ -41,6 +42,10 @@ func main() {
 		slog.Error("seed delivery fee", "err", err)
 		os.Exit(1)
 	}
+	if err := seedDeskSettings(db); err != nil {
+		slog.Error("seed desk settings", "err", err)
+		os.Exit(1)
+	}
 
 	nc, js, err := natsx.ConnectJS(natsURL)
 	if err != nil {
@@ -55,11 +60,12 @@ func main() {
 	}
 
 	svc := &orderService{
-		db:      db,
-		geo:     newHTTPGeoClient(geoURL, nil),
-		catalog: newHTTPCatalogClient(catalogURL, nil),
-		billing: newHTTPBillingClient(billingURL, nil),
-		bus:     newJSOrderPublisher(js),
+		db:        db,
+		geo:       newHTTPGeoClient(geoURL, nil),
+		catalog:   newHTTPCatalogClient(catalogURL, nil),
+		billing:   newHTTPBillingClient(billingURL, nil),
+		inventory: newHTTPInventoryClient(inventoryURL, nil),
+		bus:       newJSOrderPublisher(js),
 	}
 
 	r := httpx.NewRouter(serviceName)
@@ -67,15 +73,19 @@ func main() {
 
 	r.Post("/v1/orders/quote", svc.handleQuoteOrder)
 	r.Post("/v1/orders", svc.handleCreateOrder)
+	r.Post("/v1/orders/{id}/cancel", svc.handleCancelMyOrder)
 
+	r.Get("/v1/orders/me/defaults", svc.handleGetMyOrderDefaults)
 	r.Get("/v1/orders/me", svc.handleListMyOrders)
 	r.Get("/v1/admin/orders", svc.handleListAdminOrders)
 	r.Get("/v1/admin/orders/{id}", svc.handleGetAdminOrder)
 	r.Post("/v1/admin/orders/{id}/complete", svc.handleCompleteOrder)
 	r.Get("/v1/admin/delivery-fee", svc.handleGetAdminDeliveryFee)
 	r.Put("/v1/admin/delivery-fee", svc.handlePutAdminDeliveryFee)
+	r.Get("/v1/admin/desk-settings", svc.handleGetDeskSettings)
+	r.Put("/v1/admin/desk-settings", svc.handlePutDeskSettings)
 
-	slog.Info("upstream urls", "geo", geoURL, "catalog", catalogURL, "billing", billingURL, "nats", natsURL)
+	slog.Info("upstream urls", "geo", geoURL, "catalog", catalogURL, "billing", billingURL, "inventory", inventoryURL, "nats", natsURL)
 
 	if err := httpx.ListenAndServe(addr, serviceName, r); err != nil {
 		slog.Error("server stopped", "err", err)

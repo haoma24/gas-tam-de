@@ -6,5 +6,5 @@
 - **Chi tiết:**
   - <thay đổi 1>
   - <thay đổi 2>
-- **Workdocs:** `workdocs_<mo-ta>_<ddmmyyyy>/`
+- **Workdocs:** `docs/workdocs_<mo-ta>_<ddmmyyyy>/`
 - **Liên quan:** <US-x.x / Sprint N / n/a>

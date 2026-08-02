@@ -79,6 +79,27 @@ class AuthApi {
     }
   }
 
+  /// `POST /v1/auth/refresh` — rotate refresh + issue new access token.
+  Future<AuthTokenResult> refresh(String refreshToken) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/auth/refresh',
+        data: {'refresh_token': refreshToken},
+      );
+      final data = res.data;
+      if (data == null) {
+        throw AuthApiException(
+          code: 'EMPTY',
+          message: 'empty response',
+          statusCode: res.statusCode,
+        );
+      }
+      return AuthTokenResult.fromJson(data);
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
   AuthApiException _mapDio(DioException e) {
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout ||

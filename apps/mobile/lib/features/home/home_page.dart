@@ -7,10 +7,12 @@ class HomePage extends StatelessWidget {
     super.key,
     required this.onStartOrder,
     this.onAdminLogin,
+    this.onMyOrders,
   });
 
   final VoidCallback onStartOrder;
   final VoidCallback? onAdminLogin;
+  final VoidCallback? onMyOrders;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +52,16 @@ class HomePage extends StatelessWidget {
                 ),
                 child: const Text('Đặt giao gas'),
               ),
+              if (onMyOrders != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: onMyOrders,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: const Text('Đơn của tôi'),
+                ),
+              ],
               const SizedBox(height: 12),
               TextButton(
                 onPressed: onAdminLogin,

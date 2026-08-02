@@ -64,6 +64,48 @@ class OrderApi {
     }
   }
 
+  /// `GET /v1/orders/me` — customer's order history.
+  Future<List<AdminOrder>> listMyOrders() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/orders/me',
+        options: Options(headers: _customerHeaders()),
+      );
+      final data = res.data;
+      if (data == null) {
+        throw OrderApiException(
+          code: 'EMPTY',
+          message: 'empty response',
+          statusCode: res.statusCode,
+        );
+      }
+      final raw = data['orders'];
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => AdminOrder.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
+  /// `POST /v1/orders/{id}/cancel` — cancel own PENDING order.
+  Future<void> cancelMyOrder(String orderId) async {
+    final id = orderId.trim();
+    if (id.isEmpty) {
+      throw OrderApiException(code: 'INVALID_ID', message: 'order id required');
+    }
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/v1/orders/$id/cancel',
+        options: Options(headers: _customerHeaders()),
+      );
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
   /// `POST /v1/orders/quote` — preview distance + fee + totals (no persist).
   Future<OrderQuote> quoteOrder(QuoteOrderRequest request) async {
     try {
@@ -81,6 +123,27 @@ class OrderApi {
         );
       }
       return OrderQuote.fromJson(data);
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
+  /// `GET /v1/orders/me/defaults` — last name + address for returning customer.
+  Future<OrderDefaults> getMyDefaults() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/orders/me/defaults',
+        options: Options(headers: _customerHeaders()),
+      );
+      final data = res.data;
+      if (data == null) {
+        throw OrderApiException(
+          code: 'EMPTY',
+          message: 'empty response',
+          statusCode: res.statusCode,
+        );
+      }
+      return OrderDefaults.fromJson(data);
     } on DioException catch (e) {
       throw _mapDio(e);
     }

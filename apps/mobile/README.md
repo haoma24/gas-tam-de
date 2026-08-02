@@ -5,7 +5,7 @@ Một codebase **Web + Android + iOS** (architecture §8.4). Home hiện brand *
 | CTA | Vai trò | Route |
 |-----|---------|--------|
 | **Đặt giao gas** | Khách | `/` → `/auth/phone` → OTP → đặt hàng |
-| **Dành cho cửa hàng** | Admin / CCH | `/` → `/admin/login` → desk |
+| **Dành cho cửa hàng** | Admin / CCH | `/` → `/admin/login` → desk (session được nhớ; lần sau vào thẳng desk) |
 
 Cùng `lib/` trên mọi target; chỉ khác artifact build (`web` / `apk` / `ipa`).
 
@@ -93,12 +93,14 @@ Windows không có GNU Make: `.\scripts\dev.ps1 <same-name>`.
 
 - Brand **Gas Tam Đệ**
 - CTA **Đặt giao gas** → màn SĐT → OTP → **chọn sản phẩm** (giỏ local) → **địa chỉ** (GPS / autocomplete / map pin) → **xác nhận đơn** → **thành công**
-- CTA **Dành cho cửa hàng** → đăng nhập admin → desk (dashboard + **Order Desk** / **Sản phẩm** / **Phí giao hàng** / **Công nợ** / **Tồn kho**)
+- CTA **Dành cho cửa hàng** → đăng nhập admin → desk (dashboard + **Order Desk** / **Sản phẩm** / **Phí giao hàng** / **Vị trí cửa hàng** / **Công nợ** / **Tồn kho**)
 - OTP: `POST /v1/auth/otp/request` + `verify`
 - Admin: `POST /v1/auth/admin/login`
+- Session: persist local (`shared_preferences`) + `POST /v1/auth/refresh` lúc mở app
 - Catalog: `GET /v1/products` (khách) · `GET/POST/PATCH /v1/admin/products` (admin)
 - Order Desk (admin): `GET /v1/admin/orders` (FIFO, PENDING)
 - Delivery fee (admin): `GET/PUT /v1/admin/delivery-fee`
+- Vị trí cửa hàng (admin): `GET /v1/geo/store` · `PUT /v1/admin/geo/store`
 - Công nợ (admin): `GET /v1/admin/debts`
 - Tồn kho (admin): `GET/POST /v1/admin/inventory` (IN / OUT / ADJUST)
 - Dashboard (admin): `GET /v1/admin/dashboard/summary`

@@ -62,6 +62,14 @@ class AuthUser {
       displayName: json['display_name'] as String?,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'role': role,
+        'phone_masked': phoneMasked,
+        if (username != null) 'username': username,
+        if (displayName != null) 'display_name': displayName,
+      };
 }
 
 /// Shared token payload from OTP verify or admin login.
@@ -146,6 +154,8 @@ class AuthApiException implements Exception {
             : 'Mã OTP không đúng.';
       case 'INVALID_CREDENTIALS':
         return 'Tên đăng nhập hoặc mật khẩu không đúng.';
+      case 'INVALID_TOKEN':
+        return 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
       case 'NETWORK':
         return 'Không kết nối được máy chủ. Kiểm tra API đang chạy.';
       default:

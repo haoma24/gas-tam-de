@@ -154,7 +154,27 @@ func (s *inventoryService) applyOrderCompleted(eventID string, payload orderComp
 		return nil
 	}
 
+	// Stock already reserved on place — skip OUT to avoid double-deduct.
+	var prior int
+	if err := tx.QueryRow(`
+		SELECT COUNT(1) FROM stock_movements
+		WHERE ref_type = ? AND ref_id = ? AND movement_type = ?
+	`, refTypeOrder, payload.OrderID, movementOUT).Scan(&prior); err != nil {
+		return err
+	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if prior > 0 {
+		if err := insertProcessedEventTx(tx, eventID, now); err != nil {
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		slog.Info("order.completed stock already reserved on place",
+			"event_id", eventID, "order_id", payload.OrderID)
+		return nil
+	}
+
 	refType := refTypeOrder
 	orderID := payload.OrderID
 

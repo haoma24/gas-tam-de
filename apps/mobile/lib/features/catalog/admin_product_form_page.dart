@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../inventory/inventory_api.dart';
+import '../inventory/inventory_models.dart';
 import 'catalog_api.dart';
 import 'catalog_models.dart';
 
@@ -98,6 +100,68 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
     return int.tryParse(cleaned);
   }
 
+  /// Returns (qty, unitCost) or null if skipped.
+  Future<(int, int)?> _promptInitialInbound(Product product) async {
+    final qtyCtrl = TextEditingController(text: '1');
+    final costCtrl = TextEditingController(text: '0');
+    final result = await showDialog<(int, int)?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Phiếu nhập kho'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Sản phẩm «${product.name}» cần phiếu nhập. '
+                'Bỏ qua → tồn = 0 (Tạm hết hàng).',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: qtyCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Số lượng nhập',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: costCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Giá nhập / đơn vị (VND)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Bỏ qua'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+                final cost = int.tryParse(costCtrl.text.trim()) ?? 0;
+                if (qty <= 0) return;
+                Navigator.pop(ctx, (qty, cost));
+              },
+              child: const Text('Nhập kho'),
+            ),
+          ],
+        );
+      },
+    );
+    qtyCtrl.dispose();
+    costCtrl.dispose();
+    return result;
+  }
+
   Future<void> _submit() async {
     setState(() => _error = null);
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -129,8 +193,10 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
           description: description,
           imageUrl: imageUrl,
         );
+        if (!mounted) return;
+        widget.onDone();
       } else {
-        await api.createProduct(
+        final created = await api.createProduct(
           sku: sku,
           name: name,
           unit: unit,
@@ -139,9 +205,47 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
           description: description.isEmpty ? null : description,
           imageUrl: imageUrl.isEmpty ? null : imageUrl,
         );
+        if (!mounted) return;
+        final inbound = await _promptInitialInbound(created);
+        if (!mounted) return;
+        if (inbound != null) {
+          try {
+            await ref.read(inventoryApiProvider).postMovement(
+                  movementType: StockMovementType.inn,
+                  productId: created.id,
+                  qty: inbound.$1,
+                  unitCost: inbound.$2,
+                  sku: created.sku,
+                  name: created.name,
+                  note: 'Nhập kho khi tạo sản phẩm',
+                );
+          } on InventoryApiException catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Tạo SP OK nhưng nhập kho lỗi: ${e.displayMessage}')),
+            );
+          } catch (_) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Đã tạo SP. Tồn mặc định = 0 (Tạm hết hàng) — hãy nhập kho sau.',
+                ),
+              ),
+            );
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Đã tạo SP với tồn 0 — khách sẽ thấy «Tạm hết hàng» đến khi nhập kho.',
+              ),
+            ),
+          );
+        }
+        if (!mounted) return;
+        widget.onDone();
       }
-      if (!mounted) return;
-      widget.onDone();
     } on CatalogApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.displayMessage);

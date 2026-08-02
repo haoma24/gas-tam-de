@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'geo_api.dart';
 import 'geo_models.dart';
+import 'customer_order_prefill.dart';
 import 'location_permission.dart';
 import 'order_address_selection.dart';
 
@@ -62,6 +63,38 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _runGeoCheck(sel);
       });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _offerLastAddressIfAny();
+      });
+    }
+  }
+
+  Future<void> _offerLastAddressIfAny() async {
+    if (_selected != null) return;
+    try {
+      final prefill = await ref.read(customerOrderPrefillProvider.future);
+      if (!mounted || !prefill.hasLastAddress) return;
+      // Show button only — user taps to apply (don't surprise-overwrite).
+      setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _useLastAddress() async {
+    try {
+      final prefill = await ref.read(customerOrderPrefillProvider.future);
+      if (!mounted || !prefill.hasLastAddress) return;
+      final d = prefill.lastAddress!;
+      final address = SelectedAddress(
+        lat: d.lat!,
+        lng: d.lng!,
+        label: d.addressText!,
+      );
+      _searchController.text = address.label;
+      _applySelection(address);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Không lấy được địa chỉ lần trước.');
     }
   }
 
@@ -323,6 +356,7 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
                           : 'Dùng vị trí hiện tại',
                     ),
                   ),
+                  ..._buildLastAddressActions(theme),
                 ],
               ),
             ),
@@ -562,5 +596,34 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildLastAddressActions(ThemeData theme) {
+    final prefill = ref.watch(customerOrderPrefillProvider).maybeWhen(
+          data: (p) => p,
+          orElse: () => null,
+        );
+    if (prefill == null || !prefill.hasLastAddress) return const [];
+    final label = prefill.lastAddress!.addressText!;
+    return [
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: _useLastAddress,
+        icon: const Icon(Icons.history),
+        label: const Text(
+          'Dùng địa chỉ lần trước',
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ];
   }
 }

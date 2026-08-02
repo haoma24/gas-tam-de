@@ -79,8 +79,9 @@ class _OtpPageState extends ConsumerState<OtpPage> {
             code: code,
           );
       if (!mounted) return;
-      ref.read(authSessionProvider.notifier).state =
-          AuthSession.fromVerify(result);
+      await ref.read(authSessionProvider.notifier).setSession(
+            AuthSession.fromVerify(result),
+          );
       widget.onVerified();
     } on AuthApiException catch (e) {
       if (!mounted) return;

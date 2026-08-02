@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
+import '../inventory/stock_levels_api.dart';
 import 'order_cart.dart';
 
 /// Order flow step 1 — pick active products (`GET /v1/products`) into local cart.
@@ -22,6 +23,7 @@ class SelectProductsPage extends ConsumerStatefulWidget {
 
 class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
   List<Product>? _items;
+  Map<String, int> _stock = const {};
   bool _loading = true;
   String? _error;
 
@@ -38,9 +40,14 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
     });
     try {
       final items = await ref.read(catalogApiProvider).listActiveProducts();
+      Map<String, int> stock = const {};
+      try {
+        stock = await ref.read(stockLevelsApiProvider).levels();
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _items = items;
+        _stock = stock;
         _loading = false;
       });
     } on CatalogApiException catch (e) {
@@ -208,11 +215,15 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
             );
           }
           final p = items[index - 1];
+          final onHand = _stock[p.id] ?? 0;
+          final qty = cart.quantityOf(p.id);
           return _ProductPickTile(
             product: p,
-            quantity: cart.quantityOf(p.id),
-            onIncrement: () =>
-                ref.read(orderCartProvider.notifier).increment(p),
+            quantity: qty,
+            onHand: onHand,
+            onIncrement: onHand <= 0 || qty >= onHand
+                ? null
+                : () => ref.read(orderCartProvider.notifier).increment(p),
             onDecrement: () =>
                 ref.read(orderCartProvider.notifier).decrement(p),
           );
@@ -226,13 +237,15 @@ class _ProductPickTile extends StatelessWidget {
   const _ProductPickTile({
     required this.product,
     required this.quantity,
+    required this.onHand,
     required this.onIncrement,
     required this.onDecrement,
   });
 
   final Product product;
   final int quantity;
-  final VoidCallback onIncrement;
+  final int onHand;
+  final VoidCallback? onIncrement;
   final VoidCallback onDecrement;
 
   @override
@@ -240,6 +253,7 @@ class _ProductPickTile extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final selected = quantity > 0;
+    final oos = onHand <= 0;
 
     return Material(
       color: selected
@@ -263,8 +277,11 @@ class _ProductPickTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    product.unit,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                    oos ? 'Tạm hết hàng' : 'Còn $onHand · ${product.unit}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: oos ? theme.colorScheme.error : muted,
+                      fontWeight: oos ? FontWeight.w700 : FontWeight.w400,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -277,11 +294,20 @@ class _ProductPickTile extends StatelessWidget {
                 ],
               ),
             ),
-            _QtyStepper(
-              quantity: quantity,
-              onIncrement: onIncrement,
-              onDecrement: onDecrement,
-            ),
+            if (oos)
+              Text(
+                'Hết hàng',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else
+              _QtyStepper(
+                quantity: quantity,
+                onIncrement: onIncrement,
+                onDecrement: onDecrement,
+              ),
           ],
         ),
       ),
@@ -297,7 +323,7 @@ class _QtyStepper extends StatelessWidget {
   });
 
   final int quantity;
-  final VoidCallback onIncrement;
+  final VoidCallback? onIncrement;
   final VoidCallback onDecrement;
 
   @override

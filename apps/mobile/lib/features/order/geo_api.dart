@@ -69,6 +69,57 @@ class GeoApi {
     }
   }
 
+  /// `GET /v1/geo/store` — public shop coords / radius.
+  Future<StoreSettings> getStore() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/v1/geo/store');
+      final data = res.data;
+      if (data == null) {
+        throw GeoApiException(
+          code: 'EMPTY',
+          message: 'empty response',
+          statusCode: res.statusCode,
+        );
+      }
+      return StoreSettings.fromJson(data);
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
+  /// `PUT /v1/admin/geo/store` — admin JWT required.
+  Future<StoreSettings> putAdminStore({
+    String? name,
+    double? lat,
+    double? lng,
+    double? maxRadiusKm,
+    String? addressText,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (name != null) body['name'] = name;
+      if (lat != null) body['lat'] = lat;
+      if (lng != null) body['lng'] = lng;
+      if (maxRadiusKm != null) body['max_radius_km'] = maxRadiusKm;
+      if (addressText != null) body['address_text'] = addressText;
+      final res = await _dio.put<Map<String, dynamic>>(
+        '/v1/admin/geo/store',
+        data: body,
+      );
+      final data = res.data;
+      if (data == null) {
+        throw GeoApiException(
+          code: 'EMPTY',
+          message: 'empty response',
+          statusCode: res.statusCode,
+        );
+      }
+      return StoreSettings.fromJson(data);
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
   GeoApiException _mapDio(DioException e) {
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout ||
@@ -128,6 +179,9 @@ class GeoApiException implements Exception {
         return 'Tọa độ địa chỉ không hợp lệ. Chọn lại vị trí trên bản đồ.';
       case 'STORE_NOT_CONFIGURED':
         return 'Cửa hàng chưa cấu hình phạm vi giao. Thử lại sau.';
+      case 'INVALID_STORE':
+      case 'INVALID_NAME':
+        return 'Thông tin cửa hàng không hợp lệ. Kiểm tra tọa độ và bán kính.';
       case 'NETWORK':
         return 'Không kết nối được máy chủ geo. Kiểm tra geo-service đang chạy (:8083).';
       default:

@@ -15,16 +15,10 @@ class GeoPlace {
   factory GeoPlace.fromJson(Map<String, dynamic> json) {
     return GeoPlace(
       label: (json['label'] as String?)?.trim() ?? '',
-      lat: _asDouble(json['lat']),
-      lng: _asDouble(json['lng']),
+      lat: geoAsDouble(json['lat']),
+      lng: geoAsDouble(json['lng']),
       source: (json['source'] as String?)?.trim() ?? '',
     );
-  }
-
-  static double _asDouble(Object? v) {
-    if (v is num) return v.toDouble();
-    if (v is String) return double.tryParse(v) ?? 0;
-    return 0;
   }
 }
 
@@ -63,9 +57,9 @@ class GeoCheckResult {
 
   factory GeoCheckResult.fromJson(Map<String, dynamic> json) {
     return GeoCheckResult(
-      distanceKm: _asDouble(json['distance_km']),
+      distanceKm: geoAsDouble(json['distance_km']),
       inRange: json['in_range'] == true,
-      maxRadiusKm: _asDouble(json['max_radius_km']),
+      maxRadiusKm: geoAsDouble(json['max_radius_km']),
     );
   }
 
@@ -88,10 +82,44 @@ class GeoCheckResult {
     if (km == km.roundToDouble()) return km.toStringAsFixed(0);
     return km.toStringAsFixed(2);
   }
+}
 
-  static double _asDouble(Object? v) {
-    if (v is num) return v.toDouble();
-    if (v is String) return double.tryParse(v) ?? 0;
-    return 0;
+/// Shop geo fence from `GET /v1/geo/store` / `PUT /v1/admin/geo/store`.
+class StoreSettings {
+  const StoreSettings({
+    required this.name,
+    required this.lat,
+    required this.lng,
+    required this.maxRadiusKm,
+    this.id,
+    this.addressText,
+    this.updatedAt,
+  });
+
+  final String? id;
+  final String name;
+  final double lat;
+  final double lng;
+  final double maxRadiusKm;
+  final String? addressText;
+  final String? updatedAt;
+
+  factory StoreSettings.fromJson(Map<String, dynamic> json) {
+    final address = (json['address_text'] as String?)?.trim();
+    return StoreSettings(
+      id: json['id'] as String?,
+      name: (json['name'] as String?)?.trim() ?? '',
+      lat: geoAsDouble(json['lat']),
+      lng: geoAsDouble(json['lng']),
+      maxRadiusKm: geoAsDouble(json['max_radius_km']),
+      addressText: (address == null || address.isEmpty) ? null : address,
+      updatedAt: json['updated_at'] as String?,
+    );
   }
+}
+
+double geoAsDouble(Object? v) {
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v) ?? 0;
+  return 0;
 }
