@@ -2,9 +2,11 @@
 # Usage: make help
 # Windows without GNU Make: .\scripts\dev.ps1 help
 
-COMPOSE := docker compose -f deploy/docker-compose.yml
+COMPOSE_FILE := deploy/docker-compose.yml
+COMPOSE_ENV := $(wildcard deploy/.env)
+COMPOSE := docker compose -f $(COMPOSE_FILE) $(if $(COMPOSE_ENV),--env-file $(COMPOSE_ENV),)
 GATEWAY_URL ?= http://127.0.0.1:8080
-WEB_URL ?= http://127.0.0.1:8090
+WEB_URL ?= http://127.0.0.1:$(or $(WEB_PORT),8090)
 NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
 
 .PHONY: help nats-up nats-down nats-logs nats-init nats wait-nats \

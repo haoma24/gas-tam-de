@@ -9,17 +9,18 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 - **Loại:** fix
 - **Phạm vi:** `deploy`, `pkg/httpx`, `Makefile`, `scripts/dev.ps1`, docs
-- **Tóm tắt:** Chẩn đoán runtime báo "log chỉ có NATS, không thấy dịch vụ website". Nguyên nhân: website **chưa bao giờ là service trong compose** (Flutter Web chỉ chạy trên host), và các service Go không có healthcheck/restart nên chết im lặng. Thêm service `web` (Flutter Web release sau nginx, `:8090`) và bật healthcheck + restart cho mọi service.
+- **Tóm tắt:** Chẩn đoán runtime báo "log chỉ có NATS, không thấy dịch vụ website". Nguyên nhân: website **chưa bao giờ là service trong compose** (Flutter Web chỉ chạy trên host), và các service Go không có healthcheck/restart nên chết im lặng. Thêm service `web` (Flutter Web release sau nginx, `:8090`) và bật healthcheck + restart cho mọi service. Trên VPS, mở `:8080/` trả **404 là đúng** (API Gateway) — website ở `:8090` (hoặc `WEB_PORT=80`).
 - **Chi tiết:**
   - `deploy/Dockerfile.web` + `deploy/nginx.web.conf`: build Flutter Web release → nginx; SPA fallback, gzip, `/web-healthz`
   - nginx reverse-proxy `/v1/*` + `/healthz` → `api-gateway:8080` ⇒ website same-origin, không cần CORS
   - compose: service `web` (`WEB_PORT`, `WEB_API_BASE_URL`, `FLUTTER_VERSION=3.44.0`); `healthcheck` + `restart: unless-stopped` cho cả 8 service Go; `api-gateway` chờ `service_healthy` thay vì `service_started`
   - `pkg/httpx`: bỏ access log cho `/healthz` khi status 200 (healthcheck 10s × 8 service làm chìm log thật); `/healthz` lỗi vẫn log
-  - Make + PowerShell: `compose-ps`, `compose-logs`, `web-up`, `web-logs`, `web-health`, `stack-health`; `compose-up` giờ `-d --wait` rồi in trạng thái
+  - Make + PowerShell: `compose-ps`, `compose-logs`, `web-up`, `web-logs`, `web-health`, `stack-health`; `compose-up` giờ `-d --wait` rồi in trạng thái; nạp `deploy/.env` nếu có
   - `.dockerignore`: loại `data/`, `.git`, build output khỏi build context (SQLite runtime hay bust cache)
+  - README mục "Truy cập trên VPS" + `deploy/.env.example` ghi rõ `WEB_PORT` / 404 trên `:8080`
   - Lưu ý: image `flutter:3.35.4` fail `pub get` vì `google_fonts 8.2.1` cần Dart `^3.10` → pin `3.44.0`
 - **Workdocs:** `docs/workdocs_web_service_compose_observability_03082026/`
-- **Liên quan:** Chẩn đoán AI Runtime (log chỉ hiển thị NATS)
+- **Liên quan:** Chẩn đoán AI Runtime (log chỉ hiển thị NATS); VPS 404 khi mở host `:8080`
 
 ## [2026-08-03] Fix Docker build: Go image khớp go.mod 1.25
 
