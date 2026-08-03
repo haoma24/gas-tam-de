@@ -93,8 +93,9 @@ Windows không có GNU Make: `.\scripts\dev.ps1 <same-name>`.
 ## Sprint 0–2 UI
 
 - Brand **Gas Tam Đệ** (guest landing + shop sau OTP)
-- CTA **Đặt giao gas** → SĐT → OTP → **shop** (catalogue) → đặt hàng từ CTA → chọn SP → địa chỉ → xác nhận → thành công
-- **Hồ sơ cá nhân** (`/profile`): SĐT ẩn, họ tên (`GET/PATCH /v1/me`), đơn của tôi, đăng xuất
+- Guest: chỉ CTA **Đăng nhập** → SĐT → OTP → **shop**
+- Shop: catalogue + CTA đặt hàng; bottom nav Cửa hàng / Hồ sơ
+- **Hồ sơ** (`/profile`): SĐT ẩn, họ tên (`GET/PATCH /v1/me`), **Đơn hàng của tôi**, đăng xuất
 - Admin: mở `/#/admin/login` (không CTA trên Home); session admin tự điều hướng `/admin`
 - OTP: `POST /v1/auth/otp/request` + `verify`
 - Admin: `POST /v1/auth/admin/login`

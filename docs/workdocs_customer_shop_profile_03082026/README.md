@@ -7,32 +7,33 @@
 
 ## Mục tiêu
 
-Sau OTP, khách vào trang cửa hàng mang cảm giác brand (không nhảy thẳng form đặt hàng tối giản). Có màn hồ sơ cá nhân riêng. Bỏ CTA «Dành cho cửa hàng» trên Home; session `role=admin` tự điều hướng `/admin`.
+Sau OTP, khách vào trang cửa hàng mang cảm giác brand. Có màn hồ sơ cá nhân riêng (gồm quản lý đơn). Guest Home chỉ còn **Đăng nhập**. Session `role=admin` tự điều hướng `/admin`.
 
 ## Phạm vi
 
 - Trong scope:
-  - Landing khách (guest) + shop shell sau OTP
-  - Hồ sơ: SĐT ẩn, tên (`GET/PATCH /v1/me`), đơn của tôi, đăng xuất
-  - Auto-redirect admin; ẩn nút admin trên Home (login admin vẫn qua `/admin/login`)
+  - Landing khách: một nút **Đăng nhập**
+  - Shop shell sau OTP + hồ sơ (đơn hàng trong hồ sơ)
+  - Auto-redirect admin; login admin qua `/admin/login`
 - Ngoài scope:
   - Đổi backend OTP để trả role admin theo SĐT
   - Redesign toàn bộ admin desk widgets
-  - Persist theme / dark mode
 
 ## Quyết định chính
 
-- OTP verify → `/` (shop) thay vì `/order`; đặt hàng vẫn từ CTA trên shop.
-- Guest Home giữ CTA «Đặt giao gas» / đăng nhập OTP; không hiện cửa hàng.
-- Admin vào bằng deep link `/#/admin/login`; nếu đã có session admin thì mọi lần mở `/` → `/admin`.
-- Typography: `google_fonts` Be Vietnam Pro (hỗ trợ tiếng Việt).
+- Guest: chỉ «Đăng nhập» → OTP; không CTA đặt gas / đơn / admin trên Home.
+- OTP verify → `/` (shop); đặt hàng từ CTA trên shop.
+- «Đơn hàng của tôi» chỉ từ hồ sơ; shop bottom nav: Cửa hàng | Hồ sơ.
+- Admin: deep link `/#/admin/login`; session admin mở `/` → `/admin`.
+- Typography: `google_fonts` Be Vietnam Pro.
 
 ## Đã làm
 
 - [x] Workdocs + CHANGESLOG
-- [x] Guest landing bỏ nút admin
+- [x] Guest landing chỉ **Đăng nhập**
 - [x] Customer shop shell (hero brand + catalogue + CTA)
-- [x] Profile page
+- [x] Profile page — gồm Đơn hàng của tôi
+- [x] Shop nav bỏ tab Đơn
 - [x] Router: OTP → shop; admin redirect
 - [x] Verify analyze / test
 
@@ -40,23 +41,19 @@ Sau OTP, khách vào trang cửa hàng mang cảm giác brand (không nhảy th�
 
 | Path | Thao tác | Ghi chú |
 |------|----------|---------|
-| `apps/mobile/lib/features/home/home_page.dart` | modified | Guest landing |
-| `apps/mobile/lib/features/home/customer_shop_page.dart` | added | Shop sau OTP |
-| `apps/mobile/lib/features/auth/customer_profile_page.dart` | added | Hồ sơ |
-| `apps/mobile/lib/features/dashboard/admin_dashboard_page.dart` | modified | Ẩn back khi đã login |
-| `apps/mobile/lib/main.dart` | modified | Routes + redirect + font |
-| `apps/mobile/pubspec.yaml` | modified | google_fonts |
-| `apps/mobile/README.md` | modified | DX / verify |
+| `apps/mobile/lib/features/home/home_page.dart` | modified | Guest chỉ Đăng nhập |
+| `apps/mobile/lib/features/home/customer_shop_page.dart` | added/modified | Shop; nav 2 tab |
+| `apps/mobile/lib/features/auth/customer_profile_page.dart` | added | Hồ sơ + đơn |
+| `apps/mobile/lib/main.dart` | modified | Routes |
 | `CHANGESLOG.md` | modified | Entry |
 
 ## Cách verify
 
-1. Guest: mở `/` — thấy brand + CTA, **không** có «Dành cho cửa hàng».
-2. OTP xong → shop (hero + sản phẩm), bottom nav Hồ sơ / Đơn.
-3. Hồ sơ: sửa tên, lưu, đăng xuất.
-4. `/#/admin/login` → đăng nhập admin → `/admin`; refresh `/` vẫn về admin.
-5. `flutter analyze` / `flutter test` dưới `apps/mobile`.
+1. Guest `/` — chỉ **Đăng nhập**.
+2. OTP → shop; Hồ sơ → Đơn hàng của tôi.
+3. `/#/admin/login` → `/admin`.
+4. `flutter analyze` / `flutter test`.
 
 ## Ghi chú / blocker
 
-- Admin không còn entry trên Home; nhân viên dùng bookmark `/#/admin/login`.
+- Admin không còn entry trên Home; dùng bookmark `/#/admin/login`.

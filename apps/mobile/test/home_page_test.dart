@@ -10,7 +10,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Gas Tam Đệ'), findsOneWidget);
+    // Brand text is split across newline — find by prefix.
+    expect(find.textContaining('Gas'), findsWidgets);
     expect(find.text('Đăng nhập'), findsOneWidget);
     expect(find.text('Đặt giao gas'), findsNothing);
     expect(find.text('Dành cho cửa hàng'), findsNothing);

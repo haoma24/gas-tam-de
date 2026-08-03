@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_theme.dart';
 import '../auth/auth_session.dart';
 import '../auth/me_api.dart';
 import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
 
-/// Post-OTP brand shop: hero + catalogue + CTAs (not the raw order form).
+/// Post-OTP brand shop — hero + catalogue cards + bottom nav.
 class CustomerShopPage extends ConsumerStatefulWidget {
   const CustomerShopPage({
     super.key,
@@ -61,14 +63,12 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final session = ref.watch(authSessionProvider);
     final profileAsync = ref.watch(customerProfileProvider);
-    final greeting = profileAsync.maybeWhen(
-      data: (p) {
-        if (p != null && p.hasName) return p.fullName!.trim();
-        return null;
-      },
+    final name = profileAsync.maybeWhen(
+      data: (p) => p?.fullName?.trim().isNotEmpty == true
+          ? p!.fullName!
+          : null,
       orElse: () => null,
     );
     final phone = profileAsync.maybeWhen(
@@ -78,74 +78,67 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
         session?.user.phoneMasked ??
         '';
 
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _ShopHero(
-              greeting: greeting,
-              phoneMasked: phone,
-              onStartOrder: widget.onStartOrder,
-              onProfile: widget.onProfile,
-            )),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sản phẩm đang bán',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: AppColors.surface0,
+        body: RefreshIndicator(
+          onRefresh: _load,
+          color: AppColors.fire,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              _ShopHeroSliver(
+                name: name,
+                phone: phone,
+                onStartOrder: widget.onStartOrder,
+                onProfile: widget.onProfile,
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Sản phẩm',
+                          style: AppTextStyles.sectionTitle(context),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Chọn bình gas phù hợp — giao tận nơi, phí rõ ràng.',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                      if (_loading && _products != null)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.fire,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            ..._productSlivers(theme),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          ],
+              ..._productSlivers(context),
+              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            ],
+          ),
         ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (i) {
-          if (i == 1) widget.onProfile();
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
-            label: 'Cửa hàng',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Hồ sơ',
-          ),
-        ],
+        bottomNavigationBar: _ShopBottomNav(onProfile: widget.onProfile),
+        floatingActionButtonLocation:
+            FloatingActionButtonLocation.centerFloat,
+        floatingActionButton: _OrderFAB(onTap: widget.onStartOrder),
       ),
     );
   }
 
-  List<Widget> _productSlivers(ThemeData theme) {
+  List<Widget> _productSlivers(BuildContext context) {
     if (_loading && _products == null) {
       return [
         const SliverFillRemaining(
           hasScrollBody: false,
-          child: Center(child: CircularProgressIndicator()),
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.fire),
+          ),
         ),
       ];
     }
@@ -156,15 +149,19 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
+                const Icon(Icons.wifi_off_rounded,
+                    size: 48, color: AppColors.ash),
+                const SizedBox(height: 12),
                 Text(
                   _error!,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 15),
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                    onPressed: _load, child: const Text('Thử lại')),
               ],
             ),
           ),
@@ -176,12 +173,17 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
       return [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'Cửa hàng chưa mở bán sản phẩm. Quay lại sau nhé.',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+            child: Column(
+              children: [
+                const Icon(Icons.inventory_2_outlined,
+                    size: 52, color: AppColors.ash),
+                const SizedBox(height: 12),
+                const Text(
+                  'Cửa hàng chưa mở bán sản phẩm.',
+                  style: TextStyle(fontSize: 15, color: AppColors.ash),
+                ),
+              ],
             ),
           ),
         ),
@@ -189,200 +191,146 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
     }
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
         sliver: SliverList.separated(
           itemCount: items.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final p = items[index];
-            return _CatalogRow(
-              product: p,
-              onOrder: widget.onStartOrder,
-            );
-          },
+          itemBuilder: (context, i) =>
+              _ProductCard(product: items[i], onOrder: widget.onStartOrder),
         ),
       ),
     ];
   }
 }
 
-class _ShopHero extends StatelessWidget {
-  const _ShopHero({
-    required this.greeting,
-    required this.phoneMasked,
+// ─────────────────────────────────────────────
+// Hero sliver
+// ─────────────────────────────────────────────
+class _ShopHeroSliver extends StatelessWidget {
+  const _ShopHeroSliver({
+    required this.name,
+    required this.phone,
     required this.onStartOrder,
     required this.onProfile,
   });
 
-  final String? greeting;
-  final String phoneMasked;
+  final String? name;
+  final String phone;
   final VoidCallback onStartOrder;
   final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final onHero = Colors.white;
+    final greeting = name ?? (phone.isNotEmpty ? phone : 'bạn');
 
-    return Stack(
-      children: [
-        // Full-bleed brand atmosphere (flame / amber industrial).
-        Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 320),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1C1917),
-                Color(0xFF44403C),
-                Color(0xFF9A3412),
-              ],
-              stops: [0.0, 0.55, 1.0],
+    return SliverToBoxAdapter(
+      child: Container(
+        decoration: const BoxDecoration(gradient: AppColors.heroGradient),
+        child: Stack(
+          children: [
+            // Ambient glow
+            const Positioned.fill(
+              child: CustomPaint(painter: FlameAmbientPainter()),
             ),
-          ),
-          child: CustomPaint(
-            painter: _FlameMotifPainter(),
-            child: SafeArea(
+            SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 16, 36),
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 28),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Top bar
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            greeting != null
-                                ? 'Xin chào, $greeting'
-                                : (phoneMasked.isNotEmpty
-                                    ? 'Xin chào, $phoneMasked'
-                                    : 'Xin chào'),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: onHero.withValues(alpha: 0.78),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Xin chào 👋',
+                              style: TextStyle(
+                                color: AppColors.onDark
+                                    .withValues(alpha: 0.55),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                            Text(
+                              greeting,
+                              style: const TextStyle(
+                                color: AppColors.onDark,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          tooltip: 'Hồ sơ',
-                          onPressed: onProfile,
-                          icon: Icon(Icons.person_outline, color: onHero),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: onProfile,
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color:
+                                  AppColors.ash.withValues(alpha: 0.45),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.person_outline_rounded,
+                              color: AppColors.onDark,
+                              size: 20,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 28),
-                    Text(
+                    const SizedBox(height: 32),
+                    // Brand
+                    const Text(
                       'Gas Tam Đệ',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        color: onHero,
-                        fontWeight: FontWeight.w800,
+                      style: TextStyle(
+                        color: AppColors.onDark,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w900,
                         letterSpacing: -1.2,
-                        height: 1.05,
+                        height: 1.0,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Text(
-                      'Giao gas tận nơi — nhanh, rõ phí, đúng địa chỉ.',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: onHero.withValues(alpha: 0.88),
-                        fontWeight: FontWeight.w500,
-                        height: 1.35,
+                      'Giao gas tận nơi — nhanh, rõ phí.',
+                      style: TextStyle(
+                        color: AppColors.onDark.withValues(alpha: 0.72),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
-                    const SizedBox(height: 28),
-                    FilledButton(
-                      onPressed: onStartOrder,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFF59E0B),
-                        foregroundColor: const Color(0xFF1C1917),
-                        minimumSize: const Size(200, 48),
-                        textStyle: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+                    const SizedBox(height: 24),
+                    // Stats chips
+                    Row(
+                      children: [
+                        _HeroChip(
+                          icon: Icons.bolt_rounded,
+                          label: 'Giao nhanh',
+                          color: AppColors.gold,
                         ),
-                      ),
-                      child: const Text('Đặt giao gas'),
+                        const SizedBox(width: 8),
+                        _HeroChip(
+                          icon: Icons.shield_outlined,
+                          label: 'An toàn',
+                          color: Colors.greenAccent.shade200,
+                        ),
+                        const SizedBox(width: 8),
+                        _HeroChip(
+                          icon: Icons.receipt_long_outlined,
+                          label: 'Rõ phí',
+                          color: Colors.lightBlueAccent.shade100,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CatalogRow extends StatelessWidget {
-  const _CatalogRow({
-    required this.product,
-    required this.onOrder,
-  });
-
-  final Product product;
-  final VoidCallback onOrder;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final desc = product.description?.trim();
-
-    return InkWell(
-      onTap: onOrder,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Icon(
-                Icons.propane_tank_outlined,
-                color: theme.colorScheme.primary,
-                size: 32,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (desc != null && desc.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      desc,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  Text(
-                    '${formatVnd(product.salePrice)} / ${product.unit}',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ],
               ),
             ),
           ],
@@ -392,31 +340,278 @@ class _CatalogRow extends StatelessWidget {
   }
 }
 
-/// Soft diagonal flame streaks — atmosphere without floating badges.
-class _FlameMotifPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = const Color(0xFFF59E0B).withValues(alpha: 0.08);
-    final path = Path()
-      ..moveTo(size.width * 0.55, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height * 0.55)
-      ..close();
-    canvas.drawPath(path, paint);
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
-    final paint2 = Paint()
-      ..style = PaintingStyle.fill
-      ..color = const Color(0xFFEA580C).withValues(alpha: 0.06);
-    final path2 = Path()
-      ..moveTo(size.width * 0.35, size.height)
-      ..lineTo(size.width, size.height * 0.4)
-      ..lineTo(size.width, size.height)
-      ..close();
-    canvas.drawPath(path2, paint2);
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: AppRadius.pill,
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Product card
+// ─────────────────────────────────────────────
+class _ProductCard extends StatelessWidget {
+  const _ProductCard({required this.product, required this.onOrder});
+
+  final Product product;
+  final VoidCallback onOrder;
+
+  @override
+  Widget build(BuildContext context) {
+    final desc = product.description?.trim();
+
+    return GestureDetector(
+      onTap: onOrder,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: AppRadius.md,
+          boxShadow: AppShadow.card,
+        ),
+        child: Row(
+          children: [
+            // Icon panel
+            Container(
+              width: 96,
+              height: 96,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.ash, AppColors.coal],
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.propane_tank_rounded,
+                  color: AppColors.amber,
+                  size: 40,
+                ),
+              ),
+            ),
+            // Info
+            Expanded(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (desc != null && desc.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: const Color(0xFF78716C),
+                          fontSize: 12.5,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${formatVnd(product.salePrice)} / ${product.unit}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              color: AppColors.fire,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.amber, AppColors.fire],
+                            ),
+                            borderRadius: AppRadius.pill,
+                          ),
+                          child: const Text(
+                            'Đặt',
+                            style: TextStyle(
+                              color: AppColors.obsidian,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Bottom nav + FAB
+// ─────────────────────────────────────────────
+class _ShopBottomNav extends StatelessWidget {
+  const _ShopBottomNav({required this.onProfile});
+  final VoidCallback onProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationBar(
+      selectedIndex: 0,
+      backgroundColor: AppColors.surface0,
+      indicatorColor: AppColors.amber.withValues(alpha: 0.18),
+      onDestinationSelected: (i) {
+        if (i == 1) onProfile();
+      },
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.storefront_outlined),
+          selectedIcon: Icon(Icons.storefront_rounded,
+              color: AppColors.fire),
+          label: 'Cửa hàng',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline_rounded),
+          selectedIcon: Icon(Icons.person_rounded, color: AppColors.fire),
+          label: 'Hồ sơ',
+        ),
+      ],
+    );
+  }
+}
+
+class _OrderFAB extends StatefulWidget {
+  const _OrderFAB({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  State<_OrderFAB> createState() => _OrderFABState();
+}
+
+class _OrderFABState extends State<_OrderFAB>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 100));
+    _scale = Tween(begin: 1.0, end: 0.94)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: GestureDetector(
+        onTapDown: (_) => _ctrl.forward(),
+        onTapUp: (_) {
+          _ctrl.reverse();
+          widget.onTap();
+        },
+        onTapCancel: () => _ctrl.reverse(),
+        child: ScaleTransition(
+          scale: _scale,
+          child: Container(
+            height: 52,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.amber, AppColors.fire],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: AppRadius.pill,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.fire.withValues(alpha: 0.5),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_rounded, color: AppColors.obsidian, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Đặt giao gas ngay',
+                  style: TextStyle(
+                    color: AppColors.obsidian,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
