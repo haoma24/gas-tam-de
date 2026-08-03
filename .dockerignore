@@ -1,0 +1,15 @@
+# Keep runtime SQLite files and local build output out of the build context so
+# they cannot bust the layer cache on every `docker compose build`.
+.git
+.github
+.cursor
+data/
+docs/
+workdocs_*/
+*.md
+
+apps/mobile/build/
+apps/mobile/.dart_tool/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/.flutter-plugins-dependencies

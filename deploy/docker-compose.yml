@@ -1,7 +1,14 @@
-# Local / MVP stack: NATS JetStream + Go services (SQLite files on ./data volume).
+# Local / MVP stack: NATS JetStream + Go services (SQLite files on ./data volume)
+# + the Flutter Web site behind nginx.
 # Usage (from repo root):
 #   docker compose -f deploy/docker-compose.yml up --build
-# Flutter runs on the host (not in this compose) against GATEWAY at :8080.
+#
+# Website  -> http://127.0.0.1:8090   (nginx serves Flutter Web, proxies /v1 + /healthz)
+# Gateway  -> http://127.0.0.1:8080   (direct API access)
+#
+# Only nats / api-gateway / web publish host ports; the other Go services are
+# reachable in-network through the gateway. `up nats` alone starts NATS only —
+# use `up -d` (no service argument) for the whole stack.
 
 services:
   nats:
@@ -49,23 +56,30 @@ services:
       - ../data:/data
     ports:
       - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     depends_on:
       nats:
         condition: service_healthy
       auth-service:
-        condition: service_started
+        condition: service_healthy
       catalog-service:
-        condition: service_started
+        condition: service_healthy
       geo-service:
-        condition: service_started
+        condition: service_healthy
       order-service:
-        condition: service_started
+        condition: service_healthy
       inventory-service:
-        condition: service_started
+        condition: service_healthy
       billing-service:
-        condition: service_started
+        condition: service_healthy
       report-service:
-        condition: service_started
+        condition: service_healthy
     networks:
       - gastamde
 
@@ -91,6 +105,13 @@ services:
       SMS_JWT_TTL_SEC: "${SMS_JWT_TTL_SEC:-}"
     volumes:
       - ../data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     depends_on:
       nats:
         condition: service_healthy
@@ -109,6 +130,13 @@ services:
       NATS_URL: "nats://nats:4222"
     volumes:
       - ../data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8082/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     depends_on:
       nats:
         condition: service_healthy
@@ -127,6 +155,13 @@ services:
       NATS_URL: "nats://nats:4222"
     volumes:
       - ../data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8083/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     depends_on:
       nats:
         condition: service_healthy
@@ -148,15 +183,22 @@ services:
       NATS_URL: "nats://nats:4222"
     volumes:
       - ../data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8084/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     depends_on:
       nats:
         condition: service_healthy
       geo-service:
-        condition: service_started
+        condition: service_healthy
       catalog-service:
-        condition: service_started
+        condition: service_healthy
       billing-service:
-        condition: service_started
+        condition: service_healthy
     networks:
       - gastamde
 
@@ -172,6 +214,13 @@ services:
       NATS_URL: "nats://nats:4222"
     volumes:
       - ../data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8085/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     depends_on:
       nats:
         condition: service_healthy
@@ -190,6 +239,13 @@ services:
       NATS_URL: "nats://nats:4222"
     volumes:
       - ../data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8086/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     depends_on:
       nats:
         condition: service_healthy
@@ -208,8 +264,39 @@ services:
       NATS_URL: "nats://nats:4222"
     volumes:
       - ../data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8087/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     depends_on:
       nats:
+        condition: service_healthy
+    networks:
+      - gastamde
+
+  # The website itself. Without this service `docker compose logs` only ever
+  # showed infrastructure (NATS) and no frontend at all.
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        FLUTTER_VERSION: "${FLUTTER_VERSION:-3.44.0}"
+        API_BASE_URL: "${WEB_API_BASE_URL:-}"
+    ports:
+      - "${WEB_PORT:-8090}:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/web-healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    depends_on:
+      api-gateway:
         condition: service_healthy
     networks:
       - gastamde
