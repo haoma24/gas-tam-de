@@ -92,9 +92,11 @@ Không trì hoãn iOS sang sau MVP: mọi feature Flutter phải giữ tương t
 #### Should have
 
 - Dashboard nhỏ: doanh thu, công nợ, lợi nhuận, tồn.
-- Lịch sử đơn của khách (chỉ đơn của chính họ).
+- Lịch sử đơn của khách + hủy đơn PENDING.
+- Hồ sơ khách: xem/sửa tên, phone masked.
 - Audit log hành động admin quan trọng.
 - CI build kiểm tra `flutter build` cho web/android/ios (ios trên runner macOS).
+- Wait-time badge + TTS đơn mới cho admin desk.
 
 #### Could have
 
@@ -130,26 +132,51 @@ Không trì hoãn iOS sang sau MVP: mọi feature Flutter phải giữ tương t
 
 ## 3. PRD chi tiết
 
-### 3.1 User flow — Khách hàng (Đặt giao gas)
+### 3.1 User flow — Khách hàng
+
+#### 3.1.1 Guest landing → Đăng nhập OTP → Shop
 
 ```text
-[Home] CTA "Đặt giao gas"
-    → Chọn sản phẩm (+ số lượng)
-    → Nhập SĐT → Gửi OTP → Nhập OTP → Session khách
-    → Nhập họ tên
+[Home] CTA "Đăng nhập" (guest chỉ thấy 1 nút này)
+    → Nhập SĐT → Gửi OTP (Bước 1/2)
+    → Nhập 6 digit OTP → Verify (Bước 2/2)
+    → Session khách → [Brand Shop] (hero + danh mục sản phẩm)
+         ├─ Bottom nav: Cửa hàng | Hồ sơ
+         └─ CTA "Đặt giao gas ngay" (FAB)
+```
+
+*Admin session*: Nếu người dùng đã có session `role=admin`, mở `/` tự redirect `/admin` — không hiện Home.
+
+#### 3.1.2 Đặt đơn (từ Shop)
+
+```text
+[Shop] CTA "Đặt giao gas ngay"
+    → Chọn sản phẩm (+ số lượng, tồn kho realtime)
     → Địa chỉ: [Dùng vị trí hiện tại] hoặc [Search + chọn gợi ý]
+         ├─ Prefill địa chỉ đơn gần nhất nếu có
     → Hệ thống tính khoảng cách vs cửa hàng
-         ├─ Ngoài phạm vi → Thông báo "Ngoài phạm vi giao hàng" (không cho đặt)
+         ├─ Ngoài phạm vi → Thông báo rõ, không cho đặt
          └─ Trong phạm vi → Hiển thị phí ship (nếu bật) + tổng tiền
+    → Review: tên (prefill từ /v1/me nếu có), địa chỉ, items, phí
     → Xác nhận đặt hàng
-    → Màn hình thành công (mã đơn, tóm tắt; SĐT mask nếu hiển thị lại)
+    → Màn hình thành công (mã đơn, tóm tắt)
+```
+
+#### 3.1.3 Hồ sơ khách (`/profile`)
+
+```text
+[Shop bottom nav → Hồ sơ]
+    → Hiển thị: avatar (initial), SĐT ẩn, tên đầy đủ (editable)
+    → Lưu tên → PATCH /v1/me
+    → [Đơn hàng của tôi] → danh sách + hủy đơn PENDING
+    → [Đăng xuất] → xóa session, về Home
 ```
 
 **Yêu cầu UX**
 
-- Màn hình đầu: một composition rõ; brand **Gas Tam Đệ** + CTA đặt gas là tín hiệu chính.
-- Không bắt buộc đăng ký form dài trước khi thấy CTA.
-- Lỗi ngoài phạm vi: message rõ, không silent fail.
+- Guest Home: một nút **Đăng nhập** — không CTA đặt hàng trực tiếp, không nút admin.
+- Post-OTP: brand shop page mang cảm giác cửa hàng (hero, catalogue, chips trạng thái).
+- Admin login: qua deep link `/#/admin/login`; không hiện trên Home.
 
 ### 3.2 User flow — Admin / CCH
 
@@ -395,7 +422,7 @@ Không trì hoãn iOS sang sau MVP: mọi feature Flutter phải giữ tương t
 **Tasks:**
 - [DONE] T7.1.1 Schema stock + movements + cost
 - [DONE] T7.1.2 APIs nhập/xuất/điều chỉnh
-- [DONE] T7.1.3 Consumer `order.placed` / `order.completed` trừ tồn (chốt: trừ khi placed hoặc completed — mặc định **trừ khi complete** để tránh giữ tồn ảo nếu hủy; document trong architecture)
+- [DONE] T7.1.3 **Reserve** tồn khi `order.placed` (`POST /v1/internal/stock/reserve`); **release** khi `order.cancelled`; complete không trừ lại (tránh tồn ảo khi hủy đơn)
 - [DONE] T7.1.4 Flutter màn tồn kho
 
 #### US-7.2 Cơ sở tính lợi nhuận
@@ -434,6 +461,42 @@ Không trì hoãn iOS sang sau MVP: mọi feature Flutter phải giữ tương t
 - [DONE] T9.2.3 Makefile / scripts chạy dev
 - [DONE] T9.2.4 CTA shell Flutter cho Web + Android + iOS (cùng lúc)
 - [DONE] T9.2.5 Checklist platform: không dùng API chỉ có trên một OS nếu chưa có fallback; verify Web + emulator Android; iOS Simulator hoặc CI macOS
+- [DONE] T9.2.6 Design system `app_theme.dart`: `AppColors` (fire palette), `AppRadius`, `AppShadow`, `FlameAmbientPainter`; dark-brand theme nhất quán toàn app
+
+---
+
+### E10 — Customer UX (Brand Shop + Profile)
+
+> Epic này được tách ra từ E1/E3/E9 khi UX khách mở rộng vượt scope đặt hàng đơn thuần.
+
+#### US-10.1 Brand shop sau OTP
+**Story:** Là khách đã OTP, tôi muốn thấy trang cửa hàng thương hiệu thay vì nhảy thẳng form.  
+**Tasks:**
+- [DONE] T10.1.1 `CustomerShopPage`: hero gradient + stat chips + catalogue cards
+- [DONE] T10.1.2 Gradient FAB «Đặt giao gas ngay»; bottom nav Cửa hàng | Hồ sơ
+- [DONE] T10.1.3 Guest Home: chỉ 1 nút **Đăng nhập** (không CTA trực tiếp, không nút admin)
+- [DONE] T10.1.4 Admin session trên `/`: tự redirect → `/admin` (không qua Home)
+
+#### US-10.2 Hồ sơ cá nhân khách
+**Story:** Là khách, tôi muốn xem và sửa thông tin cá nhân.  
+**Tasks:**
+- [DONE] T10.2.1 API `GET /v1/me` → `{ phone_masked, full_name }`
+- [DONE] T10.2.2 API `PATCH /v1/me` → cập nhật `full_name`
+- [DONE] T10.2.3 `CustomerProfilePage`: gradient header + avatar (initial), edit name inline, phone masked
+- [DONE] T10.2.4 Đăng xuất → xóa session, về Home
+
+#### US-10.3 Lịch sử đơn + hủy đơn khách
+**Story:** Là khách, tôi muốn xem các đơn của mình và hủy đơn đang chờ.  
+**Tasks:**
+- [DONE] T10.3.1 API `GET /v1/orders/me` — danh sách đơn của chính khách
+- [DONE] T10.3.2 API `POST /v1/orders/{id}/cancel` — khách hủy đơn PENDING (trả tồn)
+- [DONE] T10.3.3 Flutter `MyOrdersPage` — list + confirm hủy; entry từ hồ sơ
+
+#### US-10.4 Prefill tên + địa chỉ
+**Story:** Là khách quay lại, tôi muốn hệ thống gợi ý tên và địa chỉ từ đơn trước.  
+**Tasks:**
+- [DONE] T10.4.1 API `GET /v1/orders/me/defaults` → `{ full_name, last_address }`
+- [DONE] T10.4.2 Flutter review/address: banner «Dùng địa chỉ lần trước» + prefill name
 
 ---
 
@@ -508,15 +571,17 @@ Không trì hoãn iOS sang sau MVP: mọi feature Flutter phải giữ tương t
 
 **Demo:** Nhập kho; giao xong trừ tồn; có số liệu giá vốn.
 
-### Sprint 5 — Dashboard, Security harden, UAT
+### Sprint 5 — Dashboard, Security harden, Customer UX, UAT
 
 | Hạng mục | Story |
 |----------|--------|
 | Report | US-8.1 |
 | Security | US-9.1 + AC cô lập dữ liệu |
+| Customer UX | E10: US-10.1–10.4 (brand shop, hồ sơ, lịch sử đơn, prefill) |
+| Design system | T9.2.6 app_theme.dart |
 | UAT | Chạy thử tại cửa hàng Gas Tam Đệ với dữ liệu thật (cẩn trọng PII) |
 
-**Demo:** Dashboard đủ 4 nhóm chỉ số; checklist AC đạt; sẵn sàng dùng nội bộ.
+**Demo:** Dashboard đủ 4 nhóm chỉ số; khách vào shop brand sau OTP; hồ sơ + lịch sử đơn; checklist AC đạt; sẵn sàng dùng nội bộ.
 
 ### Milestone sau MVP (không commit sprint)
 
