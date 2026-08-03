@@ -31,35 +31,37 @@ class HomePage extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.amber.withValues(alpha: 0.18),
-                            borderRadius: AppRadius.pill,
-                            border: Border.all(
-                              color: AppColors.amber.withValues(alpha: 0.35),
-                              width: 1,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.amber.withValues(alpha: 0.18),
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(
+                          color: AppColors.amber.withValues(alpha: 0.35),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.local_fire_department,
+                              color: AppColors.amber, size: 14),
+                          SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Giao nhanh trong ngày',
+                              style: TextStyle(
+                                color: AppColors.amber,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.2,
+                              ),
                             ),
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.local_fire_department,
-                                  color: AppColors.amber, size: 14),
-                              SizedBox(width: 6),
-                              Text(
-                                'Giao hàng nhanh trong ngày',
-                                style: TextStyle(
-                                  color: AppColors.amber,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        ],
+                      ),
+                    ),
                       ],
                     ),
                   ),

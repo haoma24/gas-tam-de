@@ -308,20 +308,20 @@ class _ShopHeroSliver extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     // Stats chips
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
                       children: [
                         _HeroChip(
                           icon: Icons.bolt_rounded,
                           label: 'Giao nhanh',
                           color: AppColors.gold,
                         ),
-                        const SizedBox(width: 8),
                         _HeroChip(
                           icon: Icons.shield_outlined,
                           label: 'An toàn',
                           color: Colors.greenAccent.shade200,
                         ),
-                        const SizedBox(width: 8),
                         _HeroChip(
                           icon: Icons.receipt_long_outlined,
                           label: 'Rõ phí',
@@ -459,6 +459,7 @@ class _ProductCard extends StatelessWidget {
                     ],
                     const SizedBox(height: 8),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
                           child: Text(
@@ -470,6 +471,7 @@ class _ProductCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 5),
