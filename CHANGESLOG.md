@@ -5,6 +5,17 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-03] Fix Docker build: Go image khớp go.mod 1.25
+
+- **Loại:** fix
+- **Phạm vi:** `deploy/Dockerfile.service`, docs
+- **Tóm tắt:** `docker compose build` fail vì image `golang:1.22` không thỏa `go.mod` (`go >= 1.25.0`, `GOTOOLCHAIN=local`). Nâng base image lên `golang:1.25-bookworm`.
+- **Chi tiết:**
+  - `deploy/Dockerfile.service`: `FROM golang:1.25-bookworm`
+  - Đồng bộ README / architecture → Go 1.25+
+- **Workdocs:** n/a (sửa config 1 dòng + docs)
+- **Liên quan:** Docker compose build failure
+
 ## [2026-08-03] Guest chỉ Đăng nhập; đơn hàng trong hồ sơ
 
 - **Loại:** feature

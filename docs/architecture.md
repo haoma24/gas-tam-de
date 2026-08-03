@@ -21,7 +21,7 @@
 | Layer | Lựa chọn | Lý do |
 |-------|----------|--------|
 | Frontend | **Flutter** (Web + Android + iOS **song song**) | Một codebase; không trì hoãn iOS; test Web/emulator khi thiếu máy thật |
-| Backend | **Go 1.22+** | Mục tiêu học Go; binary nhỏ, deploy đơn giản |
+| Backend | **Go 1.25+** | Mục tiêu học Go; binary nhỏ, deploy đơn giản |
 | HTTP | Chi hoặc Fiber (thống nhất một framework/gateway) | Middleware JWT, rate limit |
 | DB | **SQLite** — mỗi service một file `*.db`, chế độ WAL | Miễn phí, nhẹ, đủ quy mô gia đình |
 | Event bus | **NATS JetStream** | Nhẹ hơn Kafka; durable consumer cho report/inventory |

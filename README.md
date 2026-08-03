@@ -20,7 +20,7 @@ data/                 SQLite files (local; gitignored)
 
 ## Yêu cầu
 
-- Go 1.22+
+- Go 1.25+
 - Docker (NATS + optional full stack)
 - Flutter 3.x (cho `apps/mobile`) — nếu chưa cài, xem `apps/mobile/README.md`
 
