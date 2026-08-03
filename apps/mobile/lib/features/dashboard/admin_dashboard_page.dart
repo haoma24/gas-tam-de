@@ -92,10 +92,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quản trị cửa hàng'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onBack,
-        ),
+        automaticallyImplyLeading: widget.onLoggedOut == null,
+        leading: widget.onLoggedOut != null
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: widget.onBack,
+              ),
         actions: [
           IconButton(
             tooltip: 'Tải lại',
