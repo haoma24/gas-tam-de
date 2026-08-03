@@ -62,8 +62,31 @@ make compose-down
 | Thành phần | URL | Ghi chú |
 |------------|-----|---------|
 | Website (Flutter Web + nginx) | <http://127.0.0.1:8090> | đổi cổng bằng `WEB_PORT` |
-| API Gateway | <http://127.0.0.1:8080> | truy cập API trực tiếp |
+| API Gateway | <http://127.0.0.1:8080> | truy cập API trực tiếp — **`/` trả 404 là đúng** |
 | NATS monitoring | <http://127.0.0.1:8222/jsz> | |
+
+### Truy cập trên VPS
+
+Sau `make compose-up` (hoặc `docker compose -f deploy/docker-compose.yml up --build -d --wait`):
+
+1. Mở firewall / security group cho cổng website (mặc định **8090**, không phải 8080).
+2. Truy cập **`http://<IP_VPS>:8090/`** — đó mới là trang Gas Tam Đệ.
+3. Nếu mở `http://<IP_VPS>:8080/` sẽ thấy **`404 page not found`**: cổng đó là API Gateway, không phục vụ HTML.
+
+Muốn mở bằng cổng 80 (không gõ `:8090`):
+
+```bash
+# trong deploy/.env (copy từ deploy/.env.example)
+cp deploy/.env.example deploy/.env
+# sửa WEB_PORT=80 (và JWT_SECRET / mật khẩu admin trước khi public)
+WEB_PORT=80
+make compose-up
+# → http://<IP_VPS>/
+```
+
+`make` / `scripts/dev.ps1` tự nạp `deploy/.env` nếu file đó tồn tại.
+
+Hoặc giữ web ở 8090 và để nginx/Caddy trên host reverse-proxy `80/443 → 127.0.0.1:8090`.
 
 Website gọi API **same-origin**: nginx proxy `/v1/*` và `/healthz` sang
 `api-gateway:8080`, nên trình duyệt không cần CORS. Các service `auth`, `catalog`,

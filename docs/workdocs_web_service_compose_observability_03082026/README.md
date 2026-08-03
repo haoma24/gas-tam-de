@@ -125,6 +125,10 @@ docker compose -f deploy/docker-compose.yml logs --since=30s | wc -l   # 0
 
 ## Ghi chú / blocker
 
+- **VPS 404:** mở `http://<IP>:8080/` trả `404 page not found` là **đúng hành vi** của API
+  Gateway (không phục vụ HTML). Website nằm ở **`http://<IP>:8090/`**. Muốn cổng 80:
+  `cp deploy/.env.example deploy/.env` rồi `WEB_PORT=80` và `make compose-up`.
+  Makefile / `dev.ps1` tự `--env-file deploy/.env` khi file tồn tại.
 - Build `web` lần đầu mất khá lâu (kéo image Flutter ~vài GB + compile release).
   Các lần sau dùng layer cache; `pubspec.*` được COPY trước source nên sửa code
   Dart không phải chạy lại `flutter pub get`.

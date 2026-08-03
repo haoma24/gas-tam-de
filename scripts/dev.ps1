@@ -64,7 +64,12 @@ Gas Tam De - scripts/dev.ps1 (Windows DX)
 
 function Invoke-Compose {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$ComposeArgs)
-    & docker compose -f deploy/docker-compose.yml @ComposeArgs
+    $envArgs = @()
+    $envFile = Join-Path $RepoRoot 'deploy/.env'
+    if (Test-Path $envFile) {
+        $envArgs = @('--env-file', $envFile)
+    }
+    & docker compose -f deploy/docker-compose.yml @envArgs @ComposeArgs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
