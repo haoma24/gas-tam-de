@@ -13,7 +13,7 @@ Tài liệu:
 apps/mobile/          Flutter app (customer + admin theo role)
 services/             Go services (api-gateway + bounded contexts)
 pkg/                  Shared Go (config, httpx, sqlite, events)
-deploy/               docker-compose + Dockerfile
+deploy/               docker-compose + Dockerfile (services + web/nginx)
 docs/                 PRD + Architecture
 data/                 SQLite files (local; gitignored)
 ```
@@ -45,6 +45,43 @@ make gateway
 make health
 make flutter-web
 ```
+
+## Chạy toàn bộ stack bằng Docker (kèm website)
+
+`make nats` **chỉ** khởi động NATS — đó là lý do `docker compose logs` khi đó chỉ
+hiện log NATS. Muốn cả website + API chạy trong Docker:
+
+```bash
+make compose-up      # build + start tất cả, chờ healthy, rồi in trạng thái
+make stack-health    # trạng thái container + health gateway + health web
+make compose-logs    # tail log của TẤT CẢ service
+make web-logs        # chỉ log nginx của website
+make compose-down
+```
+
+| Thành phần | URL | Ghi chú |
+|------------|-----|---------|
+| Website (Flutter Web + nginx) | <http://127.0.0.1:8090> | đổi cổng bằng `WEB_PORT` |
+| API Gateway | <http://127.0.0.1:8080> | truy cập API trực tiếp |
+| NATS monitoring | <http://127.0.0.1:8222/jsz> | |
+
+Website gọi API **same-origin**: nginx proxy `/v1/*` và `/healthz` sang
+`api-gateway:8080`, nên trình duyệt không cần CORS. Các service `auth`, `catalog`,
+`geo`, `order`, `inventory`, `billing`, `report` **cố ý không publish cổng ra host**
+— chúng đi qua gateway. Tất cả service đều có `healthcheck` + `restart: unless-stopped`,
+nên container chết sẽ hiện `unhealthy` trong `make compose-ps` thay vì im lặng.
+
+Biến môi trường build của website:
+
+| Biến | Mặc định | Ý nghĩa |
+|------|----------|---------|
+| `WEB_PORT` | `8090` | cổng host của nginx |
+| `WEB_API_BASE_URL` | *(rỗng)* | `--dart-define=API_BASE_URL`; để rỗng = same-origin qua nginx |
+| `FLUTTER_VERSION` | `3.44.0` | image `ghcr.io/cirruslabs/flutter` dùng để build web |
+
+> Dev hằng ngày trên Flutter vẫn nên dùng `make flutter-web` (hot reload) và trỏ
+> vào gateway `:8080`. Service `web` trong compose là bản build release để smoke
+> test / demo giống production.
 
 ### 1. NATS JetStream (thủ công nếu không dùng shortcut)
 
@@ -94,6 +131,11 @@ Shortcut: `make flutter-web` / `flutter-android` / `flutter-ios` (hoặc `.\scri
 | Gateway | `make gateway` | `.\scripts\dev.ps1 gateway` |
 | Health check | `make health` | `.\scripts\dev.ps1 health` |
 | Full compose | `make compose-up` | `.\scripts\dev.ps1 compose-up` |
+| Trạng thái container | `make compose-ps` | `.\scripts\dev.ps1 compose-ps` |
+| Log tất cả service | `make compose-logs` | `.\scripts\dev.ps1 compose-logs` |
+| Website trong Docker | `make web-up` | `.\scripts\dev.ps1 web-up` |
+| Log website | `make web-logs` | `.\scripts\dev.ps1 web-logs` |
+| Health cả stack | `make stack-health` | `.\scripts\dev.ps1 stack-health` |
 | Flutter Web | `make flutter-web` | `.\scripts\dev.ps1 flutter-web` |
 | Flutter Android | `make flutter-android` | `.\scripts\dev.ps1 flutter-android` |
 | Flutter iOS | `make flutter-ios` | `.\scripts\dev.ps1 flutter-ios` |
