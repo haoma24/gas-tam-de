@@ -23,6 +23,11 @@ func NewRouter(serviceName string) *chi.Mux {
 			start := time.Now()
 			ww := middleware.NewWrapResponseWriter(w, req.ProtoMajor)
 			next.ServeHTTP(ww, req)
+			// Container health probes hit /healthz every few seconds; logging
+			// the successful ones buries real traffic. Failures still surface.
+			if req.URL.Path == "/healthz" && ww.Status() == http.StatusOK {
+				return
+			}
 			slog.Info("http",
 				"service", serviceName,
 				"method", req.Method,
