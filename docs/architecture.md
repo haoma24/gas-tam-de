@@ -26,7 +26,7 @@
 | DB | **SQLite** — mỗi service một file `*.db`, chế độ WAL | Miễn phí, nhẹ, đủ quy mô gia đình |
 | Event bus | **NATS JetStream** | Nhẹ hơn Kafka; durable consumer cho report/inventory |
 | Gateway | `api-gateway` (Go) | Điểm vào duy nhất từ Flutter |
-| OTP | Interface + mock; production: eSMS / Stringee / tương đương VN | Tránh vendor lock |
+| OTP | Interface + mock (local); production: **Stringee SMS REST** (client thật), seam cho eSMS / tương đương VN | Tránh vendor lock |
 | Maps / Geo | OSM + Photon/Nominatim (search); Haversine in-house; deep-link Google Maps cho dẫn đường admin | Giảm chi phí API |
 | Auth | JWT access (ngắn hạn) + refresh; OTP cho khách; password cho admin | RBAC `customer` \| `admin` |
 
@@ -762,7 +762,7 @@ Secrets (`JWT_SECRET`, khóa mã hóa phone, SMS API key, `INTERNAL_TOKEN`) ch�
 - [ ] VPS + domain + HTTPS
 - [ ] Compose chạy đủ gateway, services, NATS
 - [ ] Seed admin account; cấu hình lat/lng cửa hàng + `max_radius_km`
-- [ ] OTP provider thật (hoặc whitelist số test)
+- [ ] OTP provider thật: `SMS_PROVIDER=stringee` + `SMS_API_SID` / `SMS_API_SECRET` / `SMS_SENDER` (brandname đã duyệt), `OTP_DEV_REVEAL=0`
 - [ ] Flutter Web publish; APK và/hoặc IPA nội bộ cho CCH
 - [ ] Backup cron đã chạy thử restore một lần
 - [ ] Rate limit OTP / place-order bật

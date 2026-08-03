@@ -79,6 +79,16 @@ services:
       AUTH_ADDR: ":8081"
       AUTH_DB: "/data/auth.db"
       NATS_URL: "nats://nats:4222"
+      OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-1}"
+      SMS_PROVIDER: "${SMS_PROVIDER:-mock}"
+      SMS_VENDOR: "${SMS_VENDOR:-}"
+      SMS_API_SID: "${SMS_API_SID:-}"
+      SMS_API_SECRET: "${SMS_API_SECRET:-}"
+      SMS_API_KEY: "${SMS_API_KEY:-}"
+      SMS_API_URL: "${SMS_API_URL:-}"
+      SMS_SENDER: "${SMS_SENDER:-}"
+      SMS_TIMEOUT_SEC: "${SMS_TIMEOUT_SEC:-}"
+      SMS_JWT_TTL_SEC: "${SMS_JWT_TTL_SEC:-}"
     volumes:
       - ../data:/data
     depends_on:
