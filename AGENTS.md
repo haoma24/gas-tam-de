@@ -10,9 +10,17 @@ Gas Tam Đệ monorepo: Flutter (`apps/mobile`) + Go microservices (`services/*`
 |------|-----|
 | NATS JetStream | `make nats` (Docker Compose `deploy/docker-compose.yml` + `go run ./cmd/nats-init`). Catalog/order/inventory/billing/report **exit if NATS is down**. |
 | Go APIs | One process each: `make gateway` `:8080`, `auth` `:8081`, `catalog` `:8082`, `geo` `:8083`, `order` `:8084`, `inventory` `:8085`, `billing` `:8086`, `report` `:8087`. |
-| Flutter Web | `make flutter-web` or `cd apps/mobile && flutter run -d chrome` (API defaults to `http://127.0.0.1:8080`). |
-| Smoke | `make health` → gateway `/healthz` + `/v1/hello`. |
+| Flutter Web (dev) | `make flutter-web` or `cd apps/mobile && flutter run -d chrome` (API defaults to `http://127.0.0.1:8080`). |
+| Website in Docker | `make web-up` → release Flutter Web build behind nginx on `:8090`, proxying `/v1` + `/healthz` to `api-gateway`. |
+| Whole stack | `make compose-up` (builds everything, waits for healthy). `make nats` starts **only** NATS. |
+| Smoke | `make health` → gateway `/healthz` + `/v1/hello`; `make stack-health` covers containers + gateway + web. |
+| Logs | `make compose-logs` (all services), `make web-logs` (nginx), `make nats-logs` (NATS only). |
 | Go tests | `make test` (`go test ./...`). |
+
+Every compose service has a `healthcheck` + `restart: unless-stopped`, so a
+crashed container shows up as `unhealthy` in `make compose-ps` instead of failing
+silently. Successful `/healthz` requests are not access-logged (`pkg/httpx`), which
+keeps `docker compose logs` readable.
 
 Dev defaults (no `.env` required): see `deploy/.env.example`. Local OTP returns `dev_code` when `OTP_DEV_REVEAL=1`. Seeded admin: `admin` / `admin-change-me` (`ADMIN_SEED=1`).
 

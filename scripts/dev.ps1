@@ -10,12 +10,14 @@ param(
     [ValidateSet(
         'help', 'nats-up', 'nats-down', 'nats-logs', 'nats-init', 'nats', 'wait-nats',
         'gateway', 'auth', 'catalog', 'geo', 'order', 'inventory', 'billing', 'report',
-        'tidy', 'test', 'build', 'compose-up', 'compose-down', 'health',
+        'tidy', 'test', 'build', 'compose-up', 'compose-down', 'compose-ps', 'compose-logs',
+        'web-up', 'web-logs', 'web-health', 'health', 'stack-health',
         'flutter-get', 'flutter-create', 'flutter-web', 'flutter-android', 'flutter-ios', 'flutter-devices'
     )]
     [string]$Command = 'help',
 
     [string]$GatewayUrl = 'http://127.0.0.1:8080',
+    [string]$WebUrl = 'http://127.0.0.1:8090',
     [string]$NatsHealthUrl = 'http://127.0.0.1:8222/healthz'
 )
 
@@ -33,8 +35,16 @@ Gas Tam De - scripts/dev.ps1 (Windows DX)
     .\scripts\dev.ps1 nats-init    Bootstrap JetStream streams
     .\scripts\dev.ps1 nats         nats-up + wait + nats-init
     .\scripts\dev.ps1 nats-logs    Tail NATS logs
-    .\scripts\dev.ps1 compose-up   Full stack docker compose --build
+    .\scripts\dev.ps1 compose-up   Full stack docker compose --build (waits for healthy)
     .\scripts\dev.ps1 compose-down Stop full stack
+    .\scripts\dev.ps1 compose-ps   Status of every container (incl. health)
+    .\scripts\dev.ps1 compose-logs Tail logs of ALL services (not just NATS)
+
+  Website (Flutter Web + nginx in Docker, http://127.0.0.1:8090)
+    .\scripts\dev.ps1 web-up       Build + start web (and its API deps)
+    .\scripts\dev.ps1 web-logs     Tail nginx access/error logs
+    .\scripts\dev.ps1 web-health   GET web /web-healthz + proxied /v1/hello
+    .\scripts\dev.ps1 stack-health compose-ps + gateway health + web health
 
   Go services
     .\scripts\dev.ps1 gateway | auth | catalog | geo | order | inventory | billing | report
@@ -94,8 +104,29 @@ switch ($Command) {
         go run ./cmd/nats-init
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
-    'compose-up' { Invoke-Compose @('up', '--build') }
+    'compose-up' {
+        Invoke-Compose @('up', '--build', '-d', '--wait')
+        Invoke-Compose @('ps', '-a')
+    }
     'compose-down' { Invoke-Compose @('down') }
+    'compose-ps' { Invoke-Compose @('ps', '-a') }
+    'compose-logs' { Invoke-Compose @('logs', '-f', '--tail=100') }
+    'web-up' {
+        Invoke-Compose @('up', '--build', '-d', '--wait', 'web')
+        Invoke-Compose @('ps', '-a')
+    }
+    'web-logs' { Invoke-Compose @('logs', '-f', '--tail=100', 'web') }
+    'web-health' {
+        $wz = Invoke-WebRequest -Uri "$WebUrl/web-healthz" -UseBasicParsing
+        Write-Host $wz.Content
+        $wHello = Invoke-WebRequest -Uri "$WebUrl/v1/hello" -UseBasicParsing
+        Write-Host $wHello.Content
+    }
+    'stack-health' {
+        Invoke-Compose @('ps', '-a')
+        & $PSCommandPath 'health' -GatewayUrl $GatewayUrl
+        & $PSCommandPath 'web-health' -WebUrl $WebUrl
+    }
     'gateway' { Invoke-GoRunService './services/api-gateway' }
     'auth' { Invoke-GoRunService './services/auth-service' }
     'catalog' { Invoke-GoRunService './services/catalog-service' }
