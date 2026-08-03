@@ -5,6 +5,30 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-03] Guest chỉ Đăng nhập; đơn hàng trong hồ sơ
+
+- **Loại:** feature
+- **Phạm vi:** `apps/mobile`
+- **Tóm tắt:** Màn đầu chỉ còn nút **Đăng nhập** (OTP). Quản lý «Đơn hàng của tôi» chỉ vào từ hồ sơ sau login; bỏ tab Đơn trên shop bottom nav.
+- **Chi tiết:**
+  - `HomePage`: một CTA «Đăng nhập» → `/auth/phone`
+  - Shop nav: Cửa hàng | Hồ sơ; `/orders/history` back → `/profile`
+- **Workdocs:** `docs/workdocs_customer_shop_profile_03082026/`
+- **Liên quan:** UX Home / hồ sơ khách
+
+## [2026-08-03] Customer shop brand + hồ sơ + admin redirect theo role
+
+- **Loại:** feature
+- **Phạm vi:** `apps/mobile`
+- **Tóm tắt:** Sau OTP khách vào trang cửa hàng mang cảm giác brand (hero + danh mục + CTA), có màn hồ sơ cá nhân; bỏ CTA «Dành cho cửa hàng» trên Home — session `role=admin` tự điều hướng `/admin`.
+- **Chi tiết:**
+  - Guest landing full-bleed brand; OTP verify → shop thay vì nhảy thẳng form đặt hàng
+  - `CustomerShopPage` + `CustomerProfilePage` (`GET/PATCH /v1/me`, đơn của tôi, đăng xuất)
+  - Router: admin trên `/` → `/admin`; login admin qua `/#/admin/login`
+  - Theme Be Vietnam Pro (`google_fonts`)
+- **Workdocs:** `docs/workdocs_customer_shop_profile_03082026/`
+- **Liên quan:** UX Home / US-1.1 / US-1.2 / US-2.2
+
 ## [2026-08-02] Cursor Cloud env setup + OrderCart.isNotEmpty
 
 - **Loại:** chore / fix / docs

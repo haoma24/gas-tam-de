@@ -1,11 +1,12 @@
 # Gas Tam Đệ Flutter app — CTA shell (T9.2.4)
 
-Một codebase **Web + Android + iOS** (architecture §8.4). Home hiện brand **Gas Tam Đệ** và hai lối vào rõ:
+Một codebase **Web + Android + iOS** (architecture §8.4).
 
-| CTA | Vai trò | Route |
-|-----|---------|--------|
-| **Đặt giao gas** | Khách | `/` → `/auth/phone` → OTP → đặt hàng |
-| **Dành cho cửa hàng** | Admin / CCH | `/` → `/admin/login` → desk (session được nhớ; lần sau vào thẳng desk) |
+| Lối vào | Vai trò | Route |
+|---------|---------|--------|
+| **Đăng nhập** | Khách (guest) | `/` → `/auth/phone` → OTP → **shop brand** (`/`) |
+| Shop sau OTP | Khách đã login | Hero brand + danh mục + CTA đặt hàng; **Hồ sơ** `/profile` (gồm đơn của tôi) |
+| Admin | CCH | Deep link `/admin/login` → desk; session `role=admin` mở `/` sẽ **tự vào** `/admin` |
 
 Cùng `lib/` trên mọi target; chỉ khác artifact build (`web` / `apk` / `ipa`).
 
@@ -91,9 +92,11 @@ Windows không có GNU Make: `.\scripts\dev.ps1 <same-name>`.
 
 ## Sprint 0–2 UI
 
-- Brand **Gas Tam Đệ**
-- CTA **Đặt giao gas** → màn SĐT → OTP → **chọn sản phẩm** (giỏ local) → **địa chỉ** (GPS / autocomplete / map pin) → **xác nhận đơn** → **thành công**
-- CTA **Dành cho cửa hàng** → đăng nhập admin → desk (dashboard + **Order Desk** / **Sản phẩm** / **Phí giao hàng** / **Vị trí cửa hàng** / **Công nợ** / **Tồn kho**)
+- Brand **Gas Tam Đệ** (guest landing + shop sau OTP)
+- Guest: chỉ CTA **Đăng nhập** → SĐT → OTP → **shop**
+- Shop: catalogue + CTA đặt hàng; bottom nav Cửa hàng / Hồ sơ
+- **Hồ sơ** (`/profile`): SĐT ẩn, họ tên (`GET/PATCH /v1/me`), **Đơn hàng của tôi**, đăng xuất
+- Admin: mở `/#/admin/login` (không CTA trên Home); session admin tự điều hướng `/admin`
 - OTP: `POST /v1/auth/otp/request` + `verify`
 - Admin: `POST /v1/auth/admin/login`
 - Session: persist local (`shared_preferences`) + `POST /v1/auth/refresh` lúc mở app
@@ -132,15 +135,14 @@ Seed admin mặc định (auth-service): username `admin` / password `admin-chan
 ### Verify nhanh CTA shell (T9.2.4)
 
 1. `flutter pub get` trong `apps/mobile`.
-2. Web: `flutter run -d chrome` → Home thấy **Gas Tam Đệ**, **Đặt giao gas**, **Dành cho cửa hàng**.
-3. Android emulator: `flutter run -d android` → cùng Home CTA.
-4. iOS Simulator (macOS): `flutter run -d ios` → cùng Home CTA.
-5. Tap từng CTA → vào flow khách / admin (không crash shell).
+2. Web: `flutter run -d chrome` → Home thấy **Gas Tam Đệ** + **Đăng nhập** only.
+3. OTP xong → shop; **Hồ sơ** → Đơn hàng của tôi / sửa tên / đăng xuất.
+4. Admin: mở `/#/admin/login` → desk; refresh `/` vẫn vào admin khi còn session.
 
 ### Verify nhanh màn sản phẩm (admin)
 
 1. Chạy catalog: `go run ./services/catalog-service`
-2. Flutter với `API_BASE_URL=…:8082` → mở `/admin/products` (hoặc Home → cửa hàng → desk → Sản phẩm; session in-memory có thể trống nếu chưa login — list API không bắt JWT trên catalog).
+2. Flutter với `API_BASE_URL=…:8082` → mở `/admin/products` (sau `/#/admin/login` → desk → Sản phẩm; session có thể trống nếu chưa login — list API không bắt JWT trên catalog).
 3. **Thêm** → nhập SKU / tên / giá → **Tạo sản phẩm** → thấy trong list → tap để sửa hoặc icon mắt để ẩn/hiện.
 
 ### Verify Order Desk (admin) — T5.1.3 / T5.1.4

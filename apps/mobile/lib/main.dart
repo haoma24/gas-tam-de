@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/auth/admin_login_page.dart';
 import 'features/auth/auth_models.dart';
 import 'features/auth/auth_session.dart';
+import 'features/auth/customer_profile_page.dart';
 import 'features/auth/otp_page.dart';
 import 'features/auth/phone_page.dart';
 import 'features/billing/admin_debts_page.dart';
@@ -13,6 +15,7 @@ import 'features/catalog/admin_product_form_page.dart';
 import 'features/catalog/admin_products_page.dart';
 import 'features/catalog/catalog_models.dart';
 import 'features/dashboard/admin_dashboard_page.dart';
+import 'features/home/customer_shop_page.dart';
 import 'features/home/home_page.dart';
 import 'features/inventory/admin_inventory_page.dart';
 import 'features/order/admin_delivery_fee_page.dart';
@@ -45,31 +48,26 @@ final _router = GoRouter(
       path: '/',
       builder: (context, state) => Consumer(
         builder: (context, ref, _) {
+          final session = ref.watch(authSessionProvider);
+
+          if (session != null && session.isAdmin) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) context.go('/admin');
+            });
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (session != null && session.isCustomer) {
+            return CustomerShopPage(
+              onStartOrder: () => context.go('/order'),
+              onProfile: () => context.go('/profile'),
+            );
+          }
+
           return HomePage(
-            onStartOrder: () {
-              final session = ref.read(authSessionProvider);
-              if (session != null && session.isCustomer) {
-                context.go('/order');
-              } else {
-                context.go('/auth/phone');
-              }
-            },
-            onMyOrders: () {
-              final session = ref.read(authSessionProvider);
-              if (session != null && session.isCustomer) {
-                context.go('/orders/history');
-              } else {
-                context.go('/auth/phone');
-              }
-            },
-            onAdminLogin: () {
-              final session = ref.read(authSessionProvider);
-              if (session != null && session.isAdmin) {
-                context.go('/admin');
-              } else {
-                context.go('/admin/login');
-              }
-            },
+            onLogin: () => context.go('/auth/phone'),
           );
         },
       ),
@@ -94,12 +92,45 @@ final _router = GoRouter(
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        return OtpPage(
-          args: args,
-          onBack: () => context.go('/auth/phone'),
-          onVerified: () => context.go('/order'),
+        return Consumer(
+          builder: (context, ref, _) {
+            return OtpPage(
+              args: args,
+              onBack: () => context.go('/auth/phone'),
+              // After OTP → brand shop; admin role (if ever) → /admin.
+              onVerified: () {
+                final session = ref.read(authSessionProvider);
+                if (session != null && session.isAdmin) {
+                  context.go('/admin');
+                } else {
+                  context.go('/');
+                }
+              },
+            );
+          },
         );
       },
+    ),
+    GoRoute(
+      path: '/profile',
+      builder: (context, state) => Consumer(
+        builder: (context, ref, _) {
+          final session = ref.watch(authSessionProvider);
+          if (session == null || !session.isCustomer) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) context.go('/auth/phone');
+            });
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return CustomerProfilePage(
+            onBack: () => context.go('/'),
+            onMyOrders: () => context.go('/orders/history'),
+            onLoggedOut: () => context.go('/'),
+          );
+        },
+      ),
     ),
     GoRoute(
       path: '/order',
@@ -144,7 +175,8 @@ final _router = GoRouter(
     GoRoute(
       path: '/orders/history',
       builder: (context, state) => MyOrdersPage(
-        onBack: () => context.go('/'),
+        // Order history lives under profile after login.
+        onBack: () => context.go('/profile'),
       ),
     ),
     GoRoute(
@@ -169,16 +201,29 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/admin',
-      builder: (context, state) => AdminDashboardPage(
-        onBack: () => context.go('/'),
-        onOpenOrders: () => context.go('/admin/orders'),
-        onOpenProducts: () => context.go('/admin/products'),
-        onOpenDeliveryFee: () => context.go('/admin/delivery-fee'),
-        onOpenStore: () => context.go('/admin/store'),
-        onOpenDeskSettings: () => context.go('/admin/desk-settings'),
-        onOpenDebts: () => context.go('/admin/debts'),
-        onOpenInventory: () => context.go('/admin/inventory'),
-        onLoggedOut: () => context.go('/'),
+      builder: (context, state) => Consumer(
+        builder: (context, ref, _) {
+          final session = ref.watch(authSessionProvider);
+          if (session == null || !session.isAdmin) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) context.go('/admin/login');
+            });
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return AdminDashboardPage(
+            onBack: () => context.go('/'),
+            onOpenOrders: () => context.go('/admin/orders'),
+            onOpenProducts: () => context.go('/admin/products'),
+            onOpenDeliveryFee: () => context.go('/admin/delivery-fee'),
+            onOpenStore: () => context.go('/admin/store'),
+            onOpenDeskSettings: () => context.go('/admin/desk-settings'),
+            onOpenDebts: () => context.go('/admin/debts'),
+            onOpenInventory: () => context.go('/admin/inventory'),
+            onLoggedOut: () => context.go('/'),
+          );
+        },
       ),
     ),
     GoRoute(
@@ -267,6 +312,19 @@ final _router = GoRouter(
   ],
 );
 
+TextTheme _brandTextTheme(Brightness brightness) {
+  final base = GoogleFonts.beVietnamProTextTheme(
+    brightness == Brightness.light
+        ? ThemeData.light().textTheme
+        : ThemeData.dark().textTheme,
+  );
+  return base.copyWith(
+    displayMedium: base.displayMedium?.copyWith(fontWeight: FontWeight.w800),
+    displaySmall: base.displaySmall?.copyWith(fontWeight: FontWeight.w800),
+    headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+  );
+}
+
 /// App shell — theme + router; waits for session bootstrap before routes.
 class GasTamDeApp extends ConsumerWidget {
   const GasTamDeApp({super.key});
@@ -284,6 +342,7 @@ class GasTamDeApp extends ConsumerWidget {
           seedColor: seed,
           brightness: Brightness.light,
         ),
+        textTheme: _brandTextTheme(Brightness.light),
         useMaterial3: true,
       ),
       routerConfig: _router,
