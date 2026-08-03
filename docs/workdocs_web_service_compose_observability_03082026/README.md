@@ -123,6 +123,45 @@ Log sạch khi idle (không còn spam `/healthz`):
 docker compose -f deploy/docker-compose.yml logs --since=30s | wc -l   # 0
 ```
 
+## Phần tiếp: deploy VPS fail `is unhealthy`
+
+Sau khi bật healthcheck, deploy trên VPS (`docker compose -p ts-gas-tam-de up -d
+--no-build`) fail:
+
+```text
+dependency failed to start: container ts-gas-tam-de-billing-service-1 is unhealthy
+```
+
+Healthcheck **không sai** — nó phơi ra lỗi vốn đã tồn tại nhưng trước đây im lặng
+(trước kia compose chỉ `service_started` nên container chết vẫn coi như OK).
+
+**Nguyên nhân:** `catalog/order/inventory/billing/report` gọi
+`natsx.ConnectJS` + `EnsureStreams` đúng **một lần**, lỗi là `os.Exit(1)`. NATS
+chấp nhận kết nối TCP (và `/healthz` trả ok) **trước khi** JetStream restore xong
+store, nên trên VPS chậm hoặc lần chạy đầu (volume trống) service chết ngay lúc
+boot → không bao giờ healthy → `depends_on: service_healthy` fail cả stack.
+
+**Sửa:**
+
+- `pkg/natsx`: `Connect` / `ConnectJS` / `EnsureStreams` retry backoff
+  (500ms → tối đa 5s) trong `NATS_STARTUP_TIMEOUT_SEC` (mặc định 60s).
+  `ConnectJS` chờ `PingJS` thành công nên JetStream thật sự sẵn sàng.
+- `start_period` của service Go: `5s → 90s`. **Bắt buộc lớn hơn** NATS timeout,
+  nếu không healthcheck kết luận unhealthy trong lúc service còn hợp lệ đang đợi.
+- `make doctor`: in container không healthy + probe cuối + 40 dòng log.
+
+**Verify:**
+
+```bash
+docker compose -f deploy/docker-compose.yml stop nats
+docker compose -f deploy/docker-compose.yml up -d --no-deps billing-service
+docker inspect --format '{{.State.Status}}' deploy-billing-service-1   # running (trước: exited)
+docker logs --tail=3 deploy-billing-service-1   # WARN waiting for nats … attempt=…
+
+docker compose -f deploy/docker-compose.yml start nats
+# → billing tự chuyển healthy sau ~20s, không cần can thiệp
+```
+
 ## Ghi chú / blocker
 
 - **VPS 404:** mở `http://<IP>:8080/` trả `404 page not found` là **đúng hành vi** của API

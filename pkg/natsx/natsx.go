@@ -2,28 +2,72 @@ package natsx
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/nats-io/nats.go"
 )
 
+// startupTimeout bounds how long Connect/ConnectJS keep retrying before giving
+// up. In compose the broker can accept TCP before JetStream finishes recovering
+// its store, so a single attempt at boot is not enough on a cold or slow host.
+// Override with NATS_STARTUP_TIMEOUT_SEC (0 disables retrying).
+func startupTimeout() time.Duration {
+	if raw := os.Getenv("NATS_STARTUP_TIMEOUT_SEC"); raw != "" {
+		if sec, err := strconv.Atoi(raw); err == nil && sec >= 0 {
+			return time.Duration(sec) * time.Second
+		}
+	}
+	return 60 * time.Second
+}
+
+// retryUntil calls fn until it succeeds or the budget runs out, backing off
+// between attempts. It always runs fn at least once and returns the last error.
+func retryUntil(budget time.Duration, what string, fn func() error) error {
+	deadline := time.Now().Add(budget)
+	backoff := 500 * time.Millisecond
+	for attempt := 1; ; attempt++ {
+		err := fn()
+		if err == nil {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return err
+		}
+		slog.Warn("waiting for nats", "what", what, "attempt", attempt, "err", err, "retry_in", backoff)
+		time.Sleep(backoff)
+		if backoff < 5*time.Second {
+			backoff *= 2
+		}
+	}
+}
+
 // Connect opens a NATS connection (core). Prefer ConnectJS for JetStream work.
+// Retries until the broker accepts the connection (see startupTimeout).
 func Connect(url string) (*nats.Conn, error) {
 	if url == "" {
 		url = nats.DefaultURL
 	}
-	nc, err := nats.Connect(url,
-		nats.Name("gas-tam-de"),
-		nats.Timeout(5*time.Second),
-		nats.MaxReconnects(-1),
-	)
+	var nc *nats.Conn
+	err := retryUntil(startupTimeout(), "connect", func() error {
+		var err error
+		nc, err = nats.Connect(url,
+			nats.Name("gas-tam-de"),
+			nats.Timeout(5*time.Second),
+			nats.MaxReconnects(-1),
+		)
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("nats connect: %w", err)
 	}
 	return nc, nil
 }
 
-// ConnectJS opens NATS and returns a JetStream context.
+// ConnectJS opens NATS and returns a JetStream context, waiting until JetStream
+// itself answers so callers do not have to treat a cold broker as fatal.
 func ConnectJS(url string) (*nats.Conn, nats.JetStreamContext, error) {
 	nc, err := Connect(url)
 	if err != nil {
@@ -33,6 +77,10 @@ func ConnectJS(url string) (*nats.Conn, nats.JetStreamContext, error) {
 	if err != nil {
 		nc.Close()
 		return nil, nil, fmt.Errorf("jetstream context: %w", err)
+	}
+	if err := retryUntil(startupTimeout(), "jetstream", func() error { return PingJS(js) }); err != nil {
+		nc.Close()
+		return nil, nil, err
 	}
 	return nc, js, nil
 }
@@ -56,8 +104,13 @@ func DomainStreams() []StreamDef {
 	}
 }
 
-// EnsureStreams creates or updates domain streams (idempotent).
+// EnsureStreams creates or updates domain streams (idempotent), retrying while
+// JetStream is still coming up.
 func EnsureStreams(js nats.JetStreamContext) error {
+	return retryUntil(startupTimeout(), "ensure streams", func() error { return ensureStreamsOnce(js) })
+}
+
+func ensureStreamsOnce(js nats.JetStreamContext) error {
 	for _, def := range DomainStreams() {
 		cfg := &nats.StreamConfig{
 			Name:       def.Name,

@@ -52,6 +52,7 @@ services:
       BILLING_SERVICE_URL: "http://billing-service:8086"
       REPORT_SERVICE_URL: "http://report-service:8087"
       NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
     volumes:
       - ../data:/data
     ports:
@@ -62,7 +63,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       nats:
         condition: service_healthy
@@ -93,6 +94,7 @@ services:
       AUTH_ADDR: ":8081"
       AUTH_DB: "/data/auth.db"
       NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
       OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-1}"
       SMS_PROVIDER: "${SMS_PROVIDER:-mock}"
       SMS_VENDOR: "${SMS_VENDOR:-}"
@@ -111,7 +113,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       nats:
         condition: service_healthy
@@ -128,6 +130,7 @@ services:
       CATALOG_ADDR: ":8082"
       CATALOG_DB: "/data/catalog.db"
       NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
     volumes:
       - ../data:/data
     restart: unless-stopped
@@ -136,7 +139,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       nats:
         condition: service_healthy
@@ -153,6 +156,7 @@ services:
       GEO_ADDR: ":8083"
       GEO_DB: "/data/geo.db"
       NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
     volumes:
       - ../data:/data
     restart: unless-stopped
@@ -161,7 +165,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       nats:
         condition: service_healthy
@@ -181,6 +185,7 @@ services:
       CATALOG_SERVICE_URL: "http://catalog-service:8082"
       BILLING_SERVICE_URL: "http://billing-service:8086"
       NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
     volumes:
       - ../data:/data
     restart: unless-stopped
@@ -189,7 +194,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       nats:
         condition: service_healthy
@@ -212,6 +217,7 @@ services:
       INVENTORY_ADDR: ":8085"
       INVENTORY_DB: "/data/inventory.db"
       NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
     volumes:
       - ../data:/data
     restart: unless-stopped
@@ -220,7 +226,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       nats:
         condition: service_healthy
@@ -237,6 +243,7 @@ services:
       BILLING_ADDR: ":8086"
       BILLING_DB: "/data/billing.db"
       NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
     volumes:
       - ../data:/data
     restart: unless-stopped
@@ -245,7 +252,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       nats:
         condition: service_healthy
@@ -262,6 +269,7 @@ services:
       REPORT_ADDR: ":8087"
       REPORT_DB: "/data/report.db"
       NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
     volumes:
       - ../data:/data
     restart: unless-stopped
@@ -270,7 +278,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       nats:
         condition: service_healthy
@@ -294,7 +302,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 5s
+      start_period: 90s
     depends_on:
       api-gateway:
         condition: service_healthy

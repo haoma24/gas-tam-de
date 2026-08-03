@@ -15,12 +15,19 @@ Gas Tam Đệ monorepo: Flutter (`apps/mobile`) + Go microservices (`services/*`
 | Whole stack | `make compose-up` (builds everything, waits for healthy). `make nats` starts **only** NATS. |
 | Smoke | `make health` → gateway `/healthz` + `/v1/hello`; `make stack-health` covers containers + gateway + web. |
 | Logs | `make compose-logs` (all services), `make web-logs` (nginx), `make nats-logs` (NATS only). |
+| Debug unhealthy | `make doctor` → for each non-healthy container: last health probe output + 40 log lines. |
 | Go tests | `make test` (`go test ./...`). |
 
 Every compose service has a `healthcheck` + `restart: unless-stopped`, so a
 crashed container shows up as `unhealthy` in `make compose-ps` instead of failing
 silently. Successful `/healthz` requests are not access-logged (`pkg/httpx`), which
 keeps `docker compose logs` readable.
+
+`natsx.Connect`/`ConnectJS`/`EnsureStreams` retry with backoff for
+`NATS_STARTUP_TIMEOUT_SEC` (default 60s) instead of exiting on the first failure —
+the broker accepts TCP before JetStream finishes recovering its store, which made
+NATS-dependent services die at boot on slower hosts. Healthcheck `start_period` is
+90s to cover that wait; keep it above the NATS timeout if you change either.
 
 Dev defaults (no `.env` required): see `deploy/.env.example`. Local OTP returns `dev_code` when `OTP_DEV_REVEAL=1`. Seeded admin: `admin` / `admin-change-me` (`ADMIN_SEED=1`).
 
