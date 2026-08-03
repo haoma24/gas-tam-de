@@ -15,8 +15,35 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
   - Đồng bộ README / architecture → Go 1.25+
 - **Workdocs:** n/a (sửa config 1 dòng + docs)
 - **Liên quan:** Docker compose build failure
+## [2026-08-03] Gửi SMS OTP thật qua Stringee SMS REST
+
+- **Loại:** feature
+- **Phạm vi:** `services/auth-service`, `deploy`
+- **Tóm tắt:** Thay seam production (luôn `ErrSMSNotConfigured`) bằng client Stringee thật: `POST /v1/auth/otp/request` giờ gửi được OTP qua `POST https://api.stringee.com/v1/sms` với JWT `X-STRINGEE-AUTH`. Mock vẫn là default local.
+- **Chi tiết:**
+  - `StringeeSMSSender` — JWT HS256 (`cty=stringee-api;v=1`, `iss`/`jti`/`exp`/`rest_api`), body `{"sms":[{"from","to","text"}]}`, `to` dạng `84…`
+  - Chọn adapter: `SMS_PROVIDER=stringee` hoặc `production` + `SMS_VENDOR=stringee`; eSMS giữ seam cũ
+  - Env: `SMS_API_SID` / `SMS_API_SECRET` / `SMS_SENDER` (+ `SMS_API_URL`, `SMS_TIMEOUT_SEC`, `SMS_JWT_TTL_SEC`); fallback `SMS_API_KEY="sid:secret"`
+  - Lỗi vendor (`r != 0`, `smsSent < 1`, non-2xx) → `ErrSMSRejected` → `502 SMS_FAILED`; thiếu credential → fail-closed, không gọi vendor
+  - Không retry (tránh SMS trùng/tốn phí); log chỉ `phone_masked`, không log OTP/token
+  - `docker-compose.yml` truyền `SMS_*` + `OTP_DEV_REVEAL` vào `auth-service`
+- **Workdocs:** `docs/workdocs_sms_stringee_client_03082026/`
+- **Liên quan:** Sprint 1 / US-1.1 / T1.1.3, architecture §2 + §9.7
 
 ## [2026-08-03] Guest chỉ Đăng nhập; đơn hàng trong hồ sơ
+## [2026-08-03] Sync PRD: E10 Customer UX + T5.1.x desk + T7.1.3 stock reserve
+
+- **Loại:** docs
+- **Phạm vi:** `docs/prd.md`
+- **Tóm tắt:** Bổ sung E10 (brand shop, profile, lịch sử đơn, prefill) và cập nhật các task còn thiếu trong E5 (wait badge, TTS, desk settings), T7.1.3 (reserve/release logic), T9.2.6 (design system), user flow §3.1, MoSCoW should-have, Sprint 5.
+- **Chi tiết:**
+  - E10 mới: US-10.1–10.4 brand shop / hồ sơ / lịch sử / prefill
+  - E5: T5.1.5–5.1.7 badge/TTS; US-5.3 desk settings
+  - T7.1.3 ghi rõ reserve on placed / release on cancelled
+  - §3.1 user flow cập nhật flow mới (guest → Đăng nhập → shop)
+  - Sprint 5 bổ sung Customer UX
+- **Workdocs:** n/a (docs sync)
+- **Liên quan:** E10 / PR #4
 
 - **Loại:** feature
 - **Phạm vi:** `apps/mobile`
