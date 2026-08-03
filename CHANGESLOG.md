@@ -5,7 +5,19 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
-## [2026-08-03] Guest chỉ Đăng nhập; đơn hàng trong hồ sơ
+## [2026-08-03] Sync PRD: E10 Customer UX + T5.1.x desk + T7.1.3 stock reserve
+
+- **Loại:** docs
+- **Phạm vi:** `docs/prd.md`
+- **Tóm tắt:** Bổ sung E10 (brand shop, profile, lịch sử đơn, prefill) và cập nhật các task còn thiếu trong E5 (wait badge, TTS, desk settings), T7.1.3 (reserve/release logic), T9.2.6 (design system), user flow §3.1, MoSCoW should-have, Sprint 5.
+- **Chi tiết:**
+  - E10 mới: US-10.1–10.4 brand shop / hồ sơ / lịch sử / prefill
+  - E5: T5.1.5–5.1.7 badge/TTS; US-5.3 desk settings
+  - T7.1.3 ghi rõ reserve on placed / release on cancelled
+  - §3.1 user flow cập nhật flow mới (guest → Đăng nhập → shop)
+  - Sprint 5 bổ sung Customer UX
+- **Workdocs:** n/a (docs sync)
+- **Liên quan:** E10 / PR #4
 
 - **Loại:** feature
 - **Phạm vi:** `apps/mobile`
