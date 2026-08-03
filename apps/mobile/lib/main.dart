@@ -62,14 +62,12 @@ final _router = GoRouter(
           if (session != null && session.isCustomer) {
             return CustomerShopPage(
               onStartOrder: () => context.go('/order'),
-              onMyOrders: () => context.go('/orders/history'),
               onProfile: () => context.go('/profile'),
             );
           }
 
           return HomePage(
-            onStartOrder: () => context.go('/auth/phone'),
-            onMyOrders: () => context.go('/auth/phone'),
+            onLogin: () => context.go('/auth/phone'),
           );
         },
       ),
@@ -177,7 +175,8 @@ final _router = GoRouter(
     GoRoute(
       path: '/orders/history',
       builder: (context, state) => MyOrdersPage(
-        onBack: () => context.go('/'),
+        // Order history lives under profile after login.
+        onBack: () => context.go('/profile'),
       ),
     ),
     GoRoute(

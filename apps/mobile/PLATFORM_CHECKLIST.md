@@ -75,8 +75,8 @@ flutter run -d chrome
 
 Checklist:
 
-- [ ] Home (guest): brand **Gas Tam Đệ** + CTA **Đặt giao gas** (không nút admin)
-- [ ] Sau OTP: shop brand + hồ sơ `/profile`; admin session mở `/` → `/admin`
+- [ ] Home (guest): brand **Gas Tam Đệ** + chỉ CTA **Đăng nhập**
+- [ ] Sau OTP: shop + hồ sơ (đơn hàng trong hồ sơ); admin session `/` → `/admin`
 - [ ] Flow địa chỉ: **Dùng vị trí hiện tại** → prompt trình duyệt → lat/lng hoặc message từ chối
 - [ ] Bản đồ `flutter_map` hiển thị (cần mạng cho tile OSM)
 - [ ] Order Desk → **Dẫn đường** → tab Google Maps directions (HTTPS)

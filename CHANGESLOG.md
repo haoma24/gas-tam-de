@@ -5,6 +5,17 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-03] Guest chỉ Đăng nhập; đơn hàng trong hồ sơ
+
+- **Loại:** feature
+- **Phạm vi:** `apps/mobile`
+- **Tóm tắt:** Màn đầu chỉ còn nút **Đăng nhập** (OTP). Quản lý «Đơn hàng của tôi» chỉ vào từ hồ sơ sau login; bỏ tab Đơn trên shop bottom nav.
+- **Chi tiết:**
+  - `HomePage`: một CTA «Đăng nhập» → `/auth/phone`
+  - Shop nav: Cửa hàng | Hồ sơ; `/orders/history` back → `/profile`
+- **Workdocs:** `docs/workdocs_customer_shop_profile_03082026/`
+- **Liên quan:** UX Home / hồ sơ khách
+
 ## [2026-08-03] Customer shop brand + hồ sơ + admin redirect theo role
 
 - **Loại:** feature

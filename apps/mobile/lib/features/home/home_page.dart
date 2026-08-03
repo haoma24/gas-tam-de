@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 
-/// Guest landing — brand Gas Tam Đệ + CTA đặt gas (OTP). No admin entry CTA.
+/// Guest landing — brand Gas Tam Đệ + single «Đăng nhập» (OTP). No other CTAs.
 class HomePage extends StatelessWidget {
   const HomePage({
     super.key,
-    required this.onStartOrder,
-    this.onMyOrders,
+    required this.onLogin,
   });
 
-  final VoidCallback onStartOrder;
-  final VoidCallback? onMyOrders;
+  final VoidCallback onLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -79,32 +77,22 @@ class HomePage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Đặt bình gas chỉ với số điện thoại.',
+                      'Đăng nhập bằng số điện thoại để đặt gas và quản lý đơn.',
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const Spacer(),
                     FilledButton(
-                      onPressed: onStartOrder,
+                      onPressed: onLogin,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(56),
                         textStyle: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      child: const Text('Đặt giao gas'),
+                      child: const Text('Đăng nhập'),
                     ),
-                    if (onMyOrders != null) ...[
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: onMyOrders,
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                        ),
-                        child: const Text('Đã có tài khoản? Xem đơn của tôi'),
-                      ),
-                    ],
                   ],
                 ),
               ),

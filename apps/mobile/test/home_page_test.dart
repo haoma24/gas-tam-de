@@ -3,18 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gas_tam_de/features/home/home_page.dart';
 
 void main() {
-  testWidgets('guest home shows brand CTA without admin button', (tester) async {
+  testWidgets('guest home shows only Đăng nhập', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: HomePage(
-          onStartOrder: () {},
-          onMyOrders: () {},
-        ),
+        home: HomePage(onLogin: () {}),
       ),
     );
 
     expect(find.text('Gas Tam Đệ'), findsOneWidget);
-    expect(find.text('Đặt giao gas'), findsOneWidget);
+    expect(find.text('Đăng nhập'), findsOneWidget);
+    expect(find.text('Đặt giao gas'), findsNothing);
     expect(find.text('Dành cho cửa hàng'), findsNothing);
+    expect(find.textContaining('Đơn của tôi'), findsNothing);
   });
 }

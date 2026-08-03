@@ -4,9 +4,9 @@ Một codebase **Web + Android + iOS** (architecture §8.4).
 
 | Lối vào | Vai trò | Route |
 |---------|---------|--------|
-| **Đặt giao gas** | Khách (guest) | `/` → `/auth/phone` → OTP → **shop brand** (`/`) |
-| Shop sau OTP | Khách đã login | Hero brand + danh mục + CTA đặt hàng; **Hồ sơ** `/profile` |
-| Admin | CCH | Deep link `/admin/login` → desk; session `role=admin` mở `/` sẽ **tự vào** `/admin` (không còn nút «Dành cho cửa hàng» trên Home) |
+| **Đăng nhập** | Khách (guest) | `/` → `/auth/phone` → OTP → **shop brand** (`/`) |
+| Shop sau OTP | Khách đã login | Hero brand + danh mục + CTA đặt hàng; **Hồ sơ** `/profile` (gồm đơn của tôi) |
+| Admin | CCH | Deep link `/admin/login` → desk; session `role=admin` mở `/` sẽ **tự vào** `/admin` |
 
 Cùng `lib/` trên mọi target; chỉ khác artifact build (`web` / `apk` / `ipa`).
 
@@ -134,8 +134,8 @@ Seed admin mặc định (auth-service): username `admin` / password `admin-chan
 ### Verify nhanh CTA shell (T9.2.4)
 
 1. `flutter pub get` trong `apps/mobile`.
-2. Web: `flutter run -d chrome` → Home thấy **Gas Tam Đệ**, **Đặt giao gas** (không còn «Dành cho cửa hàng»).
-3. OTP xong → shop brand + danh mục; **Hồ sơ** sửa tên / đăng xuất.
+2. Web: `flutter run -d chrome` → Home thấy **Gas Tam Đệ** + **Đăng nhập** only.
+3. OTP xong → shop; **Hồ sơ** → Đơn hàng của tôi / sửa tên / đăng xuất.
 4. Admin: mở `/#/admin/login` → desk; refresh `/` vẫn vào admin khi còn session.
 
 ### Verify nhanh màn sản phẩm (admin)

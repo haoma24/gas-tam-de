@@ -11,12 +11,10 @@ class CustomerShopPage extends ConsumerStatefulWidget {
   const CustomerShopPage({
     super.key,
     required this.onStartOrder,
-    required this.onMyOrders,
     required this.onProfile,
   });
 
   final VoidCallback onStartOrder;
-  final VoidCallback onMyOrders;
   final VoidCallback onProfile;
 
   @override
@@ -124,19 +122,13 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         onDestinationSelected: (i) {
-          if (i == 1) widget.onMyOrders();
-          if (i == 2) widget.onProfile();
+          if (i == 1) widget.onProfile();
         },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
             selectedIcon: Icon(Icons.storefront),
             label: 'Cửa hàng',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Đơn của tôi',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
