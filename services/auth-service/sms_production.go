@@ -9,7 +9,8 @@ import (
 // ProductionSMSConfig holds credentials for a real VN SMS vendor.
 // Fill via env (SMS_API_KEY, …); do not commit secrets.
 type ProductionSMSConfig struct {
-	// Vendor is a label for the intended provider, e.g. "esms", "stringee".
+	// Vendor is a label for the intended provider, e.g. "esms" (stringee has
+	// its own client in sms_stringee.go).
 	Vendor string
 	APIKey string
 	APIURL string
@@ -43,7 +44,7 @@ func (p *ProductionSMSSender) SendOTP(ctx context.Context, phoneE164, code strin
 		return fmt.Errorf("%w: set SMS_API_KEY (and wire vendor client)", ErrSMSNotConfigured)
 	}
 
-	// Seam for eSMS / Stringee / equivalent:
+	// Seam for eSMS / equivalent VN vendor:
 	// 1. Build HTTP request to p.cfg.APIURL with API key + sender + phoneE164 + otpSMSBody(code)
 	// 2. Never log raw OTP or full phone
 	// 3. Map vendor errors to a stable error for the OTP handler

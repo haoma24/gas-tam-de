@@ -116,6 +116,8 @@ func smsProviderName(s SMSSender) string {
 	switch s.(type) {
 	case *MockSMSSender:
 		return "mock"
+	case *StringeeSMSSender:
+		return "stringee"
 	case *ProductionSMSSender:
 		return "production"
 	default:

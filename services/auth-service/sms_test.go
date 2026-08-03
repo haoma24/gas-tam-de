@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMockSMSSenderRecordsSend(t *testing.T) {
@@ -55,9 +56,58 @@ func TestNewSMSSenderFromEnvDefaultMock(t *testing.T) {
 
 func TestNewSMSSenderFromEnvProduction(t *testing.T) {
 	t.Setenv("SMS_PROVIDER", "production")
-	t.Setenv("SMS_VENDOR", "stringee")
+	t.Setenv("SMS_VENDOR", "esms")
 	s := newSMSSenderFromEnv()
 	if _, ok := s.(*ProductionSMSSender); !ok {
 		t.Fatalf("want *ProductionSMSSender got %T", s)
+	}
+}
+
+func TestNewSMSSenderFromEnvStringee(t *testing.T) {
+	for _, env := range []struct{ provider, vendor string }{
+		{"stringee", ""},
+		{"production", "stringee"},
+		{"prod", "Stringee"},
+	} {
+		t.Setenv("SMS_PROVIDER", env.provider)
+		t.Setenv("SMS_VENDOR", env.vendor)
+		s := newSMSSenderFromEnv()
+		if _, ok := s.(*StringeeSMSSender); !ok {
+			t.Fatalf("provider=%q vendor=%q: want *StringeeSMSSender got %T", env.provider, env.vendor, s)
+		}
+	}
+}
+
+func TestStringeeConfigFromEnvSplitsAPIKeyPair(t *testing.T) {
+	t.Setenv("SMS_API_SID", "")
+	t.Setenv("SMS_API_SECRET", "")
+	t.Setenv("SMS_API_KEY", "SKpair:secretpair")
+	t.Setenv("SMS_SENDER", "GASTAMDE")
+	t.Setenv("SMS_API_URL", "")
+	t.Setenv("SMS_TIMEOUT_SEC", "7")
+
+	cfg := stringeeConfigFromEnv()
+	if cfg.APIKeySID != "SKpair" || cfg.APIKeySecret != "secretpair" {
+		t.Fatalf("cfg=%+v", cfg)
+	}
+	if cfg.Brandname != "GASTAMDE" {
+		t.Fatalf("brandname=%q", cfg.Brandname)
+	}
+	if cfg.APIURL != stringeeDefaultAPIURL {
+		t.Fatalf("api url=%q", cfg.APIURL)
+	}
+	if cfg.Timeout != 7*time.Second {
+		t.Fatalf("timeout=%v", cfg.Timeout)
+	}
+}
+
+func TestStringeeConfigFromEnvExplicitPairWins(t *testing.T) {
+	t.Setenv("SMS_API_SID", "SKexplicit")
+	t.Setenv("SMS_API_SECRET", "secretexplicit")
+	t.Setenv("SMS_API_KEY", "SKpair:secretpair")
+
+	cfg := stringeeConfigFromEnv()
+	if cfg.APIKeySID != "SKexplicit" || cfg.APIKeySecret != "secretexplicit" {
+		t.Fatalf("cfg=%+v", cfg)
 	}
 }
