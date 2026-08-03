@@ -12,7 +12,7 @@ NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
 .PHONY: help nats-up nats-down nats-logs nats-init nats wait-nats \
 	gateway auth catalog geo order inventory billing report \
 	tidy test build compose-up compose-down compose-ps compose-logs \
-	web-up web-logs web-health health stack-health \
+	web-up web-logs web-health health stack-health doctor \
 	flutter-get flutter-create flutter-web flutter-android flutter-ios flutter-devices
 
 .DEFAULT_GOAL := help
@@ -30,6 +30,7 @@ help:
 	@echo "    make compose-down Stop full stack"
 	@echo "    make compose-ps   Status of every container (incl. health)"
 	@echo "    make compose-logs Tail logs of ALL services (not just NATS)"
+	@echo "    make doctor       Why is a container unhealthy? (status + probe + logs)"
 	@echo ""
 	@echo "  Website (Flutter Web + nginx in Docker, port 8090)"
 	@echo "    make web-up       Build + start web (and its API deps)"
@@ -96,6 +97,25 @@ compose-ps:
 
 compose-logs:
 	$(COMPOSE) logs -f --tail=100
+
+# Prints, for every container that is not healthy, the last health-probe output
+# and the tail of its logs — the two things needed to explain "is unhealthy".
+doctor:
+	@echo "=== containers ==="
+	@$(COMPOSE) ps -a
+	@echo
+	@for c in $$($(COMPOSE) ps -aq); do \
+		name=$$(docker inspect --format '{{.Name}}' $$c | sed 's|^/||'); \
+		state=$$(docker inspect --format '{{.State.Status}}' $$c); \
+		health=$$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' $$c); \
+		if [ "$$health" = "healthy" ] && [ "$$state" = "running" ]; then continue; fi; \
+		echo "=== $$name (state=$$state health=$$health) ==="; \
+		docker inspect --format '{{if .State.Health}}last probe: {{range $$i, $$l := .State.Health.Log}}{{if eq $$i 0}}{{end}}{{end}}{{(index .State.Health.Log 0).Output}}{{end}}' $$c 2>/dev/null || true; \
+		echo "--- last 40 log lines ---"; \
+		docker logs --tail=40 $$c 2>&1 || true; \
+		echo; \
+	done
+	@echo "All healthy containers omitted. Nothing above means the stack is fine."
 
 # --- Website (Flutter Web served by nginx) ---
 

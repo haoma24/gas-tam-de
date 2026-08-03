@@ -5,6 +5,22 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-03] Service chờ NATS thay vì chết khi deploy VPS
+
+- **Loại:** fix
+- **Phạm vi:** `pkg/natsx`, `deploy/docker-compose.yml`, `Makefile`, docs
+- **Tóm tắt:** Deploy VPS fail `dependency failed to start: container …-billing-service-1 is unhealthy`. Các service dùng NATS gọi `ConnectJS`/`EnsureStreams` **một lần rồi `os.Exit(1)`**; NATS chấp nhận TCP trước khi JetStream restore xong store nên trên host chậm/cold start service chết ngay lúc boot. Giờ retry có backoff và healthcheck cho đủ thời gian.
+- **Chi tiết:**
+  - `natsx.Connect` / `ConnectJS` / `EnsureStreams`: retry backoff (500ms → 5s) trong `NATS_STARTUP_TIMEOUT_SEC` (mặc định 60s, `0` = thử 1 lần); log `WARN waiting for nats what=… attempt=…`
+  - `ConnectJS` chờ `PingJS` OK ⇒ JetStream thật sự sẵn sàng, không chỉ TCP
+  - compose: `start_period` của service Go `5s → 90s` (phải > NATS timeout, nếu không container bị kết luận unhealthy trong lúc còn đang đợi); truyền `NATS_STARTUP_TIMEOUT_SEC` vào 8 service
+  - `make doctor`: chỉ in container **không** healthy kèm output probe cuối + 40 dòng log — trả lời được "vì sao unhealthy"
+  - Test: `TestConnectJSWaitsForBrokerStartedLate` (broker bật trễ 1.5s), `TestConnectFailsAfterBudgetWhenBrokerNeverArrives`, `TestRetryUntil*`
+  - Verify: stop NATS → billing `running/starting` + log `waiting for nats` (trước đây `Exited`); start NATS → tự `healthy` sau ~20s
+  - README: mục "Khi deploy báo `container … is unhealthy`"
+- **Workdocs:** `docs/workdocs_web_service_compose_observability_03082026/`
+- **Liên quan:** Deploy VPS `ts-gas-tam-de` fail; nối tiếp thay đổi healthcheck cùng ngày
+
 ## [2026-08-03] Website vào docker-compose + healthcheck cho toàn stack
 
 - **Loại:** fix

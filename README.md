@@ -88,6 +88,32 @@ make compose-up
 
 Hoặc giữ web ở 8090 và để nginx/Caddy trên host reverse-proxy `80/443 → 127.0.0.1:8090`.
 
+### Khi deploy báo `container ... is unhealthy`
+
+```bash
+make doctor    # chỉ in container KHÔNG healthy: probe cuối + 40 dòng log
+```
+
+Hoặc trực tiếp (thay `-p` bằng project name của bạn):
+
+```bash
+docker compose -p <project> logs billing-service --tail=50
+```
+
+Các service `catalog`, `order`, `inventory`, `billing`, `report` cần **NATS
+JetStream**. Chúng sẽ **chờ** NATS tối đa `NATS_STARTUP_TIMEOUT_SEC` (mặc định
+60s) và log `WARN waiting for nats …` thay vì chết ngay; hết budget mới thoát và
+được `restart: unless-stopped` khởi động lại. VPS yếu / cold start có thể cần
+nới thêm:
+
+```bash
+# deploy/.env
+NATS_STARTUP_TIMEOUT_SEC=180
+```
+
+`healthcheck` của các service Go dùng `start_period: 90s` để không kết luận
+"unhealthy" trong lúc service còn đang đợi NATS.
+
 Website gọi API **same-origin**: nginx proxy `/v1/*` và `/healthz` sang
 `api-gateway:8080`, nên trình duyệt không cần CORS. Các service `auth`, `catalog`,
 `geo`, `order`, `inventory`, `billing`, `report` **cố ý không publish cổng ra host**
