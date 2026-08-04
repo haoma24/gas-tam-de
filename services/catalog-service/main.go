@@ -18,7 +18,7 @@ const serviceName = "catalog-service"
 var schemaFS embed.FS
 
 func main() {
-	addr := config.Get("CATALOG_ADDR", ":8082")
+	addr := config.ListenAddr("CATALOG_ADDR", ":8082")
 	dbPath := config.Get("CATALOG_DB", "data/catalog.db")
 	natsURL := config.Get("NATS_URL", "nats://127.0.0.1:4222")
 

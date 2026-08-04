@@ -18,7 +18,7 @@ const serviceName = "report-service"
 var schemaFS embed.FS
 
 func main() {
-	addr := config.Get("REPORT_ADDR", ":8087")
+	addr := config.ListenAddr("REPORT_ADDR", ":8087")
 	dbPath := config.Get("REPORT_DB", "data/report.db")
 	natsURL := config.Get("NATS_URL", "nats://127.0.0.1:4222")
 

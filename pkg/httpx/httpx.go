@@ -3,8 +3,10 @@ package httpx
 import (
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -92,8 +94,36 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 	})
 }
 
+// NormalizeListenAddr rewrites bare ":port" to "0.0.0.0:port".
+//
+// Go's default Listen(":port") can bind IPv6-only on hosts with
+// net.ipv6.bindv6only=1. Docker healthchecks probe 127.0.0.1, so the
+// container looks unhealthy even though the process is up. Binding IPv4
+// explicitly keeps compose probes working on those VPS kernels.
+func NormalizeListenAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return "0.0.0.0:8080"
+	}
+	if strings.HasPrefix(addr, ":") && !strings.HasPrefix(addr, "::") {
+		return "0.0.0.0" + addr
+	}
+	return addr
+}
+
 // ListenAndServe starts HTTP and logs the address.
+// Addresses normalized to 0.0.0.0:* use the tcp4 network so probes to
+// 127.0.0.1 succeed even when the host has net.ipv6.bindv6only=1.
 func ListenAndServe(addr, serviceName string, handler http.Handler) error {
-	slog.Info("listening", "service", serviceName, "addr", addr)
-	return http.ListenAndServe(addr, handler)
+	addr = NormalizeListenAddr(addr)
+	network := "tcp"
+	if strings.HasPrefix(addr, "0.0.0.0:") {
+		network = "tcp4"
+	}
+	ln, err := net.Listen(network, addr)
+	if err != nil {
+		return err
+	}
+	slog.Info("listening", "service", serviceName, "addr", addr, "network", network)
+	return http.Serve(ln, handler)
 }
