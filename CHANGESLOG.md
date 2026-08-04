@@ -5,6 +5,20 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Fix Stage 5: override YAML vỡ vì `GEOCODE_USER_AGENT` chứa `: `
+
+- **Loại:** fix
+- **Phạm vi:** `deploy/.env.example`, `services/geo-service`, `scripts/check-env-yaml-safe.sh`, CI
+- **Tóm tắt:** Cursor Cloud Stage 5 (Run Container) fail parse `docker-compose.override.yml` với `did not find expected key` (khoảng dòng 19/23). Platform copy `KEY=VALUE` từ `.env.example` thành YAML **không quote**; `GEOCODE_USER_AGENT=... contact: local` chứa `: ` nên bị hiểu là nested mapping. Đổi thành `contact=local` và thêm guardrail CI/Make.
+- **Chi tiết:**
+  - `GEOCODE_USER_AGENT` / `defaultUserAgent`: `contact: local` → `contact=local` (không còn colon+space)
+  - Ghi chú constraint Stage 5 trong `deploy/.env.example`
+  - `scripts/check-env-yaml-safe.sh` + `make check-env-yaml` (+ `dev.ps1`): fail sớm nếu value có `: `
+  - Backend CI: chạy check trong job test; trigger thêm khi đổi `.env.example` / script
+  - Lưu ý: nếu project settings Cursor Cloud vẫn inject env cũ có `: `, xóa/sửa biến đó trên UI
+- **Workdocs:** `docs/workdocs_compose_override_yaml_04082026/`
+- **Liên quan:** Stage 5 Run Container; nối tiếp hardcode GHCR image names / CI push 2026-08-04
+
 ## [2026-08-04] CI backend: build + push images to GHCR; VPS dùng pre-built image
 
 - **Loại:** fix / ci

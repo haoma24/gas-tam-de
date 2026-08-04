@@ -12,7 +12,7 @@ NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
 .PHONY: help nats-up nats-down nats-logs nats-init nats wait-nats \
 	gateway auth catalog geo order inventory billing report \
 	tidy test build compose-up compose-down compose-ps compose-logs \
-	web-up web-logs web-health health stack-health doctor \
+	web-up web-logs web-health health stack-health doctor check-env-yaml \
 	flutter-get flutter-create flutter-web flutter-android flutter-ios flutter-devices
 
 .DEFAULT_GOAL := help
@@ -31,6 +31,7 @@ help:
 	@echo "    make compose-ps   Status of every container (incl. health)"
 	@echo "    make compose-logs Tail logs of ALL services (not just NATS)"
 	@echo "    make doctor       Why is a container unhealthy? (status + probe + logs)"
+	@echo "    make check-env-yaml  Ensure .env.example is safe for Cursor Cloud override YAML"
 	@echo ""
 	@echo "  Website (Flutter Web + nginx in Docker, port 8090)"
 	@echo "    make web-up       Build + start web (and its API deps)"
@@ -91,6 +92,11 @@ compose-up:
 
 compose-down:
 	$(COMPOSE) down
+
+# Cursor Cloud Stage 5 generates docker-compose.override.yml from .env.example
+# with unquoted YAML values — catch ": " breakages before deploy.
+check-env-yaml:
+	@./scripts/check-env-yaml-safe.sh
 
 compose-ps:
 	$(COMPOSE) ps -a

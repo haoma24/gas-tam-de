@@ -11,7 +11,7 @@ param(
         'help', 'nats-up', 'nats-down', 'nats-logs', 'nats-init', 'nats', 'wait-nats',
         'gateway', 'auth', 'catalog', 'geo', 'order', 'inventory', 'billing', 'report',
         'tidy', 'test', 'build', 'compose-up', 'compose-down', 'compose-ps', 'compose-logs',
-        'web-up', 'web-logs', 'web-health', 'health', 'stack-health',
+        'web-up', 'web-logs', 'web-health', 'health', 'stack-health', 'check-env-yaml',
         'flutter-get', 'flutter-create', 'flutter-web', 'flutter-android', 'flutter-ios', 'flutter-devices'
     )]
     [string]$Command = 'help',
@@ -39,6 +39,7 @@ Gas Tam De - scripts/dev.ps1 (Windows DX)
     .\scripts\dev.ps1 compose-down Stop full stack
     .\scripts\dev.ps1 compose-ps   Status of every container (incl. health)
     .\scripts\dev.ps1 compose-logs Tail logs of ALL services (not just NATS)
+    .\scripts\dev.ps1 check-env-yaml  Ensure .env.example is safe for Cursor Cloud override YAML
 
   Website (Flutter Web + nginx in Docker, http://127.0.0.1:8090)
     .\scripts\dev.ps1 web-up       Build + start web (and its API deps)
@@ -116,6 +117,10 @@ switch ($Command) {
     'compose-down' { Invoke-Compose @('down') }
     'compose-ps' { Invoke-Compose @('ps', '-a') }
     'compose-logs' { Invoke-Compose @('logs', '-f', '--tail=100') }
+    'check-env-yaml' {
+        & bash ./scripts/check-env-yaml-safe.sh
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
     'web-up' {
         Invoke-Compose @('up', '--build', '-d', '--wait', 'web')
         Invoke-Compose @('ps', '-a')
