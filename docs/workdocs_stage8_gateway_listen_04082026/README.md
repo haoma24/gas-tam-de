@@ -60,3 +60,5 @@ Sau khi qua Stage 5, Stage 8 fail với phân tích AI: ứng dụng không list
   Dockerfile `ENV PORT`) trước khi VPS `up --no-build` lấy image mới.
 - Trên VPS Environment: thêm `PORT=8080`; **không** set
   `GATEWAY_ADDR=127.0.0.1:8080`.
+- Follow-up Traefik Unreachable: xem [coolify-traefik.md](./coolify-traefik.md)
+  (bỏ `networks.gastamde` + label port 8080).

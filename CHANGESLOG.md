@@ -5,6 +5,20 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Fix Stage 8 Traefik Unreachable: bỏ custom network Coolify
+
+- **Loại:** fix
+- **Phạm vi:** `deploy/docker-compose.yml`, `.github/workflows/backend-ci.yml`
+- **Tóm tắt:** Stage 8 vẫn fail `HEALTHCHECK FAILED cause=Unreachable labeledPort=8080` dù gateway đã bind `0.0.0.0:8080`. Coolify/Traefik chỉ gắn vào network do platform tạo; compose định nghĩa `networks.gastamde` khiến container nằm 2 network và Traefik resolve IP sai. Xóa custom network + label `loadbalancer.server.port=8080`. Đồng thời sửa CI: `secrets.*` trong `if:` làm workflow không chạy (0s failure) nên image `:stag` không được push.
+- **Chi tiết:**
+  - Xóa mọi `networks: [gastamde]` và block `networks.gastamde`
+  - `api-gateway` labels: `traefik.enable=true`, `traefik.http.services.api-gateway.loadbalancer.server.port=8080`
+  - CI: không dùng `secrets` trong `if:`; check `GHCR_WRITE_TOKEN` trong script
+  - Trigger CI khi đổi `deploy/docker-compose.yml`
+- **Coolify UI:** Ports Exposes / public service = **8080** (api-gateway)
+- **Workdocs:** `docs/workdocs_stage8_gateway_listen_04082026/coolify-traefik.md`
+- **Liên quan:** Stage 8; Coolify “Do Not Define Custom Networks”
+
 ## [2026-08-04] Fix Stage 8 Health Check: gateway listen `0.0.0.0:8080` sớm
 
 - **Loại:** fix

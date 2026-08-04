@@ -15,6 +15,12 @@
 # stale image. Images are published to GHCR by backend-ci.yml on every push
 # to stag; `up --no-build` pulls them directly. Local `make compose-up`
 # (--build) rebuilds fresh and re-tags the image with the same name.
+#
+# Coolify / Traefik (VPS Stage 8): do NOT define custom `networks:`. Coolify
+# creates its own bridge and attaches Traefik; a custom network puts containers
+# on two nets and Traefik may pick the unreachable IP →
+# "HEALTHCHECK FAILED cause=Unreachable labeledPort=8080".
+# api-gateway declares loadbalancer.server.port=8080 for the proxy.
 
 services:
   nats:
@@ -32,8 +38,6 @@ services:
       timeout: 3s
       retries: 10
       start_period: 5s
-    networks:
-      - gastamde
 
   api-gateway:
     image: ghcr.io/haoma24/gas-tam-de/api-gateway:stag
@@ -43,6 +47,10 @@ services:
       args:
         SERVICE: api-gateway
         EXPOSE_PORT: "8080"
+    # Coolify/Traefik: pin backend port so Stage 8 labeledPort=8080 hits gateway.
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.api-gateway.loadbalancer.server.port=8080
     environment:
       # Explicit 0.0.0.0 + PORT for Cursor Cloud Stage 8 (external probe on :8080).
       # Do not bind 127.0.0.1 — the platform health checker is outside the container.
@@ -95,8 +103,6 @@ services:
         condition: service_started
       report-service:
         condition: service_started
-    networks:
-      - gastamde
 
   auth-service:
     image: ghcr.io/haoma24/gas-tam-de/auth-service:stag
@@ -133,8 +139,6 @@ services:
     depends_on:
       nats:
         condition: service_healthy
-    networks:
-      - gastamde
 
   catalog-service:
     image: ghcr.io/haoma24/gas-tam-de/catalog-service:stag
@@ -161,8 +165,6 @@ services:
     depends_on:
       nats:
         condition: service_healthy
-    networks:
-      - gastamde
 
   geo-service:
     image: ghcr.io/haoma24/gas-tam-de/geo-service:stag
@@ -189,8 +191,6 @@ services:
     depends_on:
       nats:
         condition: service_healthy
-    networks:
-      - gastamde
 
   order-service:
     image: ghcr.io/haoma24/gas-tam-de/order-service:stag
@@ -226,8 +226,6 @@ services:
         condition: service_healthy
       billing-service:
         condition: service_healthy
-    networks:
-      - gastamde
 
   inventory-service:
     image: ghcr.io/haoma24/gas-tam-de/inventory-service:stag
@@ -254,8 +252,6 @@ services:
     depends_on:
       nats:
         condition: service_healthy
-    networks:
-      - gastamde
 
   billing-service:
     image: ghcr.io/haoma24/gas-tam-de/billing-service:stag
@@ -282,8 +278,6 @@ services:
     depends_on:
       nats:
         condition: service_healthy
-    networks:
-      - gastamde
 
   report-service:
     image: ghcr.io/haoma24/gas-tam-de/report-service:stag
@@ -310,8 +304,6 @@ services:
     depends_on:
       nats:
         condition: service_healthy
-    networks:
-      - gastamde
 
   # The website itself. Without this service `docker compose logs` only ever
   # showed infrastructure (NATS) and no frontend at all.
@@ -335,12 +327,7 @@ services:
     depends_on:
       api-gateway:
         condition: service_healthy
-    networks:
-      - gastamde
 
 volumes:
   nats-data:
 
-networks:
-  gastamde:
-    driver: bridge

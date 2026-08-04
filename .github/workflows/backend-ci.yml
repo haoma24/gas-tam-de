@@ -28,6 +28,7 @@ on:
       - "go.mod"
       - "go.sum"
       - "deploy/Dockerfile.service"
+      - "deploy/docker-compose.yml"
       - "deploy/.env.example"
       - "deploy/.env.vps.example"
       - "scripts/check-env-yaml-safe.sh"
@@ -39,6 +40,7 @@ on:
       - "go.mod"
       - "go.sum"
       - "deploy/Dockerfile.service"
+      - "deploy/docker-compose.yml"
       - "deploy/.env.example"
       - "deploy/.env.vps.example"
       - "scripts/check-env-yaml-safe.sh"
@@ -138,11 +140,17 @@ jobs:
       # Requires repo secret GHCR_WRITE_TOKEN = PAT owned by haoma24 with
       # write:packages scope. Without the secret this step is skipped — see
       # workflow header for the manual alternative.
+      # NOTE: do not use `secrets.*` in `if:` — GHA rejects the workflow
+      # ("failed because of a workflow file issue") and CI never runs jobs.
       - name: Make GHCR package public (requires GHCR_WRITE_TOKEN secret)
-        if: github.event_name == 'push' && secrets.GHCR_WRITE_TOKEN != ''
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GHCR_WRITE_TOKEN }}
         run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "GHCR_WRITE_TOKEN not set — skip making package public"
+            exit 0
+          fi
           gh api \
             --method PATCH \
             -H "Accept: application/vnd.github+json" \
