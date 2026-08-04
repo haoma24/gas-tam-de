@@ -121,8 +121,30 @@ nối; hết budget thì vòng sau retry tiếp, service không thoát.
 Nếu deploy chạy `docker compose up --no-build`, nhớ **build lại image** — image
 cũ vẫn chặn ở NATS trước khi mount `/healthz`.
 
+### Khi deploy báo `HEALTHCHECK FAILED cause=NotOnNet`
+
+Platform (Cursor Cloud / Coolify) chạy compose xong mới `docker network connect`
+container vào network của Traefik. Lệnh đó **fail nếu container đang
+`restarting`** (crash loop) hoặc nếu container của lần deploy trước còn giữ tên
+endpoint. Kết quả: `Warning: failed to connect container <id> to tensorship-net`
+rồi `cause=NotOnNet`.
+
+```bash
+./scripts/vps-net-check.sh        # container nào chưa lên proxy network
+./scripts/vps-net-check.sh --fix  # attach lại (make vps-net-fix)
+# cột STATE = restarting ⇒ sửa crash loop trước: docker logs <container>
+PROXY_NETWORK=<net> ./scripts/vps-net-check.sh   # proxy dùng network khác
+```
+
+Deploy bằng `docker compose up --no-build` cần **đủ image trên GHCR**: 8 service
+Go do `backend-ci.yml` push, còn website do `web-image.yml` push
+(`gas-tam-de/web:stag`). Thiếu image `web` thì bước pull hỏng và website không
+bao giờ lên.
+
 Website gọi API **same-origin**: nginx proxy `/v1/*` và `/healthz` sang
-`api-gateway:8080`, nên trình duyệt không cần CORS. Các service `auth`, `catalog`,
+`api-gateway:8080`, nên trình duyệt không cần CORS. nginx resolve hostname
+`api-gateway` **theo từng request** qua DNS nội bộ của Docker, nên gateway chưa
+lên chỉ làm `/v1/*` trả `503` chứ không giết container website. Các service `auth`, `catalog`,
 `geo`, `order`, `inventory`, `billing`, `report` **cố ý không publish cổng ra host**
 — chúng đi qua gateway. Tất cả service đều có `healthcheck` + `restart: unless-stopped`,
 nên container chết sẽ hiện `unhealthy` trong `make compose-ps` thay vì im lặng.

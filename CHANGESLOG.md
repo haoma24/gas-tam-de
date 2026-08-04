@@ -5,6 +5,21 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Fix Stage 8 `NotOnNet`: nginx crash loop + push image `web`
+
+- **Loại:** fix
+- **Phạm vi:** `deploy/nginx.web.conf`, `deploy/docker-compose.yml`, `.github/workflows/web-image.yml`, `scripts/vps-net-check.sh`, `Makefile`, `README.md`
+- **Tóm tắt:** Deploy fail `HEALTHCHECK FAILED cause=NotOnNet labeledPort=8080` kèm `failed to connect container ... to tensorship-net`. nginx dùng hostname literal trong `proxy_pass` nên resolve `api-gateway` **lúc parse config** và thoát (`host not found in upstream`) khi gateway chưa lên; container crash loop ở trạng thái `restarting` thì `docker network connect` fail → NotOnNet. Ngoài ra image `gas-tam-de/web:stag` chưa từng được CI push nên `up --no-build` không pull được website.
+- **Chi tiết:**
+  - nginx: `resolver 127.0.0.11 ipv6=off valid=10s` + `proxy_pass $api_gateway$request_uri`; gateway chết → `503` JSON (`@api_unavailable`) thay vì nginx chết
+  - `web.depends_on.api-gateway`: `service_healthy` → `service_started`
+  - Label `traefik.docker.network=${PROXY_NETWORK:-tensorship-net}` cho api-gateway (container nằm trên network default + proxy net)
+  - Workflow mới `web-image.yml`: build/push `ghcr.io/<owner>/gas-tam-de/web:stag`, có `workflow_dispatch`
+  - `scripts/vps-net-check.sh` (+ `make vps-net-check` / `vps-net-fix`): liệt kê container thiếu proxy network, `--fix` attach lại, phân biệt crash loop
+- **VPS:** merge để CI push `web:stag`, redeploy; nếu còn NotOnNet chạy `./scripts/vps-net-check.sh --fix`
+- **Workdocs:** `docs/workdocs_stage8_notonnet_web_image_04082026/`
+- **Liên quan:** Stage 8 Health Check; nối tiếp fix “Traefik Unreachable”
+
 ## [2026-08-04] Fix Stage 8 Traefik Unreachable: bỏ custom network Coolify
 
 - **Loại:** fix

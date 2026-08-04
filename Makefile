@@ -13,6 +13,7 @@ NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
 	gateway auth catalog geo order inventory billing report \
 	tidy test build compose-up compose-down compose-ps compose-logs \
 	web-up web-logs web-health health stack-health doctor check-env-yaml \
+	vps-net-check vps-net-fix \
 	flutter-get flutter-create flutter-web flutter-android flutter-ios flutter-devices
 
 .DEFAULT_GOAL := help
@@ -32,6 +33,8 @@ help:
 	@echo "    make compose-logs Tail logs of ALL services (not just NATS)"
 	@echo "    make doctor       Why is a container unhealthy? (status + probe + logs)"
 	@echo "    make check-env-yaml  Ensure .env.example is safe for Cursor Cloud override YAML"
+	@echo "    make vps-net-check   Which containers are missing from the platform proxy net?"
+	@echo "    make vps-net-fix     Attach those containers (deploy said cause=NotOnNet)"
 	@echo ""
 	@echo "  Website (Flutter Web + nginx in Docker, port 8090)"
 	@echo "    make web-up       Build + start web (and its API deps)"
@@ -97,6 +100,14 @@ compose-down:
 # with unquoted YAML values — catch ": " breakages before deploy.
 check-env-yaml:
 	@./scripts/check-env-yaml-safe.sh
+
+# Deploy reported "HEALTHCHECK FAILED cause=NotOnNet" — the platform failed to
+# attach a container to its Traefik network. Override with PROXY_NETWORK=<name>.
+vps-net-check:
+	@./scripts/vps-net-check.sh
+
+vps-net-fix:
+	@./scripts/vps-net-check.sh --fix
 
 compose-ps:
 	$(COMPOSE) ps -a
