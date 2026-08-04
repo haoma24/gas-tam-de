@@ -114,6 +114,15 @@ trên network default của project. Traefik thấy 2 IP; không có
    `traefik.docker.network: tensorship-net`.
 6. `scripts/vps-net-check.sh` trên container giả: báo `no` → `--fix` attach →
    re-check `yes`, exit 0.
+7. Full stack `docker compose -f deploy/docker-compose.yml up -d --build`:
+   10/10 container `healthy`; `http://127.0.0.1:8090/` → 200,
+   `/v1/hello` và `/healthz` proxy đúng sang gateway.
+8. Kịch bản gây lỗi ban đầu — `stop api-gateway` rồi `restart web`:
+   web lên `healthy` sau 8s (trước đây chết), site vẫn 200, `/v1/hello` trả
+   `{"error":{"code":"api_unavailable",...}}`; `start api-gateway` xong
+   `/v1/hello` tự hồi phục mà không cần restart nginx.
+9. `deploy/Dockerfile.web` build được thật (`BUILD_EXIT=0`) → workflow mới có
+   image để push.
 
 ## Việc cần làm trên VPS
 
