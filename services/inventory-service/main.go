@@ -18,7 +18,7 @@ const serviceName = "inventory-service"
 var schemaFS embed.FS
 
 func main() {
-	addr := config.Get("INVENTORY_ADDR", ":8085")
+	addr := config.ListenAddr("INVENTORY_ADDR", ":8085")
 	dbPath := config.Get("INVENTORY_DB", "data/inventory.db")
 	natsURL := config.Get("NATS_URL", "nats://127.0.0.1:4222")
 

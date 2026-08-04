@@ -19,7 +19,7 @@ const serviceName = "auth-service"
 var schemaFS embed.FS
 
 func main() {
-	addr := config.Get("AUTH_ADDR", ":8081")
+	addr := config.ListenAddr("AUTH_ADDR", ":8081")
 	dbPath := config.Get("AUTH_DB", "data/auth.db")
 
 	db, err := sqlite.Open(dbPath)

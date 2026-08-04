@@ -23,7 +23,7 @@ type billingService struct {
 }
 
 func main() {
-	addr := config.Get("BILLING_ADDR", ":8086")
+	addr := config.ListenAddr("BILLING_ADDR", ":8086")
 	dbPath := config.Get("BILLING_DB", "data/billing.db")
 	natsURL := config.Get("NATS_URL", "nats://127.0.0.1:4222")
 

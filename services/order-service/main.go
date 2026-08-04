@@ -18,7 +18,7 @@ const serviceName = "order-service"
 var schemaFS embed.FS
 
 func main() {
-	addr := config.Get("ORDER_ADDR", ":8084")
+	addr := config.ListenAddr("ORDER_ADDR", ":8084")
 	dbPath := config.Get("ORDER_DB", "data/order.db")
 	geoURL := config.Get("GEO_SERVICE_URL", "http://127.0.0.1:8083")
 	catalogURL := config.Get("CATALOG_SERVICE_URL", "http://127.0.0.1:8082")

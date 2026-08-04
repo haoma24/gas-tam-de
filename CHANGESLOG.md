@@ -5,6 +5,20 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Fix geo-service unhealthy: bind IPv4 + wget + EXPOSE đúng cổng
+
+- **Loại:** fix
+- **Phạm vi:** `pkg/httpx`, `pkg/config`, `services/*`, `deploy`
+- **Tóm tắt:** Deploy VPS fail `container ts-gas-tam-de-geo-service-1 is unhealthy`. Process có thể đang listen IPv6-only (`:8083` → `:::8083`) trong khi healthcheck probe `127.0.0.1` — connection refused. Chuẩn hóa bind `0.0.0.0`, cài `wget` trong image service, `EXPOSE` đúng port theo service, hỗ trợ env `PORT`.
+- **Chi tiết:**
+  - `httpx.NormalizeListenAddr`: `:8083` → `0.0.0.0:8083` (tránh fail trên host `net.ipv6.bindv6only=1`)
+  - `config.ListenAddr`: `GEO_ADDR` (v.v.) → `PORT` → fallback; áp dụng 8 Go service
+  - `Dockerfile.service`: `apk add wget` (healthcheck không phụ thuộc busybox applet); `ARG EXPOSE_PORT` thay hardcode `EXPOSE 8080`
+  - compose: truyền `EXPOSE_PORT` (geo `8083`, …)
+  - Test: `TestNormalizeListenAddr`, `TestListenAddrOrder`
+- **Workdocs:** `docs/workdocs_geo_healthcheck_ipv4_04082026/`
+- **Liên quan:** Deploy VPS `ts-gas-tam-de`; nối tiếp fix NATS unhealthy 2026-08-03
+
 ## [2026-08-03] Service chờ NATS thay vì chết khi deploy VPS
 
 - **Loại:** fix

@@ -19,7 +19,7 @@ const serviceName = "geo-service"
 var schemaFS embed.FS
 
 func main() {
-	addr := config.Get("GEO_ADDR", ":8083")
+	addr := config.ListenAddr("GEO_ADDR", ":8083")
 	dbPath := config.Get("GEO_DB", "data/geo.db")
 
 	db, err := sqlite.Open(dbPath)

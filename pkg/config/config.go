@@ -14,6 +14,23 @@ func Get(key, fallback string) string {
 	return fallback
 }
 
+// ListenAddr returns the HTTP listen address.
+// Order: primary env (e.g. GEO_ADDR) → PORT → fallback.
+// PORT may be "8083" or ":8083" (PaaS-style). Bare ":port" is left as-is;
+// callers should pass through httpx.NormalizeListenAddr / ListenAndServe.
+func ListenAddr(primaryKey, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(primaryKey)); v != "" {
+		return v
+	}
+	if p := strings.TrimSpace(os.Getenv("PORT")); p != "" {
+		if strings.HasPrefix(p, ":") || strings.Contains(p, ":") {
+			return p
+		}
+		return ":" + p
+	}
+	return fallback
+}
+
 // GetInt returns env int or fallback.
 func GetInt(key string, fallback int) int {
 	v := strings.TrimSpace(os.Getenv(key))
