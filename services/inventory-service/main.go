@@ -5,11 +5,14 @@ import (
 	"embed"
 	"log/slog"
 	"os"
+	"sync"
 
 	"gas-tam-de/pkg/config"
 	"gas-tam-de/pkg/httpx"
 	"gas-tam-de/pkg/natsx"
 	"gas-tam-de/pkg/sqlite"
+
+	"github.com/nats-io/nats.go"
 )
 
 const serviceName = "inventory-service"
@@ -39,29 +42,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	nc, js, err := natsx.ConnectJS(natsURL)
-	if err != nil {
-		slog.Error("nats connect", "url", natsURL, "err", err)
-		os.Exit(1)
-	}
-	defer nc.Close()
-
-	if err := natsx.EnsureStreams(js); err != nil {
-		slog.Error("ensure jetstream streams", "err", err)
-		os.Exit(1)
-	}
-
 	svc := &inventoryService{db: db}
 
-	sub, err := startOrderCompletedConsumer(js, svc)
-	if err != nil {
-		slog.Error("start order.completed consumer", "err", err)
-		os.Exit(1)
-	}
-	defer func() { _ = sub.Unsubscribe() }()
+	// The consumer attaches once JetStream is reachable; the HTTP server must
+	// not wait for the broker or the container never passes its healthcheck.
+	var subMu sync.Mutex
+	var sub *nats.Subscription
+	bus := natsx.NewBackground(natsURL)
+	bus.Start(func(js nats.JetStreamContext) error {
+		started, err := startOrderCompletedConsumer(js, svc)
+		if err != nil {
+			return err
+		}
+		subMu.Lock()
+		sub = started
+		subMu.Unlock()
+		return nil
+	})
+	defer func() {
+		bus.Close()
+		subMu.Lock()
+		defer subMu.Unlock()
+		if sub != nil {
+			_ = sub.Unsubscribe()
+		}
+	}()
 
 	r := httpx.NewRouter(serviceName)
 	httpx.MountHealth(r, serviceName)
+	httpx.MountReady(r, serviceName, httpx.ReadyCheck{Name: "nats", Check: bus.ReadyCheck})
 
 	// Admin inventory (T7.1.2). Authz enforced at gateway when proxied (/v1/admin/*).
 	r.Get("/v1/admin/inventory", svc.handleListStock)

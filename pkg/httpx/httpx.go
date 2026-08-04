@@ -68,11 +68,52 @@ func SafeRecover(next http.Handler) http.Handler {
 }
 
 // MountHealth registers GET /healthz.
+//
+// This is a liveness probe: it answers as soon as the process serves HTTP and
+// never depends on brokers or other services, so container healthchecks do not
+// fail because a dependency is still starting.
 func MountHealth(r chi.Router, serviceName string) {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		JSON(w, http.StatusOK, map[string]any{
 			"status":  "ok",
 			"service": serviceName,
+		})
+	})
+}
+
+// ReadyCheck reports whether one dependency is usable. A nil error means ready.
+type ReadyCheck struct {
+	Name  string
+	Check func() error
+}
+
+// MountReady registers GET /readyz, which reports dependency state:
+// 200 when every check passes, else 503 with the failing dependency names.
+func MountReady(r chi.Router, serviceName string, checks ...ReadyCheck) {
+	r.Get("/readyz", func(w http.ResponseWriter, _ *http.Request) {
+		deps := make(map[string]string, len(checks))
+		ready := true
+		for _, c := range checks {
+			if c.Check == nil {
+				continue
+			}
+			if err := c.Check(); err != nil {
+				ready = false
+				deps[c.Name] = err.Error()
+				continue
+			}
+			deps[c.Name] = "ok"
+		}
+		status := http.StatusOK
+		state := "ready"
+		if !ready {
+			status = http.StatusServiceUnavailable
+			state = "not_ready"
+		}
+		JSON(w, status, map[string]any{
+			"status":       state,
+			"service":      serviceName,
+			"dependencies": deps,
 		})
 	})
 }

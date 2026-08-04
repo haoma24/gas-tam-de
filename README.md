@@ -100,19 +100,26 @@ Hoặc trực tiếp (thay `-p` bằng project name của bạn):
 docker compose -p <project> logs billing-service --tail=50
 ```
 
-Các service `catalog`, `order`, `inventory`, `billing`, `report` cần **NATS
-JetStream**. Chúng sẽ **chờ** NATS tối đa `NATS_STARTUP_TIMEOUT_SEC` (mặc định
-60s) và log `WARN waiting for nats …` thay vì chết ngay; hết budget mới thoát và
-được `restart: unless-stopped` khởi động lại. VPS yếu / cold start có thể cần
-nới thêm:
+Các service `catalog`, `order`, `inventory`, `billing`, `report` dùng **NATS
+JetStream**, nhưng **không còn chờ NATS mới serve HTTP**: chúng lên `/healthz`
+ngay rồi kết nối broker ở nền (retry vô hạn, log `WARN nats not ready; retrying
+in background`). NATS down ⇒ container vẫn `healthy`, chỉ readiness đỏ:
+
+| Endpoint | Ý nghĩa | Dùng cho |
+|----------|---------|----------|
+| `/healthz` | liveness — process đang serve, không phụ thuộc broker | `healthcheck` compose, `depends_on` |
+| `/readyz` | readiness — 200 khi dependency OK, 503 + tên dependency lỗi | debug, LB gate traffic |
 
 ```bash
-# deploy/.env
-NATS_STARTUP_TIMEOUT_SEC=180
+docker compose -p <project> exec catalog-service wget -qO- http://127.0.0.1:8082/readyz
+# {"dependencies":{"nats":"ok"},"service":"catalog-service","status":"ready"}
 ```
 
-`healthcheck` của các service Go dùng `start_period: 90s` để không kết luận
-"unhealthy" trong lúc service còn đang đợi NATS.
+`NATS_STARTUP_TIMEOUT_SEC` (mặc định 60s) giờ chỉ giới hạn **một vòng** thử kết
+nối; hết budget thì vòng sau retry tiếp, service không thoát.
+
+Nếu deploy chạy `docker compose up --no-build`, nhớ **build lại image** — image
+cũ vẫn chặn ở NATS trước khi mount `/healthz`.
 
 Website gọi API **same-origin**: nginx proxy `/v1/*` và `/healthz` sang
 `api-gateway:8080`, nên trình duyệt không cần CORS. Các service `auth`, `catalog`,

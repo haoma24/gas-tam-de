@@ -47,17 +47,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	nc, js, err := natsx.ConnectJS(natsURL)
-	if err != nil {
-		slog.Error("nats connect", "url", natsURL, "err", err)
-		os.Exit(1)
-	}
-	defer nc.Close()
-
-	if err := natsx.EnsureStreams(js); err != nil {
-		slog.Error("ensure jetstream streams", "err", err)
-		os.Exit(1)
-	}
+	// NATS connects in the background so /healthz answers even if the broker
+	// is still starting; publish failures are logged, not fatal.
+	bus := natsx.NewBackground(natsURL)
+	bus.Start(nil)
+	defer bus.Close()
 
 	svc := &orderService{
 		db:        db,
@@ -65,11 +59,12 @@ func main() {
 		catalog:   newHTTPCatalogClient(catalogURL, nil),
 		billing:   newHTTPBillingClient(billingURL, nil),
 		inventory: newHTTPInventoryClient(inventoryURL, nil),
-		bus:       newJSOrderPublisher(js),
+		bus:       newJSOrderPublisher(bus),
 	}
 
 	r := httpx.NewRouter(serviceName)
 	httpx.MountHealth(r, serviceName)
+	httpx.MountReady(r, serviceName, httpx.ReadyCheck{Name: "nats", Check: bus.ReadyCheck})
 
 	r.Post("/v1/orders/quote", svc.handleQuoteOrder)
 	r.Post("/v1/orders", svc.handleCreateOrder)

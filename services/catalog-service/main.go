@@ -34,22 +34,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	nc, js, err := natsx.ConnectJS(natsURL)
-	if err != nil {
-		slog.Error("nats connect", "url", natsURL, "err", err)
-		os.Exit(1)
-	}
-	defer nc.Close()
+	// NATS connects in the background so /healthz answers even if the broker
+	// is still starting; publish failures are logged, not fatal.
+	bus := natsx.NewBackground(natsURL)
+	bus.Start(nil)
+	defer bus.Close()
 
-	if err := natsx.EnsureStreams(js); err != nil {
-		slog.Error("ensure jetstream streams", "err", err)
-		os.Exit(1)
-	}
-
-	svc := &catalogService{db: db, bus: newJSProductPublisher(js)}
+	svc := &catalogService{db: db, bus: newJSProductPublisher(bus)}
 
 	r := httpx.NewRouter(serviceName)
 	httpx.MountHealth(r, serviceName)
+	httpx.MountReady(r, serviceName, httpx.ReadyCheck{Name: "nats", Check: bus.ReadyCheck})
 
 	// Public browse — active products only (T2.2.1); gateway mounts as public.
 	r.Get("/v1/products", svc.handleListActiveProducts)

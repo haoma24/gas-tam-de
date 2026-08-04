@@ -95,7 +95,7 @@ func TestJSProductPublisherPublishesEnvelope(t *testing.T) {
 	}
 	defer func() { _ = sub.Unsubscribe() }()
 
-	pub := newJSProductPublisher(js)
+	pub := newJSProductPublisher(natsx.Static(js))
 	p := product{ID: "prod-1", SKU: "GAS12", SalePrice: 450000, Active: true}
 	if err := pub.PublishProductUpdated(p); err != nil {
 		t.Fatalf("PublishProductUpdated: %v", err)
