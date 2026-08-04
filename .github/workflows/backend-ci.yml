@@ -3,13 +3,22 @@
 # The VPS deploys with `docker compose up --no-build`, so it needs pre-built
 # images. This workflow builds every service image from the latest stag code and
 # publishes them to ghcr.io/haoma24/gas-tam-de/<service>:stag (and :latest).
-# Each image is made PUBLIC after push so the VPS can pull without any token.
 #
 # VPS deploy/.env (or env vars) must set:
 #   IMAGE_PREFIX=ghcr.io/haoma24/gas-tam-de
 #   IMAGE_TAG=stag
 #
-# No extra secrets needed — GITHUB_TOKEN is provided automatically.
+# GHCR package visibility:
+#   New packages default to private. To let the VPS pull without credentials,
+#   either make each package public once (GitHub → haoma24 → Packages →
+#   Package settings → Change visibility) OR add a read-only PAT to the VPS:
+#     docker login ghcr.io -u haoma24 -p <PAT_WITH_read:packages>
+#   The PAT approach requires this once on the VPS; credentials persist in
+#   ~/.docker/config.json across deploys.
+#
+# Optional: if the repo secret GHCR_WRITE_TOKEN is set (a PAT owned by
+# haoma24 with write:packages scope), this workflow will automatically flip
+# each package to public so no credentials are needed on the VPS at all.
 
 name: Backend CI — build & push images
 
@@ -119,16 +128,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # GHCR packages are private by default even for public repos.
-      # Make the package public so the VPS can pull without any credentials.
-      - name: Make GHCR package public
-        if: github.event_name == 'push'
+      # Make package public so VPS can pull without credentials.
+      # Requires repo secret GHCR_WRITE_TOKEN = PAT owned by haoma24 with
+      # write:packages scope. Without the secret this step is skipped — see
+      # workflow header for the manual alternative.
+      - name: Make GHCR package public (requires GHCR_WRITE_TOKEN secret)
+        if: github.event_name == 'push' && secrets.GHCR_WRITE_TOKEN != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GHCR_WRITE_TOKEN }}
         run: |
           gh api \
             --method PATCH \
             -H "Accept: application/vnd.github+json" \
             "/user/packages/container/gas-tam-de%2F${{ matrix.service }}" \
-            -f visibility=public \
-          || echo "Could not set visibility (may already be public or need org-level settings)"
+            -f visibility=public
