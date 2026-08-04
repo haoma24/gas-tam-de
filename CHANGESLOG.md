@@ -5,6 +5,20 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Fix Stage 8 Unreachable: Traefik target = `web:8080`
+
+- **Loại:** fix
+- **Phạm vi:** `deploy/nginx.web.conf`, `deploy/docker-compose.yml`, `services/api-gateway`, Dockerfile.web
+- **Tóm tắt:** Sau khi bỏ `ports` publish trên gateway, Stage 8 vẫn `Unreachable labeledPort=8080` (08:33). Chuyển Traefik sang service **web** (nginx lắng nghe `8080` ngay, `/healthz` không phụ thuộc gateway); gateway bind trước khi mở SQLite; không publish host port trên compose chính.
+- **Chi tiết:**
+  - nginx `listen 8080`; `/healthz` + `/web-healthz` trả JSON local; `/gateway-healthz` proxy API
+  - Traefik labels trên `web` (`server.port=8080`, `tensorship-net`); bỏ labels ở api-gateway
+  - Main compose: không `ports` cho nats/gateway/web (`expose` thôi); local map ở `.local.yml` (`8090:8080`)
+  - Gateway: `atomicHandler` — ListenAndServe ngay với `/healthz`, swap full router sau SQLite
+- **Coolify UI:** Ports Exposes vẫn **8080** (giờ = nginx/web)
+- **Workdocs:** `docs/workdocs_stage8_traefik_web_front_04082026/`
+- **Liên quan:** Stage 8 Unreachable; nối tiếp traefik-no-publish / NotOnNet
+
 ## [2026-08-04] Fix Stage 8 Unreachable: không publish host port gateway
 
 - **Loại:** fix

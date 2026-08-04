@@ -3,35 +3,27 @@
 # Usage (from repo root):
 #   docker compose -f deploy/docker-compose.yml up --build
 #
-# Website  -> http://127.0.0.1:8090   (nginx serves Flutter Web, proxies /v1 + /healthz)
-# Gateway  -> http://127.0.0.1:8080   (direct API access)
+# Website  -> http://127.0.0.1:8090   (via docker-compose.local.yml; nginx :8080)
+# Gateway  -> http://127.0.0.1:8080   (via docker-compose.local.yml)
 #
-# Only nats / api-gateway / web publish host ports; the other Go services are
-# reachable in-network through the gateway. `up nats` alone starts NATS only —
-# use `up -d` (no service argument) for the whole stack.
-#
-# Every built service pins an explicit `image:` name so a build stage and a
-# `up --no-build` stage that pass different -p values never silently run a
-# stale image. Images are published to GHCR by backend-ci.yml on every push
-# to stag; `up --no-build` pulls them directly. Local `make compose-up`
-# (--build) rebuilds fresh and re-tags the image with the same name.
-#
-# Coolify / Traefik (VPS Stage 8) — three rules that keep labeledPort=8080 reachable:
+# Coolify / Traefik (VPS Stage 8) — labeledPort=8080 rules:
 # 1) Do NOT define custom `networks:` (Coolify attaches its own + Traefik).
-# 2) Do NOT `ports:`-publish the Traefik target (api-gateway:8080). Host publish
-#    adds another endpoint; Traefik often picks it → Unreachable. Use `expose`
+# 2) Do NOT `ports:`-publish any service Traefik targets. Host publish adds
+#    another endpoint; Traefik often picks it → Unreachable. Use `expose`
 #    only; local host ports live in docker-compose.local.yml.
-# 3) Set `traefik.docker.network=tensorship-net` (literal) so Traefik uses the
-#    proxy-net IP when the container is on two networks.
+# 3) Public Traefik target is **web** (nginx) on container port **8080**, not
+#    api-gateway. nginx listens instantly; gateway may still be opening SQLite.
+#    Labels: traefik.docker.network=tensorship-net (literal).
 # `scripts/vps-net-check.sh` repairs NotOnNet attach failures.
 
 services:
   nats:
     image: nats:2.10-alpine
     command: ["-c", "/etc/nats/nats.conf"]
-    ports:
-      - "4222:4222"
-      - "8222:8222"
+    # No host ports here — Coolify/Traefik; local maps in docker-compose.local.yml.
+    expose:
+      - "4222"
+      - "8222"
     volumes:
       - ./nats.conf:/etc/nats/nats.conf:ro
       - nats-data:/data/jetstream
@@ -50,19 +42,9 @@ services:
       args:
         SERVICE: api-gateway
         EXPOSE_PORT: "8080"
-    # Coolify/Traefik Stage 8 (labeledPort=8080):
-    # - Do NOT publish host ports here. `ports: "8080:8080"` puts the container
-    #   on an extra ingress/publish endpoint; Traefik then often picks that IP
-    #   and reports Unreachable even when the process listens on 0.0.0.0:8080.
-    #   Local host mapping lives in docker-compose.local.yml.
-    # - traefik.docker.network MUST be the real Docker network name (hardcoded;
-    #   ${VAR} in labels is easy for the platform to leave unexpanded).
-    # - No depends_on: gateway /healthz is liveness-only; start immediately so
-    #   Stage 8 can connect while backends are still pulling/starting.
-    labels:
-      - traefik.enable=true
-      - traefik.http.services.api-gateway.loadbalancer.server.port=8080
-      - traefik.docker.network=tensorship-net
+    # Internal only for Traefik. Stage 8 probes **web:8080** (nginx). Gateway
+    # still binds 0.0.0.0:8080 immediately (healthz before SQLite) for nginx
+    # proxy + compose healthchecks. No host `ports:` — see docker-compose.local.yml.
     expose:
       - "8080"
     environment:
@@ -295,8 +277,8 @@ services:
       nats:
         condition: service_healthy
 
-  # The website itself. Without this service `docker compose logs` only ever
-  # showed infrastructure (NATS) and no frontend at all.
+  # Public Traefik target (Stage 8 labeledPort=8080). nginx listens on 8080
+  # immediately and serves /healthz itself; /v1/* proxies to api-gateway.
   web:
     image: ghcr.io/haoma24/gas-tam-de/web:stag
     build:
@@ -305,15 +287,20 @@ services:
       args:
         FLUTTER_VERSION: "${FLUTTER_VERSION:-3.44.0}"
         API_BASE_URL: "${WEB_API_BASE_URL:-}"
-    ports:
-      - "${WEB_PORT:-8090}:80"
+    # Do NOT ports-publish here (Traefik Unreachable). Local: docker-compose.local.yml
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.web.loadbalancer.server.port=8080
+      - traefik.docker.network=tensorship-net
+    expose:
+      - "8080"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/web-healthz"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/web-healthz"]
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 90s
+      start_period: 20s
     # service_started, not service_healthy: nginx resolves api-gateway per
     # request (see nginx.web.conf), so the site can serve while the gateway is
     # still booting. Waiting for healthy left the web container in `created`
