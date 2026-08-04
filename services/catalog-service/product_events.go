@@ -8,7 +8,6 @@ import (
 	"gas-tam-de/pkg/natsx"
 
 	"github.com/google/uuid"
-	"github.com/nats-io/nats.go"
 )
 
 // productUpdatedPublisher emits catalog.product.updated after product mutations.
@@ -21,16 +20,20 @@ type noopProductPublisher struct{}
 func (noopProductPublisher) PublishProductUpdated(product) error { return nil }
 
 type jsProductPublisher struct {
-	js nats.JetStreamContext
+	provider natsx.JSProvider
 }
 
-func newJSProductPublisher(js nats.JetStreamContext) *jsProductPublisher {
-	return &jsProductPublisher{js: js}
+func newJSProductPublisher(provider natsx.JSProvider) *jsProductPublisher {
+	return &jsProductPublisher{provider: provider}
 }
 
 func (j *jsProductPublisher) PublishProductUpdated(p product) error {
-	if j == nil || j.js == nil {
+	if j == nil || j.provider == nil {
 		return fmt.Errorf("jetstream publisher not configured")
+	}
+	js, err := j.provider.JS()
+	if err != nil {
+		return err
 	}
 	env := events.NewEnvelope(events.CatalogProductUpdated, uuid.NewString(), map[string]any{
 		"product_id": p.ID,
@@ -38,7 +41,7 @@ func (j *jsProductPublisher) PublishProductUpdated(p product) error {
 		"sale_price": p.SalePrice,
 		"active":     p.Active,
 	})
-	_, err := natsx.PublishEnvelope(j.js, env)
+	_, err = natsx.PublishEnvelope(js, env)
 	return err
 }
 

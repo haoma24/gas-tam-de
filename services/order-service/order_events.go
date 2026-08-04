@@ -8,7 +8,6 @@ import (
 	"gas-tam-de/pkg/natsx"
 
 	"github.com/google/uuid"
-	"github.com/nats-io/nats.go"
 )
 
 // orderPlacedEvent is the JetStream payload for order.placed (architecture §5.1).
@@ -47,16 +46,20 @@ func (noopOrderPublisher) PublishOrderCompleted(orderCompletedEvent) error { ret
 func (noopOrderPublisher) PublishOrderCancelled(orderCancelledEvent) error { return nil }
 
 type jsOrderPublisher struct {
-	js nats.JetStreamContext
+	provider natsx.JSProvider
 }
 
-func newJSOrderPublisher(js nats.JetStreamContext) *jsOrderPublisher {
-	return &jsOrderPublisher{js: js}
+func newJSOrderPublisher(provider natsx.JSProvider) *jsOrderPublisher {
+	return &jsOrderPublisher{provider: provider}
 }
 
 func (j *jsOrderPublisher) PublishOrderPlaced(e orderPlacedEvent) error {
-	if j == nil || j.js == nil {
+	if j == nil || j.provider == nil {
 		return fmt.Errorf("jetstream publisher not configured")
+	}
+	js, err := j.provider.JS()
+	if err != nil {
+		return err
 	}
 	env := events.NewEnvelope(events.OrderPlaced, uuid.NewString(), map[string]any{
 		"order_id":    e.OrderID,
@@ -64,13 +67,17 @@ func (j *jsOrderPublisher) PublishOrderPlaced(e orderPlacedEvent) error {
 		"distance_km": e.DistanceKm,
 		"created_at":  e.CreatedAt,
 	})
-	_, err := natsx.PublishEnvelope(j.js, env)
+	_, err = natsx.PublishEnvelope(js, env)
 	return err
 }
 
 func (j *jsOrderPublisher) PublishOrderCompleted(e orderCompletedEvent) error {
-	if j == nil || j.js == nil {
+	if j == nil || j.provider == nil {
 		return fmt.Errorf("jetstream publisher not configured")
+	}
+	js, err := j.provider.JS()
+	if err != nil {
+		return err
 	}
 	items := make([]map[string]any, 0, len(e.Items))
 	for _, it := range e.Items {
@@ -88,13 +95,17 @@ func (j *jsOrderPublisher) PublishOrderCompleted(e orderCompletedEvent) error {
 		"payment_type": e.PaymentType,
 		"amount_paid":  e.AmountPaid,
 	})
-	_, err := natsx.PublishEnvelope(j.js, env)
+	_, err = natsx.PublishEnvelope(js, env)
 	return err
 }
 
 func (j *jsOrderPublisher) PublishOrderCancelled(e orderCancelledEvent) error {
-	if j == nil || j.js == nil {
+	if j == nil || j.provider == nil {
 		return fmt.Errorf("jetstream publisher not configured")
+	}
+	js, err := j.provider.JS()
+	if err != nil {
+		return err
 	}
 	items := make([]map[string]any, 0, len(e.Items))
 	for _, it := range e.Items {
@@ -108,7 +119,7 @@ func (j *jsOrderPublisher) PublishOrderCancelled(e orderCancelledEvent) error {
 		"order_id": e.OrderID,
 		"items":    items,
 	})
-	_, err := natsx.PublishEnvelope(j.js, env)
+	_, err = natsx.PublishEnvelope(js, env)
 	return err
 }
 

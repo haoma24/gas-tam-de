@@ -151,7 +151,7 @@ func TestJSOrderPublisherPublishesEnvelope(t *testing.T) {
 	}
 	defer func() { _ = sub.Unsubscribe() }()
 
-	pub := newJSOrderPublisher(js)
+	pub := newJSOrderPublisher(natsx.Static(js))
 	e := orderPlacedEvent{
 		OrderID:    "ord-1",
 		Total:      900000,
@@ -228,7 +228,7 @@ func TestJSOrderPublisherPublishesOrderCompleted(t *testing.T) {
 	}
 	defer func() { _ = sub.Unsubscribe() }()
 
-	pub := newJSOrderPublisher(js)
+	pub := newJSOrderPublisher(natsx.Static(js))
 	e := orderCompletedEvent{
 		OrderID: "ord-done",
 		Items: []orderItemView{

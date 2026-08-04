@@ -3,8 +3,10 @@ package httpx
 import (
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -66,11 +68,52 @@ func SafeRecover(next http.Handler) http.Handler {
 }
 
 // MountHealth registers GET /healthz.
+//
+// This is a liveness probe: it answers as soon as the process serves HTTP and
+// never depends on brokers or other services, so container healthchecks do not
+// fail because a dependency is still starting.
 func MountHealth(r chi.Router, serviceName string) {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		JSON(w, http.StatusOK, map[string]any{
 			"status":  "ok",
 			"service": serviceName,
+		})
+	})
+}
+
+// ReadyCheck reports whether one dependency is usable. A nil error means ready.
+type ReadyCheck struct {
+	Name  string
+	Check func() error
+}
+
+// MountReady registers GET /readyz, which reports dependency state:
+// 200 when every check passes, else 503 with the failing dependency names.
+func MountReady(r chi.Router, serviceName string, checks ...ReadyCheck) {
+	r.Get("/readyz", func(w http.ResponseWriter, _ *http.Request) {
+		deps := make(map[string]string, len(checks))
+		ready := true
+		for _, c := range checks {
+			if c.Check == nil {
+				continue
+			}
+			if err := c.Check(); err != nil {
+				ready = false
+				deps[c.Name] = err.Error()
+				continue
+			}
+			deps[c.Name] = "ok"
+		}
+		status := http.StatusOK
+		state := "ready"
+		if !ready {
+			status = http.StatusServiceUnavailable
+			state = "not_ready"
+		}
+		JSON(w, status, map[string]any{
+			"status":       state,
+			"service":      serviceName,
+			"dependencies": deps,
 		})
 	})
 }
@@ -92,8 +135,36 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 	})
 }
 
+// NormalizeListenAddr rewrites bare ":port" to "0.0.0.0:port".
+//
+// Go's default Listen(":port") can bind IPv6-only on hosts with
+// net.ipv6.bindv6only=1. Docker healthchecks probe 127.0.0.1, so the
+// container looks unhealthy even though the process is up. Binding IPv4
+// explicitly keeps compose probes working on those VPS kernels.
+func NormalizeListenAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return "0.0.0.0:8080"
+	}
+	if strings.HasPrefix(addr, ":") && !strings.HasPrefix(addr, "::") {
+		return "0.0.0.0" + addr
+	}
+	return addr
+}
+
 // ListenAndServe starts HTTP and logs the address.
+// Addresses normalized to 0.0.0.0:* use the tcp4 network so probes to
+// 127.0.0.1 succeed even when the host has net.ipv6.bindv6only=1.
 func ListenAndServe(addr, serviceName string, handler http.Handler) error {
-	slog.Info("listening", "service", serviceName, "addr", addr)
-	return http.ListenAndServe(addr, handler)
+	addr = NormalizeListenAddr(addr)
+	network := "tcp"
+	if strings.HasPrefix(addr, "0.0.0.0:") {
+		network = "tcp4"
+	}
+	ln, err := net.Listen(network, addr)
+	if err != nil {
+		return err
+	}
+	slog.Info("listening", "service", serviceName, "addr", addr, "network", network)
+	return http.Serve(ln, handler)
 }

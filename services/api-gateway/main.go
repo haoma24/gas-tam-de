@@ -32,7 +32,7 @@ type upstreams struct {
 }
 
 func main() {
-	addr := config.Get("GATEWAY_ADDR", ":8080")
+	addr := config.ListenAddr("GATEWAY_ADDR", ":8080")
 	jwtSecret := config.Get("JWT_SECRET", "dev-jwt-secret-change-me")
 	corsOrigins := parseCORSOrigins(config.Get("CORS_ORIGINS", defaultCORSOrigins))
 	rlCfg := rateLimitConfig{
