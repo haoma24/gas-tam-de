@@ -1,9 +1,9 @@
 # Local DX overrides — merged automatically by `make compose-*` / `make nats`.
 # NOT used on the VPS/Coolify deploy (platform only loads docker-compose.yml).
 #
-# Publishes host ports that must NOT appear in the main compose file: publishing
-# api-gateway:8080 there makes Traefik Stage 8 report Unreachable (extra
-# publish/ingress endpoint / wrong IP).
+# Publishes host ports that must NOT appear in the main compose file: Coolify /
+# Traefik Stage 8 fails Unreachable when the labeled service also `ports:`-
+# publishes (extra publish/ingress endpoint / wrong IP).
 
 services:
   nats:
@@ -16,5 +16,6 @@ services:
       - "8080:8080"
 
   web:
+    # Container listens on 8080 (Traefik labeledPort); map host WEB_PORT → 8080.
     ports:
-      - "${WEB_PORT:-8090}:80"
+      - "${WEB_PORT:-8090}:8080"

@@ -67,13 +67,17 @@ make compose-down
 
 ### Truy cập trên VPS
 
-Sau `make compose-up` (hoặc `docker compose -f deploy/docker-compose.yml up --build -d --wait`):
+**Coolify / Cursor Cloud (Traefik):** cổng public `labeledPort=8080` trỏ vào
+service **`web`** (nginx lắng nghe `0.0.0.0:8080`). Domain của app phục vụ HTML
++ `/v1/*` same-origin. Không publish host port trong compose chính — Traefik
+nối qua `tensorship-net`.
 
-1. Mở firewall / security group cho cổng website (mặc định **8090**, không phải 8080).
-2. Truy cập **`http://<IP_VPS>:8090/`** — đó mới là trang Gas Tam Đệ.
-3. Nếu mở `http://<IP_VPS>:8080/` sẽ thấy **`404 page not found`**: cổng đó là API Gateway, không phục vụ HTML.
+**Local / `make compose-up`** (merge `docker-compose.local.yml`):
 
-Muốn mở bằng cổng 80 (không gõ `:8090`):
+1. Website: **`http://127.0.0.1:8090/`** (`WEB_PORT`, map → container `:8080`).
+2. API trực tiếp: **`http://127.0.0.1:8080/`** (gateway; `/` trả 404 là đúng).
+
+Muốn mở website local bằng cổng 80:
 
 ```bash
 # trong deploy/.env (copy từ deploy/.env.example)
@@ -81,7 +85,7 @@ cp deploy/.env.example deploy/.env
 # sửa WEB_PORT=80 (và JWT_SECRET / mật khẩu admin trước khi public)
 WEB_PORT=80
 make compose-up
-# → http://<IP_VPS>/
+# → http://127.0.0.1/
 ```
 
 `make` / `scripts/dev.ps1` tự nạp `deploy/.env` nếu file đó tồn tại.
@@ -141,10 +145,11 @@ Go do `backend-ci.yml` push, còn website do `web-image.yml` push
 (`gas-tam-de/web:stag`). Thiếu image `web` thì bước pull hỏng và website không
 bao giờ lên.
 
-Website gọi API **same-origin**: nginx proxy `/v1/*` và `/healthz` sang
-`api-gateway:8080`, nên trình duyệt không cần CORS. nginx resolve hostname
-`api-gateway` **theo từng request** qua DNS nội bộ của Docker, nên gateway chưa
-lên chỉ làm `/v1/*` trả `503` chứ không giết container website. Các service `auth`, `catalog`,
+Website gọi API **same-origin**: nginx (container `:8080`) proxy `/v1/*` sang
+`api-gateway:8080`; `/healthz` trả JSON từ nginx (liveness Traefik). Gateway
+liveness riêng: `/gateway-healthz`. nginx resolve hostname `api-gateway`
+**theo từng request** qua DNS nội bộ của Docker, nên gateway chưa lên chỉ làm
+`/v1/*` trả `503` chứ không giết container website. Các service `auth`, `catalog`,
 `geo`, `order`, `inventory`, `billing`, `report` **cố ý không publish cổng ra host**
 — chúng đi qua gateway. Tất cả service đều có `healthcheck` + `restart: unless-stopped`,
 nên container chết sẽ hiện `unhealthy` trong `make compose-ps` thay vì im lặng.
@@ -153,7 +158,7 @@ Biến môi trường build của website:
 
 | Biến | Mặc định | Ý nghĩa |
 |------|----------|---------|
-| `WEB_PORT` | `8090` | cổng host của nginx |
+| `WEB_PORT` | `8090` | cổng **host** map → nginx container `:8080` (chỉ local override) |
 | `WEB_API_BASE_URL` | *(rỗng)* | `--dart-define=API_BASE_URL`; để rỗng = same-origin qua nginx |
 | `FLUTTER_VERSION` | `3.44.0` | image `ghcr.io/cirruslabs/flutter` dùng để build web |
 

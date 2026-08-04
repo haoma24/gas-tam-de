@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync/atomic"
 
 	"gas-tam-de/pkg/config"
 	"gas-tam-de/pkg/httpx"
@@ -31,12 +32,40 @@ type upstreams struct {
 	report    string
 }
 
+// atomicHandler swaps the full router in after DB init so ListenAndServe can
+// bind :8080 immediately (Traefik / Stage 8 must not wait on SQLite).
+type atomicHandler struct {
+	v atomic.Value // http.Handler
+}
+
+func (a *atomicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h, _ := a.v.Load().(http.Handler)
+	if h == nil {
+		http.Error(w, "starting", http.StatusServiceUnavailable)
+		return
+	}
+	h.ServeHTTP(w, r)
+}
+
+func (a *atomicHandler) store(h http.Handler) { a.v.Store(h) }
+
+func healthOnlyHandler() http.Handler {
+	r := httpx.NewRouter(serviceName)
+	httpx.MountHealth(r, serviceName)
+	return r
+}
+
 func main() {
 	addr := config.ListenAddr("GATEWAY_ADDR", ":8080")
 
-	// Prefer a full router; if SQLite is unavailable still listen so Traefik /
-	// Stage 8 (TCP :8080) and compose healthchecks see a live process.
-	handler := buildGatewayHandler()
+	// Bind first with /healthz only; replace with the full gateway once SQLite
+	// is ready. Stage 8 / Traefik only need TCP+HTTP on :8080.
+	handler := &atomicHandler{}
+	handler.store(healthOnlyHandler())
+	go func() {
+		handler.store(buildGatewayHandler())
+		slog.Info("gateway handler ready")
+	}()
 
 	if err := httpx.ListenAndServe(addr, serviceName, handler); err != nil {
 		slog.Error("server stopped", "err", err)
@@ -45,23 +74,17 @@ func main() {
 }
 
 func buildGatewayHandler() http.Handler {
-	healthOnly := func() http.Handler {
-		r := httpx.NewRouter(serviceName)
-		httpx.MountHealth(r, serviceName)
-		return r
-	}
-
 	dbPath := config.Get("GATEWAY_DB", "data/gateway.db")
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
 		slog.Error("open db — serving /healthz only", "err", err)
-		return healthOnly()
+		return healthOnlyHandler()
 	}
 
 	if err := migrateGateway(db); err != nil {
 		_ = db.Close()
 		slog.Error("migrate — serving /healthz only", "err", err)
-		return healthOnly()
+		return healthOnlyHandler()
 	}
 
 	jwtSecret := config.Get("JWT_SECRET", "dev-jwt-secret-change-me")
