@@ -16,19 +16,14 @@
 # to stag; `up --no-build` pulls them directly. Local `make compose-up`
 # (--build) rebuilds fresh and re-tags the image with the same name.
 #
-# Coolify / Traefik (VPS Stage 8): do NOT define custom `networks:`. Coolify
-# creates its own bridge and attaches Traefik; a custom network puts containers
-# on two nets and Traefik may pick the unreachable IP →
-# "HEALTHCHECK FAILED cause=Unreachable labeledPort=8080".
-# api-gateway declares loadbalancer.server.port=8080 for the proxy.
-#
-# The platform still attaches containers to its own proxy network
-# (`tensorship-net`) after compose has started them, so every container is on
-# two networks anyway: the compose project default plus the proxy net. Traefik
-# picks an IP at random unless `traefik.docker.network` says which one to use —
-# that label is the supported way out, not a custom `networks:` block.
-# `scripts/vps-net-check.sh` reports (and with `--fix` repairs) containers that
-# the platform failed to attach ("HEALTHCHECK FAILED cause=NotOnNet").
+# Coolify / Traefik (VPS Stage 8) — three rules that keep labeledPort=8080 reachable:
+# 1) Do NOT define custom `networks:` (Coolify attaches its own + Traefik).
+# 2) Do NOT `ports:`-publish the Traefik target (api-gateway:8080). Host publish
+#    adds another endpoint; Traefik often picks it → Unreachable. Use `expose`
+#    only; local host ports live in docker-compose.local.yml.
+# 3) Set `traefik.docker.network=tensorship-net` (literal) so Traefik uses the
+#    proxy-net IP when the container is on two networks.
+# `scripts/vps-net-check.sh` repairs NotOnNet attach failures.
 
 services:
   nats:
@@ -55,18 +50,22 @@ services:
       args:
         SERVICE: api-gateway
         EXPOSE_PORT: "8080"
-    # Coolify/Traefik: pin backend port so Stage 8 labeledPort=8080 hits gateway.
-    # traefik.docker.network names the proxy network Traefik must take the
-    # container IP from; without it a container attached to both the compose
-    # default network and the proxy network is routed on whichever IP Traefik
-    # sees first. Override PROXY_NETWORK if the platform proxy uses another net.
+    # Coolify/Traefik Stage 8 (labeledPort=8080):
+    # - Do NOT publish host ports here. `ports: "8080:8080"` puts the container
+    #   on an extra ingress/publish endpoint; Traefik then often picks that IP
+    #   and reports Unreachable even when the process listens on 0.0.0.0:8080.
+    #   Local host mapping lives in docker-compose.local.yml.
+    # - traefik.docker.network MUST be the real Docker network name (hardcoded;
+    #   ${VAR} in labels is easy for the platform to leave unexpanded).
+    # - No depends_on: gateway /healthz is liveness-only; start immediately so
+    #   Stage 8 can connect while backends are still pulling/starting.
     labels:
       - traefik.enable=true
       - traefik.http.services.api-gateway.loadbalancer.server.port=8080
-      - traefik.docker.network=${PROXY_NETWORK:-tensorship-net}
+      - traefik.docker.network=tensorship-net
+    expose:
+      - "8080"
     environment:
-      # Explicit 0.0.0.0 + PORT for Cursor Cloud Stage 8 (external probe on :8080).
-      # Do not bind 127.0.0.1 — the platform health checker is outside the container.
       PORT: "8080"
       GATEWAY_ADDR: "0.0.0.0:8080"
       GATEWAY_DB: "/data/gateway.db"
@@ -87,35 +86,13 @@ services:
       NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
     volumes:
       - ../data:/data
-    ports:
-      - "8080:8080"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
       interval: 5s
       timeout: 3s
       retries: 12
-      start_period: 20s
-    # Stage 5 is `up -d` (no --wait); Stage 8 probes host:8080 soon after.
-    # Waiting for every backend to be healthy delayed gateway listen by minutes.
-    # Gateway /healthz is liveness-only — start as soon as containers exist.
-    depends_on:
-      nats:
-        condition: service_started
-      auth-service:
-        condition: service_started
-      catalog-service:
-        condition: service_started
-      geo-service:
-        condition: service_started
-      order-service:
-        condition: service_started
-      inventory-service:
-        condition: service_started
-      billing-service:
-        condition: service_started
-      report-service:
-        condition: service_started
+      start_period: 15s
 
   auth-service:
     image: ghcr.io/haoma24/gas-tam-de/auth-service:stag

@@ -33,6 +33,37 @@ type upstreams struct {
 
 func main() {
 	addr := config.ListenAddr("GATEWAY_ADDR", ":8080")
+
+	// Prefer a full router; if SQLite is unavailable still listen so Traefik /
+	// Stage 8 (TCP :8080) and compose healthchecks see a live process.
+	handler := buildGatewayHandler()
+
+	if err := httpx.ListenAndServe(addr, serviceName, handler); err != nil {
+		slog.Error("server stopped", "err", err)
+		os.Exit(1)
+	}
+}
+
+func buildGatewayHandler() http.Handler {
+	healthOnly := func() http.Handler {
+		r := httpx.NewRouter(serviceName)
+		httpx.MountHealth(r, serviceName)
+		return r
+	}
+
+	dbPath := config.Get("GATEWAY_DB", "data/gateway.db")
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		slog.Error("open db — serving /healthz only", "err", err)
+		return healthOnly()
+	}
+
+	if err := migrateGateway(db); err != nil {
+		_ = db.Close()
+		slog.Error("migrate — serving /healthz only", "err", err)
+		return healthOnly()
+	}
+
 	jwtSecret := config.Get("JWT_SECRET", "dev-jwt-secret-change-me")
 	corsOrigins := parseCORSOrigins(config.Get("CORS_ORIGINS", defaultCORSOrigins))
 	rlCfg := rateLimitConfig{
@@ -41,20 +72,7 @@ func main() {
 		OrderPerIPPerMinute:   config.GetInt("RATE_LIMIT_ORDER_PER_IP_MINUTE", 30),
 		OrderPerUserPerMinute: config.GetInt("RATE_LIMIT_ORDER_PER_USER_MINUTE", 10),
 	}
-
-	dbPath := config.Get("GATEWAY_DB", "data/gateway.db")
-	db, err := sqlite.Open(dbPath)
-	if err != nil {
-		slog.Error("open db", "err", err)
-		os.Exit(1)
-	}
-	defer db.Close()
-	if err := migrateGateway(db); err != nil {
-		slog.Error("migrate", "err", err)
-		os.Exit(1)
-	}
 	audit := newMultiAuditRecorder(slogAuditRecorder{}, newSQLiteAuditRecorder(db))
-
 	u := upstreams{
 		auth:      config.Get("AUTH_SERVICE_URL", "http://127.0.0.1:8081"),
 		catalog:   config.Get("CATALOG_SERVICE_URL", "http://127.0.0.1:8082"),
@@ -64,9 +82,6 @@ func main() {
 		billing:   config.Get("BILLING_SERVICE_URL", "http://127.0.0.1:8086"),
 		report:    config.Get("REPORT_SERVICE_URL", "http://127.0.0.1:8087"),
 	}
-
-	r := newGatewayRouter(jwtSecret, corsOrigins, u, newRateLimiters(rlCfg), audit)
-
 	slog.Info("upstream urls",
 		"auth", u.auth,
 		"catalog", u.catalog,
@@ -82,11 +97,8 @@ func main() {
 		"rate_limit_order_per_ip_min", rlCfg.OrderPerIPPerMinute,
 		"rate_limit_order_per_user_min", rlCfg.OrderPerUserPerMinute,
 	)
-
-	if err := httpx.ListenAndServe(addr, serviceName, r); err != nil {
-		slog.Error("server stopped", "err", err)
-		os.Exit(1)
-	}
+	// db stays open for process lifetime (held by SQLite audit recorder).
+	return newGatewayRouter(jwtSecret, corsOrigins, u, newRateLimiters(rlCfg), audit)
 }
 
 func migrateGateway(db *sql.DB) error {

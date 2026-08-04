@@ -5,6 +5,21 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Fix Stage 8 Unreachable: không publish host port gateway
+
+- **Loại:** fix
+- **Phạm vi:** `deploy/docker-compose.yml`, `deploy/docker-compose.local.yml`, `services/api-gateway`, Makefile
+- **Tóm tắt:** Stage 8 vẫn `Unreachable labeledPort=8080` sau khi bỏ custom network. Nguyên nhân còn lại: `ports: "8080:8080"` trên api-gateway tạo thêm endpoint publish/ingress; Traefik hay chọn IP đó thay vì IP trên `tensorship-net`. Bỏ publish host trên compose chính (`expose: "8080"` thôi), hardcode `traefik.docker.network=tensorship-net`, bỏ `depends_on` gateway, local ports chuyển sang `docker-compose.local.yml`.
+- **Chi tiết:**
+  - Main compose: không `ports` cho api-gateway; `expose: ["8080"]`
+  - Label network literal `tensorship-net` (không `${VAR}` — platform dễ bỏ qua expansion)
+  - Gateway không `depends_on` → listen ngay khi container start
+  - Gateway: DB lỗi vẫn listen `/healthz` (Traefik TCP :8080 vẫn xanh)
+  - `deploy/docker-compose.local.yml` + Make/dev.ps1 merge file này cho DX local
+- **VPS:** chỉ dùng `docker-compose.yml` (không mount file `.local.yml`); redeploy sau CI push `api-gateway:stag`
+- **Workdocs:** `docs/workdocs_stage8_gateway_listen_04082026/traefik-no-publish.md`
+- **Liên quan:** Stage 8 Unreachable; nối tiếp NotOnNet / network fix
+
 ## [2026-08-04] Fix Stage 8 `NotOnNet`: nginx crash loop + push image `web`
 
 - **Loại:** fix

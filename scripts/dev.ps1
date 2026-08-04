@@ -65,12 +65,18 @@ Gas Tam De - scripts/dev.ps1 (Windows DX)
 
 function Invoke-Compose {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$ComposeArgs)
+    $fileArgs = @('-f', 'deploy/docker-compose.yml')
+    # Local host ports only — never ship this to Coolify (breaks Traefik :8080).
+    $localCompose = Join-Path $RepoRoot 'deploy/docker-compose.local.yml'
+    if (Test-Path $localCompose) {
+        $fileArgs += @('-f', 'deploy/docker-compose.local.yml')
+    }
     $envArgs = @()
     $envFile = Join-Path $RepoRoot 'deploy/.env'
     if (Test-Path $envFile) {
         $envArgs = @('--env-file', $envFile)
     }
-    & docker compose -f deploy/docker-compose.yml @envArgs @ComposeArgs
+    & docker compose @fileArgs @envArgs @ComposeArgs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

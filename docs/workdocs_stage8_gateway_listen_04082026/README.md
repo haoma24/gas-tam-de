@@ -62,3 +62,5 @@ Sau khi qua Stage 5, Stage 8 fail với phân tích AI: ứng dụng không list
   `GATEWAY_ADDR=127.0.0.1:8080`.
 - Follow-up Traefik Unreachable: xem [coolify-traefik.md](./coolify-traefik.md)
   (bỏ `networks.gastamde` + label port 8080).
+- Follow-up Unreachable sau NotOnNet: xem [traefik-no-publish.md](./traefik-no-publish.md)
+  (bỏ `ports:` publish gateway — Traefik chọn sai IP).

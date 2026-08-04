@@ -3,8 +3,11 @@
 # Windows without GNU Make: .\scripts\dev.ps1 help
 
 COMPOSE_FILE := deploy/docker-compose.yml
+# Local host-port mappings (8080/4222/8090). VPS/Coolify must NOT load this file —
+# publishing api-gateway:8080 breaks Traefik Stage 8 (Unreachable).
+COMPOSE_LOCAL := $(wildcard deploy/docker-compose.local.yml)
 COMPOSE_ENV := $(wildcard deploy/.env)
-COMPOSE := docker compose -f $(COMPOSE_FILE) $(if $(COMPOSE_ENV),--env-file $(COMPOSE_ENV),)
+COMPOSE := docker compose -f $(COMPOSE_FILE) $(if $(COMPOSE_LOCAL),-f $(COMPOSE_LOCAL),) $(if $(COMPOSE_ENV),--env-file $(COMPOSE_ENV),)
 GATEWAY_URL ?= http://127.0.0.1:8080
 WEB_URL ?= http://127.0.0.1:$(or $(WEB_PORT),8090)
 NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
