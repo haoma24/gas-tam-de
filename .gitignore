@@ -22,6 +22,7 @@
 !.env.example
 deploy/.env
 !deploy/.env.example
+!deploy/.env.vps.example
 
 # IDE / OS
 .idea/
