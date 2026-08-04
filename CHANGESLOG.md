@@ -5,6 +5,23 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] CI backend: build + push images to GHCR; VPS dùng pre-built image
+
+- **Loại:** fix / ci
+- **Phạm vi:** `.github/workflows/backend-ci.yml`, `deploy/docker-compose.yml`, `deploy/.env.example`
+- **Tóm tắt:** VPS deploy dùng `--no-build` nên cần image đã được build sẵn. Không có CI nào build Go service images → VPS reuse image cũ từ trước khi có fix background NATS → `catalog-service` và `billing-service` vẫn unhealthy dù code đã sửa. Fix: thêm GitHub Actions CI build mọi service image và push lên GHCR sau mỗi push vào `stag`; VPS chỉ cần set `IMAGE_PREFIX`/`IMAGE_TAG` để pull đúng image mới.
+- **Chi tiết:**
+  - `.github/workflows/backend-ci.yml`: trigger on push to `stag`/`master` hoặc PR chạm `services/**`, `pkg/**`, `go.mod`, Dockerfile. Job 1: `go test ./...`. Job 2 (parallel per service × 8): build image + push `ghcr.io/haoma24/gas-tam-de/<svc>:stag` + `:sha-<commit>` + `:latest` (chỉ trên stag). Dùng GHA layer cache (`type=gha`) nên build nhanh sau lần đầu.
+  - `deploy/docker-compose.yml`: comment cập nhật hướng dẫn `IMAGE_PREFIX`/`IMAGE_TAG`
+  - `deploy/.env.example`: thêm section VPS rõ ràng với giá trị mặc định `IMAGE_PREFIX=ghcr.io/haoma24/gas-tam-de` và `IMAGE_TAG=stag`
+- **Biến môi trường cần thêm trên VPS** (trong `deploy/.env` hoặc host env):
+  ```
+  IMAGE_PREFIX=ghcr.io/haoma24/gas-tam-de
+  IMAGE_TAG=stag
+  ```
+- **Verify:** CI chạy → GHCR có image mới → VPS `docker compose -p ts-tamde-stag up -d --no-build` pull image mới → containers healthy
+- **Liên quan:** Nối tiếp toàn bộ chuỗi fix healthcheck stag 2026-08-04
+
 ## [2026-08-04] Fix deploy stag chạy image cũ: pin `image:` cho mọi service
 
 - **Loại:** fix

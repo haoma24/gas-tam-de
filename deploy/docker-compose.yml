@@ -15,7 +15,14 @@
 # stage and a `up --no-build` stage that pass different -p values silently run a
 # stale image from an earlier deploy. Pinning the name makes both stages agree,
 # and turns a missing build into a loud "image not found" instead.
-# Override with IMAGE_PREFIX / IMAGE_TAG when publishing to a registry.
+#
+# IMAGE_PREFIX / IMAGE_TAG control which registry the VPS pulls from.
+# Set these in deploy/.env (or host environment) for VPS deploys:
+#   IMAGE_PREFIX=ghcr.io/haoma24/gas-tam-de
+#   IMAGE_TAG=stag
+# The GitHub Actions backend-ci.yml pushes those tags after every push to stag,
+# so `docker compose -p ts-tamde-stag up -d --no-build` always gets fresh images.
+# For local `make compose-up` (--build) IMAGE_PREFIX/IMAGE_TAG are not needed.
 
 services:
   nats:
