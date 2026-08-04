@@ -10,19 +10,11 @@
 # reachable in-network through the gateway. `up nats` alone starts NATS only —
 # use `up -d` (no service argument) for the whole stack.
 #
-# Every built service pins an explicit `image:` name. Without it compose derives
-# the tag from the project name (`-p foo` => foo-catalog-service), so a build
-# stage and a `up --no-build` stage that pass different -p values silently run a
-# stale image from an earlier deploy. Pinning the name makes both stages agree,
-# and turns a missing build into a loud "image not found" instead.
-#
-# IMAGE_PREFIX / IMAGE_TAG control which registry the VPS pulls from.
-# Set these in deploy/.env (or host environment) for VPS deploys:
-#   IMAGE_PREFIX=ghcr.io/haoma24/gas-tam-de
-#   IMAGE_TAG=stag
-# The GitHub Actions backend-ci.yml pushes those tags after every push to stag,
-# so `docker compose -p ts-tamde-stag up -d --no-build` always gets fresh images.
-# For local `make compose-up` (--build) IMAGE_PREFIX/IMAGE_TAG are not needed.
+# Every built service pins an explicit `image:` name so a build stage and a
+# `up --no-build` stage that pass different -p values never silently run a
+# stale image. Images are published to GHCR by backend-ci.yml on every push
+# to stag; `up --no-build` pulls them directly. Local `make compose-up`
+# (--build) rebuilds fresh and re-tags the image with the same name.
 
 services:
   nats:
@@ -44,7 +36,7 @@ services:
       - gastamde
 
   api-gateway:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/api-gateway:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/api-gateway:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -101,7 +93,7 @@ services:
       - gastamde
 
   auth-service:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/auth-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/auth-service:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -139,7 +131,7 @@ services:
       - gastamde
 
   catalog-service:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/catalog-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/catalog-service:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -167,7 +159,7 @@ services:
       - gastamde
 
   geo-service:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/geo-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/geo-service:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -195,7 +187,7 @@ services:
       - gastamde
 
   order-service:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/order-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/order-service:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -232,7 +224,7 @@ services:
       - gastamde
 
   inventory-service:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/inventory-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/inventory-service:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -260,7 +252,7 @@ services:
       - gastamde
 
   billing-service:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/billing-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/billing-service:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -288,7 +280,7 @@ services:
       - gastamde
 
   report-service:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/report-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/report-service:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -318,7 +310,7 @@ services:
   # The website itself. Without this service `docker compose logs` only ever
   # showed infrastructure (NATS) and no frontend at all.
   web:
-    image: ${IMAGE_PREFIX:-gas-tam-de}/web:${IMAGE_TAG:-latest}
+    image: ghcr.io/haoma24/gas-tam-de/web:stag
     build:
       context: ..
       dockerfile: deploy/Dockerfile.web
