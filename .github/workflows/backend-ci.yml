@@ -3,10 +3,7 @@
 # The VPS deploys with `docker compose up --no-build`, so it needs pre-built
 # images. This workflow builds every service image from the latest stag code and
 # publishes them to ghcr.io/haoma24/gas-tam-de/<service>:stag (and :latest).
-#
-# VPS deploy/.env (or env vars) must set:
-#   IMAGE_PREFIX=ghcr.io/haoma24/gas-tam-de
-#   IMAGE_TAG=stag
+# Image names are hardcoded in deploy/docker-compose.yml — no IMAGE_* env needed.
 #
 # GHCR package visibility:
 #   New packages default to private. To let the VPS pull without credentials,
@@ -31,6 +28,8 @@ on:
       - "go.mod"
       - "go.sum"
       - "deploy/Dockerfile.service"
+      - "deploy/.env.example"
+      - "scripts/check-env-yaml-safe.sh"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     paths:
@@ -39,6 +38,8 @@ on:
       - "go.mod"
       - "go.sum"
       - "deploy/Dockerfile.service"
+      - "deploy/.env.example"
+      - "scripts/check-env-yaml-safe.sh"
 
 env:
   REGISTRY: ghcr.io
@@ -59,6 +60,9 @@ jobs:
 
       - name: go test
         run: go test ./...
+
+      - name: check .env.example YAML-safe for Cursor Cloud override
+        run: ./scripts/check-env-yaml-safe.sh
 
   # ── 2. Build + push images ───────────────────────────────────────────────────
   build-push:

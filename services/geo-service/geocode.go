@@ -25,7 +25,7 @@ type httpDoer interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-const defaultUserAgent = "GasTamDe/1.0 (local-dev; geo-service; contact:local)"
+const defaultUserAgent = "GasTamDe/1.0 (local-dev; geo-service; contact=local)"
 
 // --- Photon (Komoot) — preferred for autocomplete ---
 
