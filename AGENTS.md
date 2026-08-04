@@ -8,7 +8,7 @@ Gas Tam Đệ monorepo: Flutter (`apps/mobile`) + Go microservices (`services/*`
 
 | Need | How |
 |------|-----|
-| NATS JetStream | `make nats` (Docker Compose `deploy/docker-compose.yml` + `go run ./cmd/nats-init`). Catalog/order/inventory/billing/report **exit if NATS is down**. |
+| NATS JetStream | `make nats` (Docker Compose `deploy/docker-compose.yml` + `go run ./cmd/nats-init`). Catalog/order/inventory/billing/report still **serve HTTP** when NATS is down; they connect in the background and report it on `/readyz`. |
 | Go APIs | One process each: `make gateway` `:8080`, `auth` `:8081`, `catalog` `:8082`, `geo` `:8083`, `order` `:8084`, `inventory` `:8085`, `billing` `:8086`, `report` `:8087`. |
 | Flutter Web (dev) | `make flutter-web` or `cd apps/mobile && flutter run -d chrome` (API defaults to `http://127.0.0.1:8080`). |
 | Website in Docker | `make web-up` → release Flutter Web build behind nginx on `:8090`, proxying `/v1` + `/healthz` to `api-gateway`. |
@@ -23,11 +23,21 @@ crashed container shows up as `unhealthy` in `make compose-ps` instead of failin
 silently. Successful `/healthz` requests are not access-logged (`pkg/httpx`), which
 keeps `docker compose logs` readable.
 
-`natsx.Connect`/`ConnectJS`/`EnsureStreams` retry with backoff for
-`NATS_STARTUP_TIMEOUT_SEC` (default 60s) instead of exiting on the first failure —
-the broker accepts TCP before JetStream finishes recovering its store, which made
-NATS-dependent services die at boot on slower hosts. Healthcheck `start_period` is
-90s to cover that wait; keep it above the NATS timeout if you change either.
+`/healthz` is **liveness** (process is serving; never touches NATS) and is what
+compose healthchecks and `depends_on` use. `/readyz` is **readiness**: 200 when
+dependencies pass, 503 plus the failing dependency name otherwise. Do not put
+`/readyz` in a container healthcheck — that reintroduces the failure where a slow
+broker fails the whole `docker compose up`.
+
+`natsx.NewBackground(url).Start(onReady)` connects JetStream off the critical
+path, retrying forever (backoff 1s → 30s), so NATS-dependent services no longer
+exit at boot. Publishers take a `natsx.JSProvider` (use `natsx.Static(js)` in
+tests); consumers attach from the `onReady` callback. `NATS_STARTUP_TIMEOUT_SEC`
+(default 60s) now bounds a single connect round, not the process lifetime.
+
+`httpx.ListenAndServe` normalizes `:port` to `0.0.0.0:port` and listens on
+`tcp4`, because an IPv6-only bind makes `wget http://127.0.0.1:<port>/healthz`
+probes fail on hosts with `net.ipv6.bindv6only=1`.
 
 Dev defaults (no `.env` required): see `deploy/.env.example`. Local OTP returns `dev_code` when `OTP_DEV_REVEAL=1`. Seeded admin: `admin` / `admin-change-me` (`ADMIN_SEED=1`).
 

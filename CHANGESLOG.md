@@ -5,6 +5,22 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Service serve HTTP ngay, không chờ NATS; thêm `/readyz`
+
+- **Loại:** fix
+- **Phạm vi:** `pkg/natsx`, `pkg/httpx`, `services/{catalog,order,inventory,billing,report}-service`
+- **Tóm tắt:** Deploy stag fail `container ts-tamde-stag-catalog-service-1 is unhealthy`. `main()` chặn ở `ConnectJS` + `EnsureStreams` **trước khi** mount HTTP, nên khi NATS chậm thì `/healthz` chưa hề tồn tại → container unhealthy → cả `docker compose up` fail theo `depends_on`. Giờ HTTP serve ngay, NATS kết nối nền, dependency báo qua `/readyz`.
+- **Chi tiết:**
+  - `natsx.Background`: connect JetStream trong goroutine, retry vô hạn (backoff 1s → 30s); không `os.Exit` vì NATS
+  - `natsx.JSProvider` / `natsx.Static`: publisher catalog/order/billing lấy JS lazy; publish khi chưa ready trả lỗi (call site vốn chỉ log, không fail request)
+  - Consumer inventory + report attach qua `Start(onReady)` khi JetStream lên; lỗi → reconnect và thử lại
+  - `httpx.MountReady` + `ReadyCheck`: `/readyz` 200 khi dependency OK, 503 + tên dependency lỗi; `/healthz` giữ nguyên là liveness cho healthcheck container
+  - Test: `TestBackgroundBecomesReadyWhenBrokerStartsLate`, `TestBackgroundNotReadyBeforeBrokerArrives`, `TestStaticProvider`, `TestMountHealthIgnoresDependencies`, `TestMountReadyOKWhenDependenciesPass`
+  - Verify: chạy catalog **không có NATS** → `healthy` + `/readyz` 503; bật NATS trễ → consumer start + `/readyz` ready; full stack 9/9 healthy
+  - Lưu ý: deploy dùng `--no-build` ⇒ pipeline phải build lại image mới có fix
+- **Workdocs:** `docs/workdocs_nats_background_readyz_04082026/`
+- **Liên quan:** Deploy stag `ts-tamde-stag`; nối tiếp fix healthcheck 2026-08-03/04
+
 ## [2026-08-04] Fix geo-service unhealthy: bind IPv4 + wget + EXPOSE đúng cổng
 
 - **Loại:** fix

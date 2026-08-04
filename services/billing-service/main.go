@@ -39,22 +39,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	nc, js, err := natsx.ConnectJS(natsURL)
-	if err != nil {
-		slog.Error("nats connect", "url", natsURL, "err", err)
-		os.Exit(1)
-	}
-	defer nc.Close()
+	// NATS connects in the background so /healthz answers even if the broker
+	// is still starting; publish failures are logged, not fatal.
+	bus := natsx.NewBackground(natsURL)
+	bus.Start(nil)
+	defer bus.Close()
 
-	if err := natsx.EnsureStreams(js); err != nil {
-		slog.Error("ensure jetstream streams", "err", err)
-		os.Exit(1)
-	}
-
-	svc := &billingService{db: db, bus: newJSBillingPublisher(js)}
+	svc := &billingService{db: db, bus: newJSBillingPublisher(bus)}
 
 	r := httpx.NewRouter(serviceName)
 	httpx.MountHealth(r, serviceName)
+	httpx.MountReady(r, serviceName, httpx.ReadyCheck{Name: "nats", Check: bus.ReadyCheck})
 
 	// Internal: order-service records payment after admin complete (T6.1.2).
 	// Publishes billing.payment.recorded + billing.debt.updated (T6.1.3).

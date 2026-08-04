@@ -8,7 +8,6 @@ import (
 	"gas-tam-de/pkg/natsx"
 
 	"github.com/google/uuid"
-	"github.com/nats-io/nats.go"
 )
 
 // billingEventPublisher emits billing.* events after a successful payment write.
@@ -23,35 +22,43 @@ func (noopBillingPublisher) PublishPaymentRecorded(string, string, int64) error 
 func (noopBillingPublisher) PublishDebtUpdated(string, int64) error            { return nil }
 
 type jsBillingPublisher struct {
-	js nats.JetStreamContext
+	provider natsx.JSProvider
 }
 
-func newJSBillingPublisher(js nats.JetStreamContext) *jsBillingPublisher {
-	return &jsBillingPublisher{js: js}
+func newJSBillingPublisher(provider natsx.JSProvider) *jsBillingPublisher {
+	return &jsBillingPublisher{provider: provider}
 }
 
 func (j *jsBillingPublisher) PublishPaymentRecorded(orderID, paymentType string, amountPaid int64) error {
-	if j == nil || j.js == nil {
+	if j == nil || j.provider == nil {
 		return fmt.Errorf("jetstream publisher not configured")
+	}
+	js, err := j.provider.JS()
+	if err != nil {
+		return err
 	}
 	env := events.NewEnvelope(events.BillingPaymentRecorded, uuid.NewString(), map[string]any{
 		"order_id":     orderID,
 		"amount_paid":  amountPaid,
 		"payment_type": paymentType,
 	})
-	_, err := natsx.PublishEnvelope(j.js, env)
+	_, err = natsx.PublishEnvelope(js, env)
 	return err
 }
 
 func (j *jsBillingPublisher) PublishDebtUpdated(customerKey string, balance int64) error {
-	if j == nil || j.js == nil {
+	if j == nil || j.provider == nil {
 		return fmt.Errorf("jetstream publisher not configured")
+	}
+	js, err := j.provider.JS()
+	if err != nil {
+		return err
 	}
 	env := events.NewEnvelope(events.BillingDebtUpdated, uuid.NewString(), map[string]any{
 		"customer_key": customerKey,
 		"balance":      balance,
 	})
-	_, err := natsx.PublishEnvelope(j.js, env)
+	_, err = natsx.PublishEnvelope(js, env)
 	return err
 }
 

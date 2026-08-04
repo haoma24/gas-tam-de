@@ -154,7 +154,7 @@ func TestJSBillingPublisherPublishesEnvelopes(t *testing.T) {
 	}
 	defer func() { _ = debtSub.Unsubscribe() }()
 
-	pub := newJSBillingPublisher(js)
+	pub := newJSBillingPublisher(natsx.Static(js))
 	if err := pub.PublishPaymentRecorded("ord-1", paymentPartial, 100000); err != nil {
 		t.Fatalf("PublishPaymentRecorded: %v", err)
 	}
