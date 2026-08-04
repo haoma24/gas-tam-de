@@ -63,3 +63,5 @@ check tự động để lỗi không tái diễn.
   hãy xóa/sửa biến đó ở UI project — override generator ưu tiên giá trị đó.
 - Image names đã hardcode `ghcr.io/haoma24/gas-tam-de/<svc>:stag` trong
   `deploy/docker-compose.yml` (không cần `IMAGE_PREFIX`/`IMAGE_TAG`).
+- Checklist sửa `.env` VPS thật: [vps-env.md](./vps-env.md) + template
+  `deploy/.env.vps.example`.

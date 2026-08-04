@@ -29,6 +29,7 @@ on:
       - "go.sum"
       - "deploy/Dockerfile.service"
       - "deploy/.env.example"
+      - "deploy/.env.vps.example"
       - "scripts/check-env-yaml-safe.sh"
       - ".github/workflows/backend-ci.yml"
   pull_request:
@@ -39,6 +40,7 @@ on:
       - "go.sum"
       - "deploy/Dockerfile.service"
       - "deploy/.env.example"
+      - "deploy/.env.vps.example"
       - "scripts/check-env-yaml-safe.sh"
 
 env:

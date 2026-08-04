@@ -5,6 +5,20 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] VPS env: template tối thiểu + checklist sửa Stage 5
+
+- **Loại:** fix / docs
+- **Phạm vi:** `deploy/.env.vps.example`, `deploy/.env.example`, `scripts/check-env-yaml-safe.sh`
+- **Tóm tắt:** `.env` trên VPS vẫn còn `GEOCODE_USER_AGENT=... contact: local`, `API_BASE_URL` rác, `NATS_URL`/`*_SERVICE_URL=127.0.0.1`, `IMAGE_PREFIX`, `SERVICE=api-gateway` — đủ để Stage 5 vỡ YAML hoặc container mất DNS Docker. Thêm template tối thiểu + checklist thay env trên VPS.
+- **Chi tiết:**
+  - `deploy/.env.vps.example`: chỉ secret/override cần thiết; không set `NATS_URL` / `*_SERVICE_URL` / `*_DB` / `IMAGE_*`
+  - `GEOCODE_USER_AGENT=... contact=local` (không `: `)
+  - Script check strip quote dotenv rồi quét cả `.env.example` + `.env.vps.example`
+  - Workdocs checklist: `docs/workdocs_compose_override_yaml_04082026/vps-env.md`
+- **Việc cần làm trên VPS:** thay project Environment bằng nội dung `.env.vps.example` (điền secret), xóa các key độc hại ở trên, redeploy
+- **Workdocs:** `docs/workdocs_compose_override_yaml_04082026/`
+- **Liên quan:** Stage 5 Run Container
+
 ## [2026-08-04] Fix Stage 5: override YAML vỡ vì `GEOCODE_USER_AGENT` chứa `: `
 
 - **Loại:** fix
