@@ -5,6 +5,21 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Fix Stage 8 Health Check: gateway listen `0.0.0.0:8080` sớm
+
+- **Loại:** fix
+- **Phạm vi:** `pkg/httpx`, `deploy/docker-compose.yml`, `deploy/Dockerfile.service`, `.env*.example`
+- **Tóm tắt:** Cursor Cloud Stage 8 (Health Check) fail — “không lắng nghe 8080 / bind 127.0.0.1”. Stage 5 chạy `up -d` không `--wait` trong khi gateway `depends_on: service_healthy` 8 backend nên chưa listen khi platform probe `host:8080`. Fix: start gateway ngay khi container backend tồn tại, pin `PORT`/`0.0.0.0:8080`, rewrite loopback trong httpx.
+- **Chi tiết:**
+  - `api-gateway` depends_on: `service_healthy` → `service_started`; healthcheck `start_period` 90s→20s
+  - Compose: `PORT=8080`, `GATEWAY_ADDR=0.0.0.0:8080`
+  - Dockerfile.service: `ENV PORT=${EXPOSE_PORT}` + `EXPOSE`
+  - `NormalizeListenAddr`: `127.0.0.1`/`localhost` → `0.0.0.0`
+  - `.env.vps.example` / `.env.example`: thêm `PORT=8080`
+- **VPS:** thêm `PORT=8080` vào Environment; không set listen `127.0.0.1`. Redeploy sau khi CI push image mới.
+- **Workdocs:** `docs/workdocs_stage8_gateway_listen_04082026/`
+- **Liên quan:** Stage 8 Health Check; nối tiếp Stage 5 override YAML
+
 ## [2026-08-04] VPS env: template tối thiểu + checklist sửa Stage 5
 
 - **Loại:** fix / docs

@@ -17,9 +17,10 @@ FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata wget
 WORKDIR /app
 COPY --from=build /out/service /app/service
-# Per-service listen port (compose passes EXPOSE_PORT). EXPOSE is documentation
-# for orchestrators that probe the declared port; the process still binds via
-# *_ADDR / PORT env (normalized to 0.0.0.0 in httpx.ListenAndServe).
+# Per-service listen port (compose passes EXPOSE_PORT). EXPOSE documents the
+# port for orchestrators; ENV PORT gives PaaS-style defaults. Process bind is
+# still via *_ADDR / PORT, normalized to 0.0.0.0 in httpx.ListenAndServe.
 ARG EXPOSE_PORT=8080
+ENV PORT=${EXPOSE_PORT}
 EXPOSE ${EXPOSE_PORT}
 ENTRYPOINT ["/app/service"]

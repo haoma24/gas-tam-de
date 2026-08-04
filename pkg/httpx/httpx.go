@@ -135,12 +135,13 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 	})
 }
 
-// NormalizeListenAddr rewrites bare ":port" to "0.0.0.0:port".
+// NormalizeListenAddr rewrites listen addresses so containers accept external
+// probes (compose healthchecks, Cursor Cloud Stage 8, etc.):
 //
-// Go's default Listen(":port") can bind IPv6-only on hosts with
-// net.ipv6.bindv6only=1. Docker healthchecks probe 127.0.0.1, so the
-// container looks unhealthy even though the process is up. Binding IPv4
-// explicitly keeps compose probes working on those VPS kernels.
+//   - "" / bare ":port" → "0.0.0.0:port" (Go's Listen(":port") can be IPv6-only
+//     when net.ipv6.bindv6only=1; probes to 127.0.0.1 then fail)
+//   - "127.0.0.1:port" / "localhost:port" → "0.0.0.0:port" (loopback is not
+//     reachable from outside the container / from the platform health checker)
 func NormalizeListenAddr(addr string) string {
 	addr = strings.TrimSpace(addr)
 	if addr == "" {
@@ -148,6 +149,11 @@ func NormalizeListenAddr(addr string) string {
 	}
 	if strings.HasPrefix(addr, ":") && !strings.HasPrefix(addr, "::") {
 		return "0.0.0.0" + addr
+	}
+	for _, loopback := range []string{"127.0.0.1:", "localhost:"} {
+		if strings.HasPrefix(strings.ToLower(addr), loopback) {
+			return "0.0.0.0:" + addr[len(loopback):]
+		}
 	}
 	return addr
 }
