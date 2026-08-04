@@ -2,14 +2,14 @@
 #
 # The VPS deploys with `docker compose up --no-build`, so it needs pre-built
 # images. This workflow builds every service image from the latest stag code and
-# publishes to ghcr.io/haoma24/gas-tam-de/<service>:stag (and :latest).
+# publishes them to ghcr.io/haoma24/gas-tam-de/<service>:stag (and :latest).
+# Each image is made PUBLIC after push so the VPS can pull without any token.
 #
 # VPS deploy/.env (or env vars) must set:
 #   IMAGE_PREFIX=ghcr.io/haoma24/gas-tam-de
 #   IMAGE_TAG=stag
 #
-# No secrets required beyond the default GITHUB_TOKEN (GHCR write is automatic
-# for the repo owner when the package visibility is set to public).
+# No extra secrets needed — GITHUB_TOKEN is provided automatically.
 
 name: Backend CI — build & push images
 
@@ -118,3 +118,17 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # GHCR packages are private by default even for public repos.
+      # Make the package public so the VPS can pull without any credentials.
+      - name: Make GHCR package public
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            --method PATCH \
+            -H "Accept: application/vnd.github+json" \
+            "/user/packages/container/gas-tam-de%2F${{ matrix.service }}" \
+            -f visibility=public \
+          || echo "Could not set visibility (may already be public or need org-level settings)"
