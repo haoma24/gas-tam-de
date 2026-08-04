@@ -9,6 +9,13 @@
 # Only nats / api-gateway / web publish host ports; the other Go services are
 # reachable in-network through the gateway. `up nats` alone starts NATS only —
 # use `up -d` (no service argument) for the whole stack.
+#
+# Every built service pins an explicit `image:` name. Without it compose derives
+# the tag from the project name (`-p foo` => foo-catalog-service), so a build
+# stage and a `up --no-build` stage that pass different -p values silently run a
+# stale image from an earlier deploy. Pinning the name makes both stages agree,
+# and turns a missing build into a loud "image not found" instead.
+# Override with IMAGE_PREFIX / IMAGE_TAG when publishing to a registry.
 
 services:
   nats:
@@ -30,6 +37,7 @@ services:
       - gastamde
 
   api-gateway:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/api-gateway:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -86,6 +94,7 @@ services:
       - gastamde
 
   auth-service:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/auth-service:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -123,6 +132,7 @@ services:
       - gastamde
 
   catalog-service:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/catalog-service:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -150,6 +160,7 @@ services:
       - gastamde
 
   geo-service:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/geo-service:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -177,6 +188,7 @@ services:
       - gastamde
 
   order-service:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/order-service:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -213,6 +225,7 @@ services:
       - gastamde
 
   inventory-service:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/inventory-service:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -240,6 +253,7 @@ services:
       - gastamde
 
   billing-service:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/billing-service:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -267,6 +281,7 @@ services:
       - gastamde
 
   report-service:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/report-service:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.service
@@ -296,6 +311,7 @@ services:
   # The website itself. Without this service `docker compose logs` only ever
   # showed infrastructure (NATS) and no frontend at all.
   web:
+    image: ${IMAGE_PREFIX:-gas-tam-de}/web:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.web

@@ -5,6 +5,22 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-04] Fix deploy stag chạy image cũ: pin `image:` cho mọi service
+
+- **Loại:** fix
+- **Phạm vi:** `deploy/docker-compose.yml`
+- **Tóm tắt:** Deploy stag vẫn fail `container ts-tamde-stag-catalog-service-1 is unhealthy` **dù source đã có fix**. Nguyên nhân: service chỉ khai báo `build:` mà không có `image:`, nên compose tự đặt tên image theo project name (`-p foo` ⇒ `foo-catalog-service`). Stage build và stage `up --no-build` truyền `-p` khác nhau ⇒ stage run lấy đúng image **cũ** của lần deploy trước, fix không bao giờ vào container.
+- **Chi tiết:**
+  - Mọi service build (`api-gateway`, `auth`, `catalog`, `geo`, `order`, `inventory`, `billing`, `report`, `web`) pin `image: ${IMAGE_PREFIX:-gas-tam-de}/<svc>:${IMAGE_TAG:-latest}`
+  - Tên image giờ độc lập với `-p`, nên build stage và run stage luôn trỏ cùng một image
+  - Nếu pipeline quên build, `up --no-build` fail ngay với `No such image` thay vì âm thầm chạy image cũ
+  - `IMAGE_PREFIX` / `IMAGE_TAG` override được khi push registry hoặc pin version
+- **Verify (Docker thật):**
+  - Reproduce: image build từ commit trước fix ⇒ không có log `listening`, healthcheck `Connection refused` (exit 1) — đúng lỗi VPS
+  - Image build từ stag hiện tại ⇒ `listening addr=0.0.0.0:8082 network=tcp4`, healthcheck exit 0
+  - Build `-p buildstage` rồi chạy `docker compose -p ts-tamde-stag up -d --no-build --remove-orphans` (đúng lệnh VPS) ⇒ exit 0, **9/9 container healthy**, `/readyz` catalog = `{"nats":"ok"}`
+- **Liên quan:** Deploy stag `ts-tamde-stag`; nối tiếp 2 fix healthcheck 2026-08-04
+
 ## [2026-08-04] Service serve HTTP ngay, không chờ NATS; thêm `/readyz`
 
 - **Loại:** fix
