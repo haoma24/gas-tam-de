@@ -1,9 +1,16 @@
 # Flutter Web build for apps/mobile, served by nginx (see deploy/nginx.web.conf).
+# Embeds api-gateway on 127.0.0.1:8081 for VPS platforms that only run `web`.
 # Build: docker build -f deploy/Dockerfile.web -t gas-tam-de/web .
 
-# Must stay >= the Dart SDK that pubspec.lock resolves against (google_fonts
-# 8.2.1 needs Dart ^3.10, i.e. Flutter 3.44+).
 ARG FLUTTER_VERSION=3.44.0
+
+FROM golang:1.25-bookworm AS gobuild
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY pkg ./pkg
+COPY services ./services
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/gas-api-gateway ./services/api-gateway
 
 FROM ghcr.io/cirruslabs/flutter:${FLUTTER_VERSION} AS build
 WORKDIR /src
@@ -13,14 +20,15 @@ RUN flutter pub get
 
 COPY apps/mobile ./
 
-# Empty base URL makes Dio issue same-origin relative requests, which nginx
-# proxies to api-gateway. Override to call a gateway on another host.
 ARG API_BASE_URL=""
 RUN flutter build web --release --dart-define=API_BASE_URL="${API_BASE_URL}"
 
 FROM nginx:1.27-alpine
 RUN apk add --no-cache wget
+COPY --from=gobuild /out/gas-api-gateway /usr/local/bin/gas-api-gateway
+COPY deploy/docker-entrypoint.web.sh /docker-entrypoint.web.sh
+RUN chmod +x /docker-entrypoint.web.sh
 COPY deploy/nginx.web.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/build/web /usr/share/nginx/html
-# Must match Traefik labeledPort / Coolify Ports Exposes (8080).
 EXPOSE 8080
+ENTRYPOINT ["/docker-entrypoint.web.sh"]

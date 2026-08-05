@@ -38,6 +38,14 @@ curl -sS -X POST https://tamde-stag.tinhgon.xyz/v1/auth/otp/request \
 Label **api-gateway**: `PathPrefix(/v1)` + `/gateway-healthz` priority cao hơn static web,
 để OTP hoạt động cả khi nginx phía trước không proxy `/v1`.
 
+## Fix repo (embedded gateway trong image `web`)
+
+Image **`web:stag`** chạy **api-gateway trên 127.0.0.1:8081** trong cùng container với nginx
+(không cần container `api-gateway` riêng). Vẫn cần **`auth-service` + `nats`** trong compose
+để OTP hoạt động.
+
+Sau merge: đợi workflow **web-image.yml** push `:stag` mới → **Redeploy** trên dashboard.
+
 ## Domain staging
 
 - https://tamde-stag.tinhgon.xyz/
