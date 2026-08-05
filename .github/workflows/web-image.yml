@@ -101,6 +101,8 @@ jobs:
             -f visibility=public
 
   # Deploy runs right after build-push finishes — no fixed sleep needed.
+  # Secrets: GCP_VM_HOST, GCP_VM_USER, GCP_VM_SSH_KEY (+ optional PASSPHRASE).
+  # Auth troubleshooting: docs/workdocs_fix_gcp_ssh_auth_05082026/README.md
   deploy-gcp:
     name: Deploy to GCP stag
     needs: build-push
@@ -109,14 +111,16 @@ jobs:
     if: github.ref == 'refs/heads/stag' && github.event_name == 'push'
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: SSH deploy
-        uses: appleboy/ssh-action@v1.2.0
+        uses: ./.github/actions/ssh-deploy-gcp
         with:
           host: ${{ secrets.GCP_VM_HOST }}
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
-          timeout: 120s
-          command_timeout: 300s
+          passphrase: ${{ secrets.GCP_VM_SSH_PASSPHRASE }}
           script: |
             set -euo pipefail
             cd /opt/gas-tam-de

@@ -1,0 +1,54 @@
+# Composite: normalize GCP SSH secrets then run appleboy/ssh-action.
+#
+# Caller must `actions/checkout` first (required for `uses: ./...`).
+#
+# Secrets / inputs:
+#   host, username, key — from GCP_VM_HOST / GCP_VM_USER / GCP_VM_SSH_KEY
+# Optional:
+#   passphrase — GCP_VM_SSH_PASSPHRASE when the private key is encrypted
+name: SSH deploy to GCP stag
+description: Normalize GitHub SSH secrets and deploy via appleboy/ssh-action
+
+inputs:
+  host:
+    description: GCP VM host / IP
+    required: true
+  username:
+    description: SSH username on the VM
+    required: true
+  key:
+    description: SSH private key material
+    required: true
+  passphrase:
+    description: Passphrase for encrypted private key (optional)
+    required: false
+    default: ""
+  script:
+    description: Remote shell script to run after connect
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Normalize & validate SSH key
+      shell: bash
+      env:
+        GCP_VM_HOST: ${{ inputs.host }}
+        GCP_VM_USER: ${{ inputs.username }}
+        GCP_VM_SSH_KEY: ${{ inputs.key }}
+      run: |
+        set -euo pipefail
+        chmod +x scripts/ci-normalize-ssh-key.sh
+        scripts/ci-normalize-ssh-key.sh "${RUNNER_TEMP}/gcp_deploy_key"
+
+    - name: SSH deploy
+      id: ssh
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key_path: ${{ runner.temp }}/gcp_deploy_key
+        passphrase: ${{ inputs.passphrase }}
+        timeout: 120s
+        command_timeout: 300s
+        script: ${{ inputs.script }}

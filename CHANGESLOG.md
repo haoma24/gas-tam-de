@@ -5,6 +5,18 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-05] Fix GCP SSH deploy: publickey auth rejected
+
+- **Loại:** fix
+- **Phạm vi:** `.github/actions/ssh-deploy-gcp`, `scripts/ci-normalize-ssh-key.sh`, `deploy-gcp-stag.yml`, `web-image.yml`
+- **Tóm tắt:** Job CD fail `ssh: unable to authenticate, attempted methods [none publickey]`. Secrets đã có nhưng key format/khớp VM sai (trước đó từng thiếu secret). CI normalize literal `\n`, validate private key, dùng `key_path`; docs hướng dẫn ed25519 + `authorized_keys`.
+- **Chi tiết:**
+  - Composite `.github/actions/ssh-deploy-gcp` dùng chung cho web + backend deploy
+  - Optional secret `GCP_VM_SSH_PASSPHRASE`
+  - Cảnh báo RSA PEM (drone-ssh hay reject `ssh-rsa`)
+- **Workdocs:** `docs/workdocs_fix_gcp_ssh_auth_05082026/`
+- **Liên quan:** GHA runs `31019115236`, `31025224189`
+
 ## [2026-08-05] CD: deploy-gcp-stag.yml — SSH deploy sau web-image build
 
 - **Loại:** ci/cd

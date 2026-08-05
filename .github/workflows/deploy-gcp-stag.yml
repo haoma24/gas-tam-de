@@ -6,6 +6,11 @@
 #   GCP_VM_HOST       — external IP of the GCP VM (e.g. 34.42.69.194)
 #   GCP_VM_USER       — SSH user on the VM (e.g. ubuntu)
 #   GCP_VM_SSH_KEY    — private key matching ~/.ssh/authorized_keys on the VM
+# Optional:
+#   GCP_VM_SSH_PASSPHRASE — if the private key was generated with a passphrase
+#
+# Troubleshooting auth failures:
+#   docs/workdocs_fix_gcp_ssh_auth_05082026/README.md
 
 name: Deploy → GCP stag
 
@@ -25,14 +30,16 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: SSH deploy
-        uses: appleboy/ssh-action@v1.2.0
+        uses: ./.github/actions/ssh-deploy-gcp
         with:
           host: ${{ secrets.GCP_VM_HOST }}
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
-          timeout: 120s
-          command_timeout: 300s
+          passphrase: ${{ secrets.GCP_VM_SSH_PASSPHRASE }}
           script: |
             set -euo pipefail
             cd /opt/gas-tam-de
