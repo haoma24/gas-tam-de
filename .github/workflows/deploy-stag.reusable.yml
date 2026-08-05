@@ -1,0 +1,193 @@
+# Shared SSH deploy to the GCP staging VM.
+#
+# Two workflows need the exact same deploy: web-image.yml (after the Flutter
+# Web image is pushed) and backend-ci.yml (after the Go images are pushed).
+# They used to carry a byte-identical copy of the script, which drifts the
+# moment someone edits one of them. Both now call this file instead.
+#
+# Secrets (Settings -> Secrets -> Actions):
+#   GCP_VM_HOST     — external IP / DNS of the GCP VM
+#   GCP_VM_USER     — SSH user on the VM (must match the key's authorized user)
+#   GCP_VM_SSH_KEY  — PEM/OpenSSH *private* key, unencrypted, with trailing newline
+#
+# See docs/runbook-deploy-stag.md when the SSH step fails.
+
+name: Deploy stag (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      trigger:
+        description: "Free-text label for the caller, shown in the job log."
+        type: string
+        required: false
+        default: "unknown"
+    secrets:
+      GCP_VM_HOST:
+        required: true
+      GCP_VM_USER:
+        required: true
+      GCP_VM_SSH_KEY:
+        required: true
+
+jobs:
+  deploy:
+    name: SSH deploy to GCP stag
+    runs-on: ubuntu-latest
+
+    # Both callers can fire for the same push. Serialize them so two
+    # `docker compose up` runs never race on the same project.
+    concurrency:
+      group: deploy-stag
+      cancel-in-progress: false
+
+    steps:
+      # appleboy/ssh-action reports every credential problem as the same opaque
+      # "ssh: handshake failed ... [none publickey]". This step separates the
+      # cases it can see from the runner (missing/malformed secret) from the
+      # one it cannot (key not installed on the VM), and prints the fingerprint
+      # so the operator can diff it against the VM without leaking the key.
+      - name: Preflight — validate SSH secrets
+        env:
+          VM_HOST: ${{ secrets.GCP_VM_HOST }}
+          VM_USER: ${{ secrets.GCP_VM_USER }}
+          VM_KEY: ${{ secrets.GCP_VM_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+
+          if [ -z "${VM_HOST}" ]; then
+            echo "::error::GCP_VM_HOST is empty — set it to the VM's external IP or DNS name."
+            fail=1
+          fi
+          if [ -z "${VM_USER}" ]; then
+            echo "::error::GCP_VM_USER is empty — set it to the SSH login user on the VM."
+            fail=1
+          fi
+          if [ -z "${VM_KEY}" ]; then
+            echo "::error::GCP_VM_SSH_KEY is empty — paste the *private* key (not the .pub)."
+            fail=1
+          fi
+          if [ "${fail}" = 1 ]; then
+            exit 1
+          fi
+
+          umask 077
+          printf '%s' "${VM_KEY}" > /tmp/deploy_key
+
+          # A key pasted from a Windows editor keeps CRLF line endings, which
+          # every SSH implementation rejects while parsing.
+          if grep -q $'\r' /tmp/deploy_key; then
+            echo "::error::GCP_VM_SSH_KEY contains CRLF line endings — re-paste it with Unix newlines."
+            exit 1
+          fi
+          # OpenSSH also rejects a key whose final line has no newline.
+          if [ -n "$(tail -c 1 /tmp/deploy_key)" ]; then
+            printf '\n' >> /tmp/deploy_key
+          fi
+
+          if head -n 1 /tmp/deploy_key | grep -qE '^(ssh-(rsa|ed25519|dss)|ecdsa-)'; then
+            echo "::error::GCP_VM_SSH_KEY holds a public key — paste the matching private key instead."
+            exit 1
+          fi
+
+          if ! ssh-keygen -y -P "" -f /tmp/deploy_key > /tmp/deploy_key.pub 2>/tmp/keygen.err; then
+            echo "::error::GCP_VM_SSH_KEY could not be parsed as an unencrypted private key."
+            echo "Details: $(cat /tmp/keygen.err)"
+            echo "A passphrase-protected key cannot be used here — generate one with: ssh-keygen -t ed25519 -N '' -f deploy_key"
+            exit 1
+          fi
+
+          echo "Deploy target : ${VM_USER}@***"
+          echo "Key type      : $(cut -d' ' -f1 < /tmp/deploy_key.pub)"
+          echo "Key fingerprint (must appear in the VM's authorized keys):"
+          ssh-keygen -lf /tmp/deploy_key.pub
+          rm -f /tmp/deploy_key /tmp/deploy_key.pub
+
+      - name: SSH deploy (${{ inputs.trigger }})
+        id: ssh
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.GCP_VM_HOST }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_VM_SSH_KEY }}
+          timeout: 120s
+          command_timeout: 600s
+          script: |
+            set -euo pipefail
+            cd /opt/gas-tam-de
+
+            export COMPOSE_PROJECT_NAME="gas-tamde-stag"
+            export PROXY_NETWORK="tensorship-net"
+            compose() {
+              docker compose \
+                -f deploy/docker-compose.yml \
+                -f deploy/docker-compose.local.yml \
+                --env-file deploy/.env \
+                -p "${COMPOSE_PROJECT_NAME}" "$@"
+            }
+
+            echo "==> git pull stag"
+            git fetch origin stag
+            git checkout stag
+            git pull origin stag
+
+            echo "==> docker compose pull"
+            compose pull
+
+            echo "==> docker compose up"
+            compose up -d --no-build --remove-orphans
+
+            # The old script logged "NOT OK" and still exited 0, so a deploy
+            # that left every container dead was reported as green. Poll for a
+            # while (images are large and the gateway opens SQLite on boot),
+            # then fail loudly with the evidence.
+            echo "==> health check"
+            ok=0
+            for attempt in $(seq 1 30); do
+              if curl -sf --max-time 5 -o /dev/null http://127.0.0.1:80/gateway-healthz &&
+                 curl -sf --max-time 5 -o /dev/null http://127.0.0.1:80/v1/hello; then
+                echo "healthy after ${attempt} attempt(s)"
+                ok=1
+                break
+              fi
+              sleep 5
+            done
+
+            compose ps -a
+
+            if [ "${ok}" != 1 ]; then
+              echo "==> stack is NOT healthy — recent logs"
+              compose logs --tail=80 --no-color || true
+              echo "gateway-healthz: $(curl -s --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:80/gateway-healthz || echo unreachable)"
+              echo "v1/hello:        $(curl -s --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:80/v1/hello || echo unreachable)"
+              exit 1
+            fi
+
+            echo "==> deploy OK"
+
+      - name: Explain SSH failure
+        if: failure() && steps.ssh.outcome == 'failure'
+        run: |
+          cat <<'EOF'
+          The deploy step could not authenticate or the stack came up unhealthy.
+
+          "handshake failed ... [none publickey]" means the VM refused the key.
+          The secrets themselves passed preflight, so check the VM side:
+
+            1. The public key matching the fingerprint above must be authorized
+               for GCP_VM_USER. On GCP that is *not* a hand-edited
+               ~/.ssh/authorized_keys — the guest agent rewrites that file from
+               instance metadata. Register the key instead with:
+                 gcloud compute instances add-metadata <vm> \
+                   --metadata-from-file ssh-keys=keys.txt   # "<user>:<pubkey>"
+            2. If the project/instance has OS Login enabled
+               (enable-oslogin=TRUE), metadata keys are ignored entirely. Use:
+                 gcloud compute os-login ssh-keys add --key-file=deploy_key.pub
+               and set GCP_VM_USER to the OS Login username (e.g. sa_1234...).
+            3. GCP_VM_USER must be the user that owns /opt/gas-tam-de and is in
+               the docker group.
+
+          Full runbook: docs/runbook-deploy-stag.md
+          EOF

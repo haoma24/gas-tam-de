@@ -137,6 +137,9 @@ nối; hết budget thì vòng sau retry tiếp, service không thoát.
 Nếu deploy chạy `docker compose up --no-build`, nhớ **CI đã push image `:stag`**
 lên GHCR sau merge vào nhánh `stag` — VPS không build Flutter/Go trên máy.
 
+CD tự động vào VM GCP (`backend-ci.yml` / `web-image.yml` → job *Deploy to GCP
+stag*), cách chạy lại deploy và cách gỡ lỗi SSH: **`docs/runbook-deploy-stag.md`**.
+
 ### Stage 5 fail: `failed to export layer` / `CreateDiff` / containerd `rename ... no such file`
 
 Platform đang chạy `docker compose build` trên VPS. Build image **web** (Flutter)

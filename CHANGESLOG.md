@@ -5,6 +5,20 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-05] CD stag: deploy dùng chung + preflight SSH + health check chặn
+
+- **Loại:** ci/cd
+- **Phạm vi:** `.github/workflows/*`, `docs/runbook-deploy-stag.md`
+- **Tóm tắt:** Deploy `stag` fail với một dòng `handshake failed ... [none publickey]` không đủ để chẩn đoán. Gộp hai bản script SSH trùng nhau vào `deploy-stag.reusable.yml`, thêm preflight kiểm secret + in fingerprint, và bắt health check fail job thật sự.
+- **Chi tiết:**
+  - `deploy-gcp-stag.yml` bị xoá: trigger `workflow_run`/`workflow_dispatch` chỉ fire khi file có trên nhánh mặc định (`master`) — file chỉ ở `stag` nên **chưa từng chạy**; deploy giờ chain vào `backend-ci.yml` như `web-image.yml`
+  - Preflight: secret rỗng / CRLF / public key / key có passphrase → lỗi cụ thể; key hợp lệ → in fingerprint để đối chiếu VM
+  - Health check: poll 30×5s, fail thì in `compose ps -a` + log rồi `exit 1` (trước đây `|| echo NOT OK` luôn exit 0)
+  - `concurrency: deploy-stag` chống hai job cùng `compose up`
+  - `workflow_dispatch` cho cả hai workflow; điều kiện push image → `!= 'pull_request'`
+- **Workdocs:** `docs/workdocs_cd_stag_deploy_hardening_05082026/`
+- **Liên quan:** nối tiếp PR #23 → #27; run fail `31025224189`
+
 ## [2026-08-05] CD: deploy-gcp-stag.yml — SSH deploy sau web-image build
 
 - **Loại:** ci/cd
