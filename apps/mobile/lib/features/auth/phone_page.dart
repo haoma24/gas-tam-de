@@ -121,6 +121,17 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                                 color: AppColors.onDark.withValues(alpha: 0.6),
                               ),
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '🚀 Test CI/CD tự động — GCP stag',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: AppColors.onDark.withValues(alpha: 0.4),
+                                fontStyle: FontStyle.italic,
+                              ),
+                        ),
                       ],
                     ),
                   ),
