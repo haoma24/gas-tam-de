@@ -1,9 +1,13 @@
 # Local DX overrides — merged automatically by `make compose-*` / `make nats`.
 # NOT used on the VPS/Coolify deploy (platform only loads docker-compose.yml).
 #
-# Publishes host ports that must NOT appear in the main compose file: Coolify /
-# Traefik Stage 8 fails Unreachable when the labeled service also `ports:`-
-# publishes (extra publish/ingress endpoint / wrong IP).
+# Adds host ports + image build contexts. VPS must pull pre-built GHCR images
+# (CI on `stag`) — do not run `docker compose build` on the server; Flutter/web
+# builds often fail containerd with CreateDiff / layer export errors.
+
+x-go-build: &go_build
+  context: ..
+  dockerfile: deploy/Dockerfile.service
 
 services:
   nats:
@@ -12,10 +16,70 @@ services:
       - "8222:8222"
 
   api-gateway:
+    build:
+      <<: *go_build
+      args:
+        SERVICE: api-gateway
+        EXPOSE_PORT: "8080"
     ports:
       - "8080:8080"
 
+  auth-service:
+    build:
+      <<: *go_build
+      args:
+        SERVICE: auth-service
+        EXPOSE_PORT: "8081"
+
+  catalog-service:
+    build:
+      <<: *go_build
+      args:
+        SERVICE: catalog-service
+        EXPOSE_PORT: "8082"
+
+  geo-service:
+    build:
+      <<: *go_build
+      args:
+        SERVICE: geo-service
+        EXPOSE_PORT: "8083"
+
+  order-service:
+    build:
+      <<: *go_build
+      args:
+        SERVICE: order-service
+        EXPOSE_PORT: "8084"
+
+  inventory-service:
+    build:
+      <<: *go_build
+      args:
+        SERVICE: inventory-service
+        EXPOSE_PORT: "8085"
+
+  billing-service:
+    build:
+      <<: *go_build
+      args:
+        SERVICE: billing-service
+        EXPOSE_PORT: "8086"
+
+  report-service:
+    build:
+      <<: *go_build
+      args:
+        SERVICE: report-service
+        EXPOSE_PORT: "8087"
+
   web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        FLUTTER_VERSION: "${FLUTTER_VERSION:-3.44.0}"
+        API_BASE_URL: "${WEB_API_BASE_URL:-}"
     # Container listens on 8080 (Traefik labeledPort); map host WEB_PORT → 8080.
     ports:
       - "${WEB_PORT:-8090}:8080"
