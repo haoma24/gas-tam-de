@@ -1,0 +1,72 @@
+# Deploy to GCP VM after backend + web images are built and pushed to GHCR.
+#
+# Trigger: after both backend-ci AND web-image workflows finish on stag,
+# OR manually via workflow_dispatch.
+#
+# Secrets required (Settings → Secrets → Actions):
+#   GCP_VM_HOST       — external IP of the GCP VM (e.g. 34.42.69.194)
+#   GCP_VM_USER       — SSH user on the VM (e.g. ubuntu)
+#   GCP_VM_SSH_KEY    — private key matching ~/.ssh/authorized_keys on the VM
+
+name: Deploy → GCP stag
+
+on:
+  # Run after the web image is built (which is the slowest / last to finish).
+  # This ensures both backend and web :stag images are in GHCR before deploy.
+  workflow_run:
+    workflows: ["Web image — build & push"]
+    branches: [stag]
+    types: [completed]
+
+  # Allow triggering manually from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: SSH deploy to GCP stag
+    runs-on: ubuntu-latest
+    # Only deploy when the triggering workflow succeeded (skip on failure).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.GCP_VM_HOST }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_VM_SSH_KEY }}
+          timeout: 120s
+          command_timeout: 300s
+          script: |
+            set -euo pipefail
+            cd /opt/gas-tam-de
+
+            echo "==> git pull stag"
+            git fetch origin stag
+            git checkout stag
+            git pull origin stag
+
+            echo "==> docker compose pull"
+            export COMPOSE_PROJECT_NAME="gas-tamde-stag"
+            export PROXY_NETWORK="tensorship-net"
+            docker compose \
+              -f deploy/docker-compose.yml \
+              -f deploy/docker-compose.local.yml \
+              --env-file deploy/.env \
+              -p "${COMPOSE_PROJECT_NAME}" \
+              pull
+
+            echo "==> docker compose up"
+            docker compose \
+              -f deploy/docker-compose.yml \
+              -f deploy/docker-compose.local.yml \
+              --env-file deploy/.env \
+              -p "${COMPOSE_PROJECT_NAME}" \
+              up -d --no-build --remove-orphans
+
+            echo "==> health check"
+            sleep 5
+            curl -sf http://127.0.0.1:80/gateway-healthz && echo " gateway OK" || echo " gateway NOT OK"
+            curl -sf http://127.0.0.1:80/v1/hello && echo " api OK" || echo " api NOT OK"
+
+            docker compose -p "${COMPOSE_PROJECT_NAME}" ps -a

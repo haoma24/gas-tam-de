@@ -22,12 +22,14 @@ on:
       - "apps/mobile/**"
       - "deploy/Dockerfile.web"
       - "deploy/nginx.web.conf"
+      - "deploy/docker-entrypoint.web.sh"
       - ".github/workflows/web-image.yml"
   pull_request:
     paths:
       - "apps/mobile/**"
       - "deploy/Dockerfile.web"
       - "deploy/nginx.web.conf"
+      - "deploy/docker-entrypoint.web.sh"
       - ".github/workflows/web-image.yml"
   # Lets an operator rebuild :stag after a deploy found the tag missing.
   workflow_dispatch:
