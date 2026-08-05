@@ -5,6 +5,13 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-05] VPS: bỏ `build:` khỏi compose chính — tránh containerd CreateDiff
+
+- **Loại:** fix deploy
+- **Phạm vi:** `deploy/docker-compose.yml`, `deploy/docker-compose.local.yml`, `scripts/vps-compose-up.sh`, Makefile, README
+- **Tóm tắt:** Stage 5 `compose build` trên VPS vỡ containerd khi build Flutter/web. Compose VPS chỉ còn `image: ...:stag`; build context chuyển sang `.local.yml` cho dev. Stage build → `No services to build`; runtime pull GHCR.
+- **Workdocs:** `docs/workdocs_vps_no_compose_build_05082026/`
+
 ## [2026-08-05] Fix OTP: web stack phụ thuộc auth + gateway
 
 - **Loại:** fix

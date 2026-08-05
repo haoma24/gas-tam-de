@@ -16,7 +16,7 @@ NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
 	gateway auth catalog geo order inventory billing report \
 	tidy test build compose-up compose-down compose-ps compose-logs \
 	web-up web-logs web-health health stack-health doctor check-env-yaml \
-	vps-net-check vps-net-fix \
+	vps-net-check vps-net-fix vps-up \
 	flutter-get flutter-create flutter-web flutter-android flutter-ios flutter-devices
 
 .DEFAULT_GOAL := help
@@ -38,6 +38,7 @@ help:
 	@echo "    make check-env-yaml  Ensure .env.example is safe for Cursor Cloud override YAML"
 	@echo "    make vps-net-check   Which containers are missing from the platform proxy net?"
 	@echo "    make vps-net-fix     Attach those containers (deploy said cause=NotOnNet)"
+	@echo "    make vps-up          Pull GHCR :stag images + up --no-build (VPS manual)"
 	@echo ""
 	@echo "  Website (Flutter Web + nginx in Docker, port 8090)"
 	@echo "    make web-up       Build + start nats, auth, gateway, web (OTP-ready)"
@@ -111,6 +112,12 @@ vps-net-check:
 
 vps-net-fix:
 	@./scripts/vps-net-check.sh --fix
+
+# VPS manual deploy when the platform runs `compose build` (should no-op after
+# build contexts moved to docker-compose.local.yml). Pulls pinned :stag images.
+VPS_COMPOSE_PROJECT ?= ts-tamde-stag
+vps-up:
+	COMPOSE_PROJECT_NAME=$(VPS_COMPOSE_PROJECT) ./scripts/vps-compose-up.sh
 
 compose-ps:
 	$(COMPOSE) ps -a

@@ -1,7 +1,10 @@
 # Local / MVP stack: NATS JetStream + Go services (SQLite files on ./data volume)
 # + the Flutter Web site behind nginx.
-# Usage (from repo root):
-#   docker compose -f deploy/docker-compose.yml up --build
+#
+# VPS / Coolify / Cursor Cloud Stage 5: chỉ load file này (KHÔNG docker-compose.local.yml).
+# Image build chạy trên CI (push `:stag` lên GHCR). Stage `compose build` trên VPS phải
+# no-op — nếu còn khối `build:` ở đây, platform sẽ build Flutter và dễ vỡ containerd.
+# Local: `make compose-up` merge deploy/docker-compose.local.yml (có `build:` + host ports).
 #
 # Website  -> http://127.0.0.1:8090   (via docker-compose.local.yml; nginx :8080)
 # Gateway  -> http://127.0.0.1:8080   (via docker-compose.local.yml)
@@ -36,12 +39,6 @@ services:
 
   api-gateway:
     image: ghcr.io/haoma24/gas-tam-de/api-gateway:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.service
-      args:
-        SERVICE: api-gateway
-        EXPOSE_PORT: "8080"
     # Internal only for Traefik. Stage 8 probes **web:8080** (nginx). Gateway
     # still binds 0.0.0.0:8080 immediately (healthz before SQLite) for nginx
     # proxy + compose healthchecks. No host `ports:` — see docker-compose.local.yml.
@@ -81,12 +78,6 @@ services:
 
   auth-service:
     image: ghcr.io/haoma24/gas-tam-de/auth-service:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.service
-      args:
-        SERVICE: auth-service
-        EXPOSE_PORT: "8081"
     environment:
       AUTH_ADDR: ":8081"
       AUTH_DB: "/data/auth.db"
@@ -117,12 +108,6 @@ services:
 
   catalog-service:
     image: ghcr.io/haoma24/gas-tam-de/catalog-service:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.service
-      args:
-        SERVICE: catalog-service
-        EXPOSE_PORT: "8082"
     environment:
       CATALOG_ADDR: ":8082"
       CATALOG_DB: "/data/catalog.db"
@@ -143,12 +128,6 @@ services:
 
   geo-service:
     image: ghcr.io/haoma24/gas-tam-de/geo-service:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.service
-      args:
-        SERVICE: geo-service
-        EXPOSE_PORT: "8083"
     environment:
       GEO_ADDR: ":8083"
       GEO_DB: "/data/geo.db"
@@ -169,12 +148,6 @@ services:
 
   order-service:
     image: ghcr.io/haoma24/gas-tam-de/order-service:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.service
-      args:
-        SERVICE: order-service
-        EXPOSE_PORT: "8084"
     environment:
       ORDER_ADDR: ":8084"
       ORDER_DB: "/data/order.db"
@@ -204,12 +177,6 @@ services:
 
   inventory-service:
     image: ghcr.io/haoma24/gas-tam-de/inventory-service:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.service
-      args:
-        SERVICE: inventory-service
-        EXPOSE_PORT: "8085"
     environment:
       INVENTORY_ADDR: ":8085"
       INVENTORY_DB: "/data/inventory.db"
@@ -230,12 +197,6 @@ services:
 
   billing-service:
     image: ghcr.io/haoma24/gas-tam-de/billing-service:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.service
-      args:
-        SERVICE: billing-service
-        EXPOSE_PORT: "8086"
     environment:
       BILLING_ADDR: ":8086"
       BILLING_DB: "/data/billing.db"
@@ -256,12 +217,6 @@ services:
 
   report-service:
     image: ghcr.io/haoma24/gas-tam-de/report-service:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.service
-      args:
-        SERVICE: report-service
-        EXPOSE_PORT: "8087"
     environment:
       REPORT_ADDR: ":8087"
       REPORT_DB: "/data/report.db"
@@ -284,12 +239,6 @@ services:
   # immediately and serves /healthz itself; /v1/* proxies to api-gateway.
   web:
     image: ghcr.io/haoma24/gas-tam-de/web:stag
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.web
-      args:
-        FLUTTER_VERSION: "${FLUTTER_VERSION:-3.44.0}"
-        API_BASE_URL: "${WEB_API_BASE_URL:-}"
     # Do NOT ports-publish here (Traefik Unreachable). Local: docker-compose.local.yml
     labels:
       - traefik.enable=true
@@ -315,4 +264,3 @@ services:
 
 volumes:
   nats-data:
-

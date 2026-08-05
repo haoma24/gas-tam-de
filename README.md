@@ -122,8 +122,32 @@ docker compose -p <project> exec catalog-service wget -qO- http://127.0.0.1:8082
 `NATS_STARTUP_TIMEOUT_SEC` (mặc định 60s) giờ chỉ giới hạn **một vòng** thử kết
 nối; hết budget thì vòng sau retry tiếp, service không thoát.
 
-Nếu deploy chạy `docker compose up --no-build`, nhớ **build lại image** — image
-cũ vẫn chặn ở NATS trước khi mount `/healthz`.
+Nếu deploy chạy `docker compose up --no-build`, nhớ **CI đã push image `:stag`**
+lên GHCR sau merge vào nhánh `stag` — VPS không build Flutter/Go trên máy.
+
+### Stage 5 fail: `failed to export layer` / `CreateDiff` / containerd `rename ... no such file`
+
+Platform đang chạy `docker compose build` trên VPS. Build image **web** (Flutter)
++ Go trên disk nhỏ dễ làm containerd vỡ lúc export layer.
+
+**Cách xử lý (repo):** `deploy/docker-compose.yml` (VPS) **không còn** khối
+`build:` — Stage `compose build` phải in `No services to build`. Image lấy từ
+GHCR (`backend-ci.yml` + `web-image.yml` trên nhánh `stag`).
+
+**Trên server (nếu vẫn lỗi cache):**
+
+```bash
+docker builder prune -af
+docker system prune -f   # cẩn thận — xóa image không dùng
+df -h /var/lib/docker
+```
+
+**Chạy tay sau khi merge `stag`:**
+
+```bash
+make vps-up VPS_COMPOSE_PROJECT=ts-tamde-stag
+# hoặc: COMPOSE_PROJECT_NAME=ts-tamde-stag ./scripts/vps-compose-up.sh
+```
 
 ### Khi deploy báo `HEALTHCHECK FAILED cause=NotOnNet`
 
