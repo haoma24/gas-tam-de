@@ -84,6 +84,12 @@ curl -sS -X POST https://<domain>/v1/auth/otp/request \
 Env tối thiểu: `deploy/.env.vps.example`. Chi tiết:
 `docs/workdocs_vps_deploy_khong_ssh_05082026/README.md`.
 
+**GCP VM (SSH CD):** workflows `Deploy → GCP stag` / `web-image` job `deploy-gcp`
+cần secrets `GCP_VM_HOST`, `GCP_VM_USER`, `GCP_VM_SSH_KEY` (ed25519 private key
+khớp `~/.ssh/authorized_keys` trên VM). Nếu job lỗi
+`unable to authenticate … publickey` → xem
+`docs/workdocs_fix_gcp_ssh_auth_05082026/README.md`.
+
 **Local / `make compose-up`** (merge `docker-compose.local.yml`):
 
 1. Website: **`http://127.0.0.1:8090/`** (`WEB_PORT`, map → container `:8080`).
