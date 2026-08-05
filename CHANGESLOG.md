@@ -5,6 +5,12 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-05] CD: deploy-gcp-stag.yml — SSH deploy sau web-image build
+
+- **Loại:** ci/cd
+- **Phạm vi:** `.github/workflows/deploy-gcp-stag.yml`, `web-image.yml`
+- **Tóm tắt:** Thêm workflow CD SSH vào GCP VM sau khi `web-image` push `:stag`. Secrets: `GCP_VM_HOST`, `GCP_VM_USER`, `GCP_VM_SSH_KEY`.
+
 ## [2026-08-05] Web image: nhúng api-gateway (sidecar) cho VPS một container
 
 - **Loại:** fix deploy
