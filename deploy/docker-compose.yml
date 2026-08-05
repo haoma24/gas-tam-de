@@ -258,8 +258,8 @@ services:
       nats:
         condition: service_healthy
 
-  # Public Traefik target (Stage 8 labeledPort=8080). nginx listens on 8080
-  # immediately and serves /healthz itself; /v1/* proxies to api-gateway.
+  # Public Traefik target (Stage 8 labeledPort=8080). nginx :8080 + embedded
+  # api-gateway on 127.0.0.1:8081 (no separate api-gateway container required).
   web:
     networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/web:stag
@@ -270,19 +270,34 @@ services:
       - traefik.docker.network=tensorship-net
     expose:
       - "8080"
+    environment:
+      GATEWAY_ADDR: "127.0.0.1:8081"
+      GATEWAY_DB: "/data/gateway.db"
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*,https://tamde-stag.tinhgon.xyz}"
+      JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-me}"
+      RATE_LIMIT_OTP_PER_IP_MINUTE: "${RATE_LIMIT_OTP_PER_IP_MINUTE:-10}"
+      RATE_LIMIT_LOGIN_PER_IP_MINUTE: "${RATE_LIMIT_LOGIN_PER_IP_MINUTE:-10}"
+      RATE_LIMIT_ORDER_PER_IP_MINUTE: "${RATE_LIMIT_ORDER_PER_IP_MINUTE:-30}"
+      RATE_LIMIT_ORDER_PER_USER_MINUTE: "${RATE_LIMIT_ORDER_PER_USER_MINUTE:-10}"
+      AUTH_SERVICE_URL: "http://auth-service:8081"
+      CATALOG_SERVICE_URL: "http://catalog-service:8082"
+      GEO_SERVICE_URL: "http://geo-service:8083"
+      ORDER_SERVICE_URL: "http://order-service:8084"
+      INVENTORY_SERVICE_URL: "http://inventory-service:8085"
+      BILLING_SERVICE_URL: "http://billing-service:8086"
+      REPORT_SERVICE_URL: "http://report-service:8087"
+      NATS_URL: "nats://nats:4222"
+      NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
+    volumes:
+      - ../data:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/gateway-healthz"]
       interval: 10s
       timeout: 5s
       retries: 8
-      start_period: 90s
-    # Pull the OTP path (nats → auth → gateway) whenever web starts locally or
-    # on VPS. nginx returns api_unavailable when api-gateway is unreachable;
-    # auth must be up or /v1/auth/* fails with BAD_GATEWAY even if gateway runs.
+      start_period: 120s
     depends_on:
-      api-gateway:
-        condition: service_healthy
       auth-service:
         condition: service_healthy
 

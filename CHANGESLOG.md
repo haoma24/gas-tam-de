@@ -5,6 +5,13 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-05] Web image: nhúng api-gateway (sidecar) cho VPS một container
+
+- **Loại:** fix deploy
+- **Phạm vi:** `deploy/Dockerfile.web`, `deploy/nginx.web.conf`, `deploy/docker-entrypoint.web.sh`, compose `web`
+- **Tóm tắt:** Staging vẫn `api_unavailable` vì platform không chạy container `api-gateway` riêng. nginx proxy `127.0.0.1:8081`; gateway chạy trong container `web`. OTP vẫn cần `auth-service` + `nats`.
+- **Workdocs:** cập nhật `docs/workdocs_vps_deploy_khong_ssh_05082026/`
+
 ## [2026-08-05] Staging không SSH: Traefik route `/v1` → api-gateway
 
 - **Loại:** fix deploy
