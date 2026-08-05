@@ -128,7 +128,7 @@ switch ($Command) {
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     'web-up' {
-        Invoke-Compose @('up', '--build', '-d', '--wait', 'web')
+        Invoke-Compose @('up', '--build', '-d', '--wait', 'nats', 'auth-service', 'api-gateway', 'web')
         Invoke-Compose @('ps', '-a')
     }
     'web-logs' { Invoke-Compose @('logs', '-f', '--tail=100', 'web') }

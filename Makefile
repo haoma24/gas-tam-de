@@ -40,9 +40,9 @@ help:
 	@echo "    make vps-net-fix     Attach those containers (deploy said cause=NotOnNet)"
 	@echo ""
 	@echo "  Website (Flutter Web + nginx in Docker, port 8090)"
-	@echo "    make web-up       Build + start web (and its API deps)"
+	@echo "    make web-up       Build + start nats, auth, gateway, web (OTP-ready)"
 	@echo "    make web-logs     Tail nginx access/error logs"
-	@echo "    make web-health   GET web /web-healthz + proxied /v1/hello"
+	@echo "    make web-health   GET web /web-healthz + /gateway-healthz + /v1/hello"
 	@echo "    make stack-health compose-ps + gateway health + web health"
 	@echo ""
 	@echo "  Go services (host process, needs NATS for later sprints)"
@@ -140,7 +140,7 @@ doctor:
 # --- Website (Flutter Web served by nginx) ---
 
 web-up:
-	$(COMPOSE) up --build -d --wait web
+	$(COMPOSE) up --build -d --wait nats auth-service api-gateway web
 	@$(MAKE) --no-print-directory compose-ps
 
 web-logs:
@@ -148,6 +148,8 @@ web-logs:
 
 web-health:
 	curl -sf "$(WEB_URL)/web-healthz"
+	@echo
+	curl -sf "$(WEB_URL)/gateway-healthz"
 	@echo
 	curl -sf "$(WEB_URL)/v1/hello"
 	@echo

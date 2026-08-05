@@ -75,6 +75,9 @@ services:
       timeout: 3s
       retries: 12
       start_period: 15s
+    depends_on:
+      auth-service:
+        condition: service_healthy
 
   auth-service:
     image: ghcr.io/haoma24/gas-tam-de/auth-service:stag
@@ -301,14 +304,14 @@ services:
       timeout: 3s
       retries: 5
       start_period: 20s
-    # service_started, not service_healthy: nginx resolves api-gateway per
-    # request (see nginx.web.conf), so the site can serve while the gateway is
-    # still booting. Waiting for healthy left the web container in `created`
-    # state whenever the gateway was slow, which the platform proxy reads as an
-    # app that never came up.
+    # Pull the OTP path (nats → auth → gateway) whenever web starts locally or
+    # on VPS. nginx returns api_unavailable when api-gateway is unreachable;
+    # auth must be up or /v1/auth/* fails with BAD_GATEWAY even if gateway runs.
     depends_on:
       api-gateway:
-        condition: service_started
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
 
 volumes:
   nats-data:

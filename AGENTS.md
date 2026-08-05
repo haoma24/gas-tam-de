@@ -2,6 +2,9 @@
 
 ## Cursor Cloud specific instructions
 
+**Git / PR:** Mọi thay đổi merge vào nhánh **`stag`** (deploy VPS / CI push `:stag`).
+Không mở PR target `master` trừ khi maintainer yêu cầu rõ.
+
 Gas Tam Đệ monorepo: Flutter (`apps/mobile`) + Go microservices (`services/*`) + SQLite files under `data/` + NATS JetStream. Standard commands live in root `README.md` and `Makefile` (`make help`).
 
 ### Services (local DX)
