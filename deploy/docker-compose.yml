@@ -51,11 +51,20 @@ services:
     # proxy + compose healthchecks. No host `ports:` — see docker-compose.local.yml.
     expose:
       - "8080"
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=tensorship-net
+      # Public /v1 on the same hostname (bypasses static/nginx frontends that
+      # only serve Flutter and return index.html or 405 for POST /v1/*).
+      - traefik.http.services.gastamde-api.loadbalancer.server.port=8080
+      - traefik.http.routers.gastamde-api.rule=PathPrefix(`/v1`) || Path(`/gateway-healthz`)
+      - traefik.http.routers.gastamde-api.priority=200
+      - traefik.http.routers.gastamde-api.service=gastamde-api
     environment:
       PORT: "8080"
       GATEWAY_ADDR: "0.0.0.0:8080"
       GATEWAY_DB: "/data/gateway.db"
-      CORS_ORIGINS: "http://localhost:*,http://127.0.0.1:*"
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*,https://tamde-stag.tinhgon.xyz}"
       JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-me}"
       RATE_LIMIT_OTP_PER_IP_MINUTE: "${RATE_LIMIT_OTP_PER_IP_MINUTE:-10}"
       RATE_LIMIT_LOGIN_PER_IP_MINUTE: "${RATE_LIMIT_LOGIN_PER_IP_MINUTE:-10}"
