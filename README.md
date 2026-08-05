@@ -175,9 +175,21 @@ liveness riêng: `/gateway-healthz`. nginx resolve hostname `api-gateway`
 **theo từng request** qua DNS nội bộ của Docker, nên gateway chưa lên chỉ làm
 `/v1/*` trả `503` chứ không giết container website. Thông báo **«API gateway
 khong san sang»** (OTP / đăng nhập) nghĩa là nginx **không kết nối được**
-container `api-gateway` — thường do service đó chưa chạy hoặc crash. Trên VPS:
-`docker compose ps`, `docker logs api-gateway`, đảm bảo deploy **cả stack** (ít
-nhất `nats`, `auth-service`, `api-gateway`, `web`). Local: `make web-up` (không
+container `api-gateway` — thường do **web và api-gateway không cùng Docker
+network** (Traefik `tensorship-net`) hoặc service gateway chưa chạy.
+
+**Sau merge compose mới:** mọi service join `tensorship-net` + `default`. Redeploy
+rồi kiểm tra:
+
+```bash
+COMPOSE_PROJECT_NAME=ts-tamde-stag make vps-api-diagnose
+curl -s https://<domain>/gateway-healthz   # phải thấy api-gateway status ok
+```
+
+Nếu vẫn lỗi: `./scripts/vps-net-check.sh --fix` với
+`COMPOSE_PROJECT=ts-tamde-stag`, `docker logs ts-tamde-stag-api-gateway-1`.
+
+Local: `make compose-up` (không
 chỉ start mỗi container `web`). Các service `auth`, `catalog`,
 `geo`, `order`, `inventory`, `billing`, `report` **cố ý không publish cổng ra host**
 — chúng đi qua gateway. Tất cả service đều có `healthcheck` + `restart: unless-stopped`,

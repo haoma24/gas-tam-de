@@ -5,6 +5,13 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-05] Fix OTP api_unavailable: mọi service trên tensorship-net
+
+- **Loại:** fix deploy
+- **Phạm vi:** `deploy/docker-compose.yml`, Makefile, scripts VPS diagnose
+- **Tóm tắt:** nginx trong `web` không tới được `api-gateway` khi hai container không cùng proxy network Traefik. Join stack vào `tensorship-net` (external); healthcheck web qua `/gateway-healthz`; `make vps-api-diagnose`.
+- **Workdocs:** `docs/workdocs_web_gateway_proxy_net_05082026/`
+
 ## [2026-08-05] VPS: bỏ `build:` khỏi compose chính — tránh containerd CreateDiff
 
 - **Loại:** fix deploy

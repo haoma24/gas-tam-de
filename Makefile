@@ -10,13 +10,14 @@ COMPOSE_ENV := $(wildcard deploy/.env)
 COMPOSE := docker compose -f $(COMPOSE_FILE) $(if $(COMPOSE_LOCAL),-f $(COMPOSE_LOCAL),) $(if $(COMPOSE_ENV),--env-file $(COMPOSE_ENV),)
 GATEWAY_URL ?= http://127.0.0.1:8080
 WEB_URL ?= http://127.0.0.1:$(or $(WEB_PORT),8090)
+PROXY_NETWORK ?= tensorship-net
 NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
 
 .PHONY: help nats-up nats-down nats-logs nats-init nats wait-nats \
 	gateway auth catalog geo order inventory billing report \
 	tidy test build compose-up compose-down compose-ps compose-logs \
 	web-up web-logs web-health health stack-health doctor check-env-yaml \
-	vps-net-check vps-net-fix vps-up \
+	vps-net-check vps-net-fix vps-up vps-api-diagnose ensure-proxy-net \
 	flutter-get flutter-create flutter-web flutter-android flutter-ios flutter-devices
 
 .DEFAULT_GOAL := help
@@ -39,6 +40,7 @@ help:
 	@echo "    make vps-net-check   Which containers are missing from the platform proxy net?"
 	@echo "    make vps-net-fix     Attach those containers (deploy said cause=NotOnNet)"
 	@echo "    make vps-up          Pull GHCR :stag images + up --no-build (VPS manual)"
+	@echo "    make vps-api-diagnose  Test web → api-gateway from inside stack"
 	@echo ""
 	@echo "  Website (Flutter Web + nginx in Docker, port 8090)"
 	@echo "    make web-up       Build + start nats, auth, gateway, web (OTP-ready)"
@@ -65,7 +67,7 @@ help:
 
 # --- Infra / NATS ---
 
-nats-up:
+nats-up: ensure-proxy-net
 	$(COMPOSE) up nats -d
 
 nats-down:
@@ -93,7 +95,7 @@ nats-init:
 
 nats: nats-up wait-nats nats-init
 
-compose-up:
+compose-up: ensure-proxy-net
 	$(COMPOSE) up --build -d --wait
 	@$(MAKE) --no-print-directory compose-ps
 
@@ -116,8 +118,14 @@ vps-net-fix:
 # VPS manual deploy when the platform runs `compose build` (should no-op after
 # build contexts moved to docker-compose.local.yml). Pulls pinned :stag images.
 VPS_COMPOSE_PROJECT ?= ts-tamde-stag
+ensure-proxy-net:
+	@docker network inspect "$(PROXY_NETWORK)" >/dev/null 2>&1 || docker network create "$(PROXY_NETWORK)"
+
 vps-up:
-	COMPOSE_PROJECT_NAME=$(VPS_COMPOSE_PROJECT) ./scripts/vps-compose-up.sh
+	COMPOSE_PROJECT_NAME=$(VPS_COMPOSE_PROJECT) PROXY_NETWORK=$(PROXY_NETWORK) ./scripts/vps-compose-up.sh
+
+vps-api-diagnose:
+	COMPOSE_PROJECT_NAME=$(VPS_COMPOSE_PROJECT) PROXY_NETWORK=$(PROXY_NETWORK) ./scripts/vps-api-diagnose.sh
 
 compose-ps:
 	$(COMPOSE) ps -a
@@ -146,7 +154,7 @@ doctor:
 
 # --- Website (Flutter Web served by nginx) ---
 
-web-up:
+web-up: ensure-proxy-net
 	$(COMPOSE) up --build -d --wait nats auth-service api-gateway web
 	@$(MAKE) --no-print-directory compose-ps
 

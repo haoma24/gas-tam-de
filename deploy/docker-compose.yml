@@ -10,17 +10,23 @@
 # Gateway  -> http://127.0.0.1:8080   (via docker-compose.local.yml)
 #
 # Coolify / Traefik (VPS Stage 8) — labeledPort=8080 rules:
-# 1) Do NOT define custom `networks:` (Coolify attaches its own + Traefik).
+# 1) Mọi service join **tensorship-net** (external) + default để nginx trong `web`
+#    resolve `api-gateway` khi platform chỉ route Traefik qua proxy network.
 # 2) Do NOT `ports:`-publish any service Traefik targets. Host publish adds
 #    another endpoint; Traefik often picks it → Unreachable. Use `expose`
 #    only; local host ports live in docker-compose.local.yml.
 # 3) Public Traefik target is **web** (nginx) on container port **8080**, not
-#    api-gateway. nginx listens instantly; gateway may still be opening SQLite.
-#    Labels: traefik.docker.network=tensorship-net (literal).
+#    api-gateway. Labels: traefik.docker.network=tensorship-net (literal).
+# Local: `make compose-up` tạo tensorship-net giả nếu chưa có (`ensure-proxy-net`).
 # `scripts/vps-net-check.sh` repairs NotOnNet attach failures.
+
+x-stack-networks: &stack_networks
+  - default
+  - tensorship-net
 
 services:
   nats:
+    networks: *stack_networks
     image: nats:2.10-alpine
     command: ["-c", "/etc/nats/nats.conf"]
     # No host ports here — Coolify/Traefik; local maps in docker-compose.local.yml.
@@ -38,6 +44,7 @@ services:
       start_period: 5s
 
   api-gateway:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/api-gateway:stag
     # Internal only for Traefik. Stage 8 probes **web:8080** (nginx). Gateway
     # still binds 0.0.0.0:8080 immediately (healthz before SQLite) for nginx
@@ -77,6 +84,7 @@ services:
         condition: service_healthy
 
   auth-service:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/auth-service:stag
     environment:
       AUTH_ADDR: ":8081"
@@ -107,6 +115,7 @@ services:
         condition: service_healthy
 
   catalog-service:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/catalog-service:stag
     environment:
       CATALOG_ADDR: ":8082"
@@ -127,6 +136,7 @@ services:
         condition: service_healthy
 
   geo-service:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/geo-service:stag
     environment:
       GEO_ADDR: ":8083"
@@ -147,6 +157,7 @@ services:
         condition: service_healthy
 
   order-service:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/order-service:stag
     environment:
       ORDER_ADDR: ":8084"
@@ -176,6 +187,7 @@ services:
         condition: service_healthy
 
   inventory-service:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/inventory-service:stag
     environment:
       INVENTORY_ADDR: ":8085"
@@ -196,6 +208,7 @@ services:
         condition: service_healthy
 
   billing-service:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/billing-service:stag
     environment:
       BILLING_ADDR: ":8086"
@@ -216,6 +229,7 @@ services:
         condition: service_healthy
 
   report-service:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/report-service:stag
     environment:
       REPORT_ADDR: ":8087"
@@ -238,6 +252,7 @@ services:
   # Public Traefik target (Stage 8 labeledPort=8080). nginx listens on 8080
   # immediately and serves /healthz itself; /v1/* proxies to api-gateway.
   web:
+    networks: *stack_networks
     image: ghcr.io/haoma24/gas-tam-de/web:stag
     # Do NOT ports-publish here (Traefik Unreachable). Local: docker-compose.local.yml
     labels:
@@ -248,11 +263,11 @@ services:
       - "8080"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/web-healthz"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/gateway-healthz"]
       interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 20s
+      timeout: 5s
+      retries: 8
+      start_period: 90s
     # Pull the OTP path (nats → auth → gateway) whenever web starts locally or
     # on VPS. nginx returns api_unavailable when api-gateway is unreachable;
     # auth must be up or /v1/auth/* fails with BAD_GATEWAY even if gateway runs.
@@ -264,3 +279,8 @@ services:
 
 volumes:
   nats-data:
+
+networks:
+  tensorship-net:
+    external: true
+    name: ${PROXY_NETWORK:-tensorship-net}
