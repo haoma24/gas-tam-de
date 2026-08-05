@@ -123,7 +123,7 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '🚀 Test CI/CD tự động — GCP stag',
+                          '🚀 Test CI/CD tự động — GCP stag v2',
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
