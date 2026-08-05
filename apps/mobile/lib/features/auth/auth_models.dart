@@ -158,6 +158,10 @@ class AuthApiException implements Exception {
         return 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
       case 'NETWORK':
         return 'Không kết nối được máy chủ. Kiểm tra API đang chạy.';
+      case 'api_unavailable':
+        return 'API gateway chưa sẵn sàng. Khởi động lại stack (make compose-up hoặc bật service api-gateway trên VPS).';
+      case 'BAD_GATEWAY':
+        return 'Dịch vụ xác thực chưa sẵn sàng. Chạy auth-service (make compose-up hoặc make web-up).';
       default:
         return message.isNotEmpty ? message : 'Có lỗi xảy ra. Thử lại.';
     }

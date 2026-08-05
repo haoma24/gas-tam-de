@@ -149,7 +149,12 @@ Website gọi API **same-origin**: nginx (container `:8080`) proxy `/v1/*` sang
 `api-gateway:8080`; `/healthz` trả JSON từ nginx (liveness Traefik). Gateway
 liveness riêng: `/gateway-healthz`. nginx resolve hostname `api-gateway`
 **theo từng request** qua DNS nội bộ của Docker, nên gateway chưa lên chỉ làm
-`/v1/*` trả `503` chứ không giết container website. Các service `auth`, `catalog`,
+`/v1/*` trả `503` chứ không giết container website. Thông báo **«API gateway
+khong san sang»** (OTP / đăng nhập) nghĩa là nginx **không kết nối được**
+container `api-gateway` — thường do service đó chưa chạy hoặc crash. Trên VPS:
+`docker compose ps`, `docker logs api-gateway`, đảm bảo deploy **cả stack** (ít
+nhất `nats`, `auth-service`, `api-gateway`, `web`). Local: `make web-up` (không
+chỉ start mỗi container `web`). Các service `auth`, `catalog`,
 `geo`, `order`, `inventory`, `billing`, `report` **cố ý không publish cổng ra host**
 — chúng đi qua gateway. Tất cả service đều có `healthcheck` + `restart: unless-stopped`,
 nên container chết sẽ hiện `unhealthy` trong `make compose-ps` thay vì im lặng.

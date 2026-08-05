@@ -5,6 +5,13 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-05] Fix OTP: web stack phụ thuộc auth + gateway
+
+- **Loại:** fix
+- **Phạm vi:** `deploy/docker-compose.yml`, Makefile, Flutter auth UX, README
+- **Tóm tắt:** Lỗi «API gateway chưa sẵn sàng» khi gửi OTP = nginx không tới được `api-gateway`. `make web-up` giờ bật `nats`, `auth-service`, `api-gateway`, `web`; compose thêm `depends_on` healthy cho OTP path.
+- **Workdocs:** `docs/workdocs_web_otp_gateway_deps_05082026/`
+
 ## [2026-08-04] Fix Stage 8 Unreachable: Traefik target = `web:8080`
 
 - **Loại:** fix
