@@ -70,7 +70,19 @@ make compose-down
 **Coolify / Cursor Cloud (Traefik):** cổng public `labeledPort=8080` trỏ vào
 service **`web`** (nginx lắng nghe `0.0.0.0:8080`). Domain của app phục vụ HTML
 + `/v1/*` same-origin. Không publish host port trong compose chính — Traefik
-nối qua `tensorship-net`.
+nối qua `tensorship-net`. Traefik cũng route **`/v1`** và **`/gateway-healthz`**
+thẳng tới **api-gateway** (priority cao) khi nginx phía trước chỉ serve static Flutter.
+
+**Không có SSH:** chỉ redeploy qua dashboard + kiểm tra HTTPS:
+
+```bash
+curl -sS https://<domain>/v1/hello
+curl -sS -X POST https://<domain>/v1/auth/otp/request \
+  -H 'Content-Type: application/json' -d '{"phone":"0901234567"}'
+```
+
+Env tối thiểu: `deploy/.env.vps.example`. Chi tiết:
+`docs/workdocs_vps_deploy_khong_ssh_05082026/README.md`.
 
 **Local / `make compose-up`** (merge `docker-compose.local.yml`):
 

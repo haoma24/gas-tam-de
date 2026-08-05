@@ -5,6 +5,13 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-05] Staging không SSH: Traefik route `/v1` → api-gateway
+
+- **Loại:** fix deploy
+- **Phạm vi:** `deploy/docker-compose.yml`, README, workdocs VPS không SSH
+- **Tóm tắt:** Site staging chỉ serve static Flutter (nginx 1.29); `/v1` trả index.html / POST 405. Thêm label Traefik `PathPrefix(/v1)` + `/gateway-healthz` tới api-gateway; hướng dẫn redeploy qua UI không SSH.
+- **Workdocs:** `docs/workdocs_vps_deploy_khong_ssh_05082026/`
+
 ## [2026-08-05] Fix OTP api_unavailable: mọi service trên tensorship-net
 
 - **Loại:** fix deploy
