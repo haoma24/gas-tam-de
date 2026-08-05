@@ -1,7 +1,6 @@
-# Deploy to GCP VM after backend + web images are built and pushed to GHCR.
-#
-# Trigger: after both backend-ci AND web-image workflows finish on stag,
-# OR manually via workflow_dispatch.
+# Deploy to GCP VM on every push to stag.
+# Runs AFTER backend-ci and web-image have had time to push :stag images.
+# The deploy step pulls the latest :stag images and restarts containers.
 #
 # Secrets required (Settings → Secrets → Actions):
 #   GCP_VM_HOST       — external IP of the GCP VM (e.g. 34.42.69.194)
@@ -11,12 +10,8 @@
 name: Deploy → GCP stag
 
 on:
-  # Run after the web image is built (which is the slowest / last to finish).
-  # This ensures both backend and web :stag images are in GHCR before deploy.
-  workflow_run:
-    workflows: ["Web image — build & push"]
+  push:
     branches: [stag]
-    types: [completed]
 
   # Allow triggering manually from the Actions tab.
   workflow_dispatch:
@@ -25,10 +20,13 @@ jobs:
   deploy:
     name: SSH deploy to GCP stag
     runs-on: ubuntu-latest
-    # Only deploy when the triggering workflow succeeded (skip on failure).
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
+      - name: Wait for images to be built and pushed
+        run: |
+          echo "Waiting 8 minutes for backend-ci + web-image to finish..."
+          sleep 480
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
