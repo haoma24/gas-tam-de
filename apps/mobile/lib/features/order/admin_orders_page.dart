@@ -750,53 +750,40 @@ class _CompleteOrderDialogState extends State<_CompleteOrderDialog> {
               ),
             ),
             const SizedBox(height: 4),
-            RadioListTile<String>(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('Đã thu đủ'),
-              value: OrderPaymentType.full,
-              groupValue: _paymentType,
-              onChanged: _submitting
-                  ? null
-                  : (v) {
-                      if (v == null) return;
-                      setState(() {
-                        _paymentType = v;
-                        _localError = null;
-                      });
-                    },
-            ),
-            RadioListTile<String>(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('Thu một phần'),
-              value: OrderPaymentType.partial,
-              groupValue: _paymentType,
-              onChanged: _submitting
-                  ? null
-                  : (v) {
-                      if (v == null) return;
-                      setState(() {
-                        _paymentType = v;
-                        _localError = null;
-                      });
-                    },
-            ),
-            RadioListTile<String>(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('Chưa thu (nợ)'),
-              value: OrderPaymentType.unpaid,
-              groupValue: _paymentType,
-              onChanged: _submitting
-                  ? null
-                  : (v) {
-                      if (v == null) return;
-                      setState(() {
-                        _paymentType = v;
-                        _localError = null;
-                      });
-                    },
+            AbsorbPointer(
+              absorbing: _submitting,
+              child: RadioGroup<String>(
+                groupValue: _paymentType,
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() {
+                    _paymentType = v;
+                    _localError = null;
+                  });
+                },
+                child: const Column(
+                  children: [
+                    RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text('Đã thu đủ'),
+                      value: OrderPaymentType.full,
+                    ),
+                    RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text('Thu một phần'),
+                      value: OrderPaymentType.partial,
+                    ),
+                    RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text('Chưa thu (nợ)'),
+                      value: OrderPaymentType.unpaid,
+                    ),
+                  ],
+                ),
+              ),
             ),
             if (_paymentType == OrderPaymentType.partial) ...[
               const SizedBox(height: 8),

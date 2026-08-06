@@ -153,8 +153,9 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                               validator: (v) {
                                 final s = v?.trim() ?? '';
                                 if (s.isEmpty) return 'Vui lòng nhập SĐT.';
-                                if (!isValidVnMobile(s))
+                                if (!isValidVnMobile(s)) {
                                   return 'SĐT không hợp lệ.';
+                                }
                                 return null;
                               },
                               onSubmitted: (_) {

@@ -397,7 +397,7 @@ class _MetricTile extends StatelessWidget {
         ? theme.colorScheme.onPrimaryContainer
         : theme.colorScheme.onSurface;
     final muted = emphasize
-        ? theme.colorScheme.onPrimaryContainer.withOpacity(0.85)
+        ? theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.85)
         : theme.colorScheme.onSurfaceVariant;
 
     return Material(

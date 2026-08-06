@@ -120,8 +120,9 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
   static String _initial(String name, String phone) {
     final n = name.trim();
     if (n.isNotEmpty) return String.fromCharCodes(n.runes.take(1)).toUpperCase();
-    if (phone.isNotEmpty && phone != '—')
+    if (phone.isNotEmpty && phone != '—') {
       return String.fromCharCodes(phone.runes.take(1));
+    }
     return '?';
   }
 
@@ -292,19 +293,18 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                           textInputAction: TextInputAction.done,
                           style: const TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 15),
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             hintText: 'Nguyễn Văn A',
                             border: OutlineInputBorder(
                               borderRadius: AppRadius.sm,
-                              borderSide: const BorderSide(
-                                  color: AppColors.ash),
+                              borderSide: BorderSide(color: AppColors.ash),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: AppRadius.sm,
-                              borderSide: const BorderSide(
+                              borderSide: BorderSide(
                                   color: AppColors.fire, width: 1.5),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(
+                            contentPadding: EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 12),
                           ),
                           onSubmitted: (_) {
@@ -573,8 +573,8 @@ class _FireButton extends StatelessWidget {
       onTap: loading ? null : onTap,
       child: Container(
         height: 44,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
             colors: [AppColors.amber, AppColors.fire],
           ),
           borderRadius: AppRadius.pill,

@@ -5,6 +5,23 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-06] Lint clean: fix 25 analyzer issues (const, curly_braces, deprecated API, RadioGroup migration)
+
+- **Loại:** fix / refactor
+- **Phạm vi:** `apps/mobile` — 8 file dart
+- **Tóm tắt:** Xử lý toàn bộ 25 issues từ `flutter analyze`: thêm `const` cho các constructor, bổ sung curly braces vào if-statement, thêm `library` directive, thay `withOpacity` → `withValues`, `!isEmpty` → `isNotEmpty`, và migrate `RadioListTile` cũ với deprecated `groupValue`/`onChanged` sang `RadioGroup` ancestor + `AbsorbPointer` để disable khi đang submit.
+- **Chi tiết:**
+  - `_auth_widgets.dart`: `const` cho 3 `OutlineInputBorder` (focusedBorder, errorBorder, focusedErrorBorder).
+  - `customer_profile_page.dart`: curly braces cho if-block; `const InputDecoration`, `const OutlineInputBorder` × 2, `const BoxDecoration`.
+  - `phone_page.dart`: curly braces cho if-block trong validator.
+  - `phone_utils.dart`: thêm `library;` directive để fix `dangling_library_doc_comments`.
+  - `admin_dashboard_page.dart`: `withOpacity(0.85)` → `withValues(alpha: 0.85)`.
+  - `customer_shop_page.dart`: `const` cho `SliverToBoxAdapter/Padding/Column` list rỗng; `const _HeroChip`; `const TextStyle`; `const BoxDecoration`; `withOpacity` → `withValues`.
+  - `admin_orders_page.dart`: migrate `RadioListTile<String>` với deprecated `groupValue`/`onChanged` → `RadioGroup<String>` ancestor + `AbsorbPointer(absorbing: _submitting)` để lock UI khi đang submit.
+  - `select_products_page.dart`: `!cart.isEmpty` → `cart.isNotEmpty`; `withOpacity` → `withValues`.
+- **Workdocs:** n/a (lint/refactor, không thay đổi logic)
+- **Liên quan:** n/a
+
 ## [2026-08-06] Fix OTP keyboard không mở + trang đăng nhập load 30s
 
 - **Loại:** fix

@@ -228,17 +228,17 @@ class DarkTextField extends StatelessWidget {
           borderSide:
               BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
         ),
-        focusedBorder: OutlineInputBorder(
+        focusedBorder: const OutlineInputBorder(
           borderRadius: AppRadius.md,
-          borderSide: const BorderSide(color: AppColors.amber, width: 1.5),
+          borderSide: BorderSide(color: AppColors.amber, width: 1.5),
         ),
-        errorBorder: OutlineInputBorder(
+        errorBorder: const OutlineInputBorder(
           borderRadius: AppRadius.md,
-          borderSide: const BorderSide(color: AppColors.danger),
+          borderSide: BorderSide(color: AppColors.danger),
         ),
-        focusedErrorBorder: OutlineInputBorder(
+        focusedErrorBorder: const OutlineInputBorder(
           borderRadius: AppRadius.md,
-          borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
+          borderSide: BorderSide(color: AppColors.danger, width: 1.5),
         ),
         errorStyle: const TextStyle(color: AppColors.danger, fontSize: 12),
         contentPadding:

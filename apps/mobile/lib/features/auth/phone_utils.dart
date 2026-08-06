@@ -1,4 +1,5 @@
 /// Client-side Vietnam mobile helpers (mirror auth-service `normalizePhoneVN`).
+library;
 
 final _digitsOnly = RegExp(r'\D+');
 
