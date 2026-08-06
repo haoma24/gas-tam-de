@@ -5,6 +5,19 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-06] Fix OTP keyboard không mở + trang đăng nhập load 30s
+
+- **Loại:** fix
+- **Phạm vi:** `apps/mobile` — `otp_page.dart`, `auth_session.dart`
+- **Tóm tắt:** Sau khi bấm "Gửi OTP", màn hình OTP hiện ra nhưng bàn phím không tự mở. Song song đó, app mất ~30 s để hiển thị trang đầu tiên vì bootstrap chờ đủ hai timeout Dio (15 s connect + 15 s receive = 30 s) khi server không đạt được.
+- **Chi tiết:**
+  - `otp_page.dart`: đổi hidden `TextFormField` từ `SizedBox(height: 0)` → `Opacity(opacity: 0, child: SizedBox(height: 1))` để OS có thể attach keyboard vào widget; thêm `autofocus: true`; dùng `SchedulerBinding.addPostFrameCallback` lồng bên trong `WidgetsBinding.addPostFrameCallback` để delay `requestFocus` đến sau animation page transition hoàn tất.
+  - `auth_session.dart`: wrap `refresh()` call trong `bootstrap()` với `.timeout(Duration(seconds: 5))` + bắt `TimeoutException`; nếu server không đạt được trong 5 s thì giữ token cũ và tiếp tục (thay vì chờ 30 s).
+- **Workdocs:** n/a (bugfix nhỏ 2 file)
+- **Liên quan:** n/a
+
+---
+
 ## [2026-08-05] Fix OTP: web stack phụ thuộc auth + gateway
 
 - **Loại:** fix

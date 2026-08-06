@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -114,8 +116,12 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
     }
 
     try {
-      final result =
-          await _ref.read(authApiProvider).refresh(saved.refreshToken);
+      // Cap the refresh attempt at 5 s so a slow/unreachable server does not
+      // block the app boot for the full Dio timeout (15 s × 2 = 30 s).
+      final result = await _ref
+          .read(authApiProvider)
+          .refresh(saved.refreshToken)
+          .timeout(const Duration(seconds: 5));
       await setSession(AuthSession.fromTokens(result));
     } on AuthApiException catch (e) {
       if (e.code == 'INVALID_TOKEN' || e.statusCode == 401) {
@@ -123,6 +129,9 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
         return;
       }
       // Network / transient — keep saved tokens so offline UI still works.
+      state = saved;
+    } on TimeoutException catch (_) {
+      // Server unreachable at boot — keep saved tokens; silently continue.
       state = saved;
     } catch (_) {
       state = saved;

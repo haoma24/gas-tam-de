@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -44,8 +45,12 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     _devCode = widget.args.devCode;
     _startCooldown(widget.args.resendAfterSec);
     _controller.addListener(() => setState(() {}));
+    // Delay focus request until after the route transition animation so the
+    // keyboard reliably opens on both mobile and web.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
     });
   }
 
@@ -248,40 +253,47 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                               behavior: HitTestBehavior.opaque,
                               child: OtpBoxRow(digits: _digits),
                             ),
-                            // Hidden field
-                            SizedBox(
-                              height: 0,
-                              child: TextFormField(
-                                controller: _controller,
-                                focusNode: _focusNode,
-                                enabled: !_loading,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.done,
-                                autofillHints: const [
-                                  AutofillHints.oneTimeCode
-                                ],
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(6),
-                                ],
-                                style: const TextStyle(
+                            // Hidden field — zero-opacity so the OS keyboard
+                            // can still attach to it on all platforms.
+                            Opacity(
+                              opacity: 0,
+                              child: SizedBox(
+                                height: 1,
+                                child: TextFormField(
+                                  controller: _controller,
+                                  focusNode: _focusNode,
+                                  autofocus: true,
+                                  enabled: !_loading,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.done,
+                                  autofillHints: const [
+                                    AutofillHints.oneTimeCode,
+                                  ],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
+                                  style: const TextStyle(
                                     fontSize: 0,
-                                    color: Colors.transparent),
-                                cursorWidth: 0,
-                                decoration: const InputDecoration(
-                                  contentPadding: EdgeInsets.zero,
-                                  border: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
+                                    color: Colors.transparent,
+                                  ),
+                                  cursorWidth: 0,
+                                  decoration: const InputDecoration(
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                  ),
+                                  validator: (v) {
+                                    if ((v?.trim() ?? '').length != 6) {
+                                      return '';
+                                    }
+                                    return null;
+                                  },
+                                  onFieldSubmitted: (_) {
+                                    if (!_loading) _verify();
+                                  },
                                 ),
-                                validator: (v) {
-                                  if ((v?.trim() ?? '').length != 6)
-                                    return '';
-                                  return null;
-                                },
-                                onFieldSubmitted: (_) {
-                                  if (!_loading) _verify();
-                                },
                               ),
                             ),
                             if (_error != null) ...[
