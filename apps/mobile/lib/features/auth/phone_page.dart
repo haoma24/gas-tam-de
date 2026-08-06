@@ -75,120 +75,111 @@ class _PhonePageState extends ConsumerState<PhonePage> {
               child: CustomPaint(painter: FlameAmbientPainter()),
             ),
             SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                    child: Row(
-                      children: [
-                        if (widget.onBack != null)
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                                color: AppColors.onDark, size: 20),
-                            onPressed: _loading ? null : widget.onBack,
+              child: AuthScrollBody(
+                top: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+                      child: Row(
+                        children: [
+                          if (widget.onBack != null)
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                                  color: AppColors.onDark, size: 20),
+                              onPressed: _loading ? null : widget.onBack,
+                            ),
+                          const Spacer(),
+                          const AuthStepChip(step: 1, total: 2),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Số điện\nthoại',
+                            style: Theme.of(context)
+                                .textTheme
+                                .displaySmall
+                                ?.copyWith(
+                                  color: AppColors.onDark,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.5,
+                                  height: 1.0,
+                                ),
                           ),
-                        const Spacer(),
-                        const AuthStepChip(step: 1, total: 2),
-                      ],
+                          const SizedBox(height: 14),
+                          Text(
+                            'Nhập SĐT để nhận mã OTP 6 chữ số.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.copyWith(
+                                  color:
+                                      AppColors.onDark.withValues(alpha: 0.6),
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Số điện\nthoại',
-                          style: Theme.of(context)
-                              .textTheme
-                              .displaySmall
-                              ?.copyWith(
-                                color: AppColors.onDark,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -1.5,
-                                height: 1.0,
-                              ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'Nhập SĐT để nhận mã OTP 6 chữ số.',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.copyWith(
-                                color: AppColors.onDark.withValues(alpha: 0.6),
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '🚀 Test CI/CD tự động — GCP stag v2',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(
-                                color: AppColors.onDark.withValues(alpha: 0.4),
-                                fontStyle: FontStyle.italic,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                    child: AuthCard(
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            DarkTextField(
-                              controller: _controller,
-                              enabled: !_loading,
-                              keyboardType: TextInputType.phone,
-                              textInputAction: TextInputAction.done,
-                              autofillHints: const [
-                                AutofillHints.telephoneNumber
-                              ],
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r'[\d+\s\-.]')),
-                                LengthLimitingTextInputFormatter(16),
-                              ],
-                              hint: '09xx xxx xxx',
-                              prefixIcon: const Icon(Icons.phone_outlined,
-                                  size: 20),
-                              validator: (v) {
-                                final s = v?.trim() ?? '';
-                                if (s.isEmpty) return 'Vui lòng nhập SĐT.';
-                                if (!isValidVnMobile(s))
-                                  return 'SĐT không hợp lệ.';
-                                return null;
-                              },
-                              onSubmitted: (_) {
-                                if (!_loading) _submit();
-                              },
-                            ),
-                            if (_error != null) ...[
-                              const SizedBox(height: 10),
-                              AuthErrorText(_error!),
+                  ],
+                ),
+                bottom: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                  child: AuthCard(
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DarkTextField(
+                            controller: _controller,
+                            enabled: !_loading,
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [
+                              AutofillHints.telephoneNumber
                             ],
-                            const SizedBox(height: 20),
-                            GradientCTAButton(
-                              label: 'Gửi mã OTP',
-                              loading: _loading,
-                              onTap: _submit,
-                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                  RegExp(r'[\d+\s\-.]')),
+                              LengthLimitingTextInputFormatter(16),
+                            ],
+                            hint: '09xx xxx xxx',
+                            prefixIcon:
+                                const Icon(Icons.phone_outlined, size: 20),
+                            validator: (v) {
+                              final s = v?.trim() ?? '';
+                              if (s.isEmpty) return 'Vui lòng nhập SĐT.';
+                              if (!isValidVnMobile(s)) {
+                                return 'SĐT không hợp lệ.';
+                              }
+                              return null;
+                            },
+                            onSubmitted: (_) {
+                              if (!_loading) _submit();
+                            },
+                          ),
+                          if (_error != null) ...[
+                            const SizedBox(height: 10),
+                            AuthErrorText(_error!),
                           ],
-                        ),
+                          const SizedBox(height: 20),
+                          GradientCTAButton(
+                            label: 'Gửi mã OTP',
+                            loading: _loading,
+                            onTap: _submit,
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 32),
-                ],
+                ),
               ),
             ),
           ],

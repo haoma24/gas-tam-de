@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -25,6 +27,48 @@ class AuthStepChip extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
+    );
+  }
+}
+
+/// Auth page body: header block on top, input card pushed to the bottom.
+///
+/// Scrollable so the on-screen keyboard (which shrinks the viewport) neither
+/// overflows the layout nor hides the field being typed into — the focused
+/// field is scrolled into view instead.
+class AuthScrollBody extends StatelessWidget {
+  const AuthScrollBody({
+    super.key,
+    required this.top,
+    required this.bottom,
+    this.bottomPadding = 32,
+  });
+
+  final Widget top;
+  final Widget bottom;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minHeight = constraints.maxHeight.isFinite
+            ? math.max(0.0, constraints.maxHeight - bottomPadding)
+            : 0.0;
+        return SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: bottomPadding),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            // spaceBetween (not Spacer) — Expanded cannot resolve inside the
+            // unbounded height of a scroll view.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [top, bottom],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -220,13 +264,11 @@ class DarkTextField extends StatelessWidget {
         fillColor: AppColors.ash.withValues(alpha: 0.35),
         border: OutlineInputBorder(
           borderRadius: AppRadius.md,
-          borderSide:
-              BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
+          borderSide: BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.md,
-          borderSide:
-              BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
+          borderSide: BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.md,
@@ -250,10 +292,15 @@ class DarkTextField extends StatelessWidget {
   }
 }
 
+/// Height of a single [OtpBoxRow] digit box — the transparent input on
+/// [OtpBoxRow] must cover exactly this area so taps reach the text field.
+const double kOtpBoxHeight = 58;
+
 /// 6 individual digit boxes reflecting controller value.
 class OtpBoxRow extends StatelessWidget {
-  const OtpBoxRow({super.key, required this.digits});
+  const OtpBoxRow({super.key, required this.digits, this.focused = true});
   final String digits;
+  final bool focused;
 
   @override
   Widget build(BuildContext context) {
@@ -261,11 +308,11 @@ class OtpBoxRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(6, (i) {
         final filled = i < digits.length;
-        final active = i == digits.length;
+        final active = focused && i == digits.length;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           width: 46,
-          height: 58,
+          height: kOtpBoxHeight,
           decoration: BoxDecoration(
             color: filled
                 ? AppColors.amber.withValues(alpha: 0.15)

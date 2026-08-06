@@ -29,7 +29,6 @@ class OtpPage extends ConsumerStatefulWidget {
 
 class _OtpPageState extends ConsumerState<OtpPage> {
   final _controller = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
   final _focusNode = FocusNode();
   bool _loading = false;
   bool _resending = false;
@@ -43,19 +42,31 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     super.initState();
     _devCode = widget.args.devCode;
     _startCooldown(widget.args.resendAfterSec);
-    _controller.addListener(() => setState(() {}));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
-    });
+    _controller.addListener(_onCodeChanged);
+    _focusNode.addListener(_onFocusChanged);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _controller.removeListener(_onCodeChanged);
+    _focusNode.removeListener(_onFocusChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
+
+  void _onCodeChanged() {
+    setState(() {
+      if (_error != null) _error = null;
+    });
+    if (_controller.text.trim().length == 6 && !_busy) {
+      _focusNode.unfocus();
+      _verify();
+    }
+  }
+
+  void _onFocusChanged() => setState(() {});
 
   void _startCooldown(int seconds) {
     _timer?.cancel();
@@ -76,10 +87,17 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   }
 
   Future<void> _verify() async {
-    setState(() => _error = null);
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_busy) return;
     final code = _controller.text.trim();
-    setState(() => _loading = true);
+    if (code.length != 6) {
+      setState(() => _error = 'Nhập đủ 6 số của mã OTP.');
+      _focusNode.requestFocus();
+      return;
+    }
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
     try {
       final result = await ref.read(authApiProvider).verifyOtp(
             phone: widget.args.phone,
@@ -149,179 +167,200 @@ class _OtpPageState extends ConsumerState<OtpPage> {
               child: CustomPaint(painter: FlameAmbientPainter()),
             ),
             SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                    child: Row(
-                      children: [
-                        if (widget.onBack != null)
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                                color: AppColors.onDark, size: 20),
-                            onPressed: _busy ? null : widget.onBack,
-                          ),
-                        const Spacer(),
-                        const AuthStepChip(step: 2, total: 2),
-                      ],
+              child: AuthScrollBody(
+                top: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+                      child: Row(
+                        children: [
+                          if (widget.onBack != null)
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                                  color: AppColors.onDark, size: 20),
+                              onPressed: _busy ? null : widget.onBack,
+                            ),
+                          const Spacer(),
+                          const AuthStepChip(step: 2, total: 2),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Nhập mã\nxác thực',
-                          style: Theme.of(context)
-                              .textTheme
-                              .displaySmall
-                              ?.copyWith(
-                                color: AppColors.onDark,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -1.5,
-                                height: 1.0,
-                              ),
-                        ),
-                        const SizedBox(height: 14),
-                        RichText(
-                          text: TextSpan(
+                    const SizedBox(height: 32),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Nhập mã\nxác thực',
                             style: Theme.of(context)
                                 .textTheme
-                                .bodyLarge
+                                .displaySmall
                                 ?.copyWith(
-                                  color: AppColors.onDark
-                                      .withValues(alpha: 0.60),
+                                  color: AppColors.onDark,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.5,
+                                  height: 1.0,
                                 ),
-                            children: [
-                              const TextSpan(text: 'Mã 6 số đã gửi tới '),
-                              TextSpan(
-                                text: widget.args.phoneMasked,
+                          ),
+                          const SizedBox(height: 14),
+                          RichText(
+                            text: TextSpan(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.copyWith(
+                                    color: AppColors.onDark
+                                        .withValues(alpha: 0.60),
+                                  ),
+                              children: [
+                                const TextSpan(text: 'Mã 6 số đã gửi tới '),
+                                TextSpan(
+                                  text: widget.args.phoneMasked,
+                                  style: const TextStyle(
+                                    color: AppColors.amber,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_devCode != null && _devCode!.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: AppColors.amber.withValues(alpha: 0.12),
+                                borderRadius: AppRadius.sm,
+                                border: Border.all(
+                                    color:
+                                        AppColors.amber.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                'Dev mode: mã OTP là $_devCode',
                                 style: const TextStyle(
                                   color: AppColors.amber,
-                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        if (_devCode != null && _devCode!.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.amber.withValues(alpha: 0.12),
-                              borderRadius: AppRadius.sm,
-                              border: Border.all(
-                                  color: AppColors.amber
-                                      .withValues(alpha: 0.3)),
                             ),
-                            child: Text(
-                              'Dev mode: mã OTP là $_devCode',
-                              style: const TextStyle(
-                                color: AppColors.amber,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                    child: AuthCard(
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Tap the boxes to show keyboard
-                            GestureDetector(
-                              onTap: () => _focusNode.requestFocus(),
-                              behavior: HitTestBehavior.opaque,
-                              child: OtpBoxRow(digits: _digits),
-                            ),
-                            // Hidden field
-                            SizedBox(
-                              height: 0,
-                              child: TextFormField(
+                  ],
+                ),
+                bottom: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                  child: AuthCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // The digit boxes are decoration only; a transparent,
+                        // full-size text field sits on top so a tap focuses it
+                        // directly. A zero-size field never gets a browser
+                        // keyboard on mobile web.
+                        SizedBox(
+                          height: kOtpBoxHeight,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              IgnorePointer(
+                                child: OtpBoxRow(
+                                  digits: _digits,
+                                  focused: _focusNode.hasFocus,
+                                ),
+                              ),
+                              TextField(
                                 controller: _controller,
                                 focusNode: _focusNode,
+                                // Autofocus keeps the keyboard from step 1 up
+                                // on mobile web, where a programmatic focus
+                                // without a user gesture cannot reopen it.
+                                autofocus: true,
                                 enabled: !_loading,
                                 keyboardType: TextInputType.number,
                                 textInputAction: TextInputAction.done,
                                 autofillHints: const [
-                                  AutofillHints.oneTimeCode
+                                  AutofillHints.oneTimeCode,
                                 ],
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(6),
                                 ],
+                                textAlign: TextAlign.center,
+                                showCursor: false,
+                                enableInteractiveSelection: false,
+                                enableSuggestions: false,
                                 style: const TextStyle(
-                                    fontSize: 0,
-                                    color: Colors.transparent),
-                                cursorWidth: 0,
+                                  color: Colors.transparent,
+                                  fontSize: 24,
+                                  height: 1.0,
+                                ),
                                 decoration: const InputDecoration(
                                   contentPadding: EdgeInsets.zero,
+                                  isCollapsed: true,
+                                  filled: false,
                                   border: InputBorder.none,
                                   focusedBorder: InputBorder.none,
                                   enabledBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
                                 ),
-                                validator: (v) {
-                                  if ((v?.trim() ?? '').length != 6)
-                                    return '';
-                                  return null;
-                                },
-                                onFieldSubmitted: (_) {
-                                  if (!_loading) _verify();
-                                },
+                                onSubmitted: (_) => _verify(),
                               ),
-                            ),
-                            if (_error != null) ...[
-                              const SizedBox(height: 12),
-                              AuthErrorText(_error!),
                             ],
-                            const SizedBox(height: 16),
-                            Center(
-                              child: TextButton(
-                                onPressed: (_cooldown > 0 || _busy)
-                                    ? null
-                                    : _resend,
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.amber,
-                                ),
-                                child: Text(
-                                  _cooldown > 0
-                                      ? 'Gửi lại sau ${_cooldown}s'
-                                      : (_resending
-                                          ? 'Đang gửi…'
-                                          : 'Gửi lại mã'),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600),
-                                ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        AnimatedOpacity(
+                          opacity: _focusNode.hasFocus ? 0 : 1,
+                          duration: const Duration(milliseconds: 200),
+                          child: Center(
+                            child: Text(
+                              'Chạm vào ô để mở bàn phím',
+                              style: TextStyle(
+                                color: AppColors.onDark.withValues(alpha: 0.45),
+                                fontSize: 12,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            GradientCTAButton(
-                              label: 'Xác nhận',
-                              loading: _loading,
-                              onTap: _verify,
-                              enabled: _digits.length == 6,
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                        if (_error != null) ...[
+                          const SizedBox(height: 12),
+                          AuthErrorText(_error!),
+                        ],
+                        const SizedBox(height: 12),
+                        Center(
+                          child: TextButton(
+                            onPressed:
+                                (_cooldown > 0 || _busy) ? null : _resend,
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.amber,
+                            ),
+                            child: Text(
+                              _cooldown > 0
+                                  ? 'Gửi lại sau ${_cooldown}s'
+                                  : (_resending ? 'Đang gửi…' : 'Gửi lại mã'),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GradientCTAButton(
+                          label: 'Xác nhận',
+                          loading: _loading,
+                          onTap: _verify,
+                          enabled: _digits.length == 6,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-                ],
+                ),
               ),
             ),
           ],
