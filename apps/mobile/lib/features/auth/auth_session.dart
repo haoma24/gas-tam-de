@@ -32,7 +32,9 @@ class AuthSession {
     final at = accessExpiresAt;
     if (at == null) return false;
     // Refresh a bit early to avoid edge 401s.
-    return DateTime.now().toUtc().isAfter(at.subtract(const Duration(seconds: 30)));
+    return DateTime.now()
+        .toUtc()
+        .isAfter(at.subtract(const Duration(seconds: 30)));
   }
 
   factory AuthSession.fromTokens(AuthTokenResult result) {
@@ -96,6 +98,12 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
 
   AuthSessionStore get _store => _ref.read(authSessionStoreProvider);
 
+  /// How long startup waits for a token refresh before showing the UI anyway.
+  ///
+  /// Dio allows 15s connect + 15s receive, so an unreachable API used to hold
+  /// the splash spinner for ~30s before the login screen appeared.
+  static const bootstrapRefreshTimeout = Duration(seconds: 4);
+
   /// Load persisted session and refresh access token when expired / near expiry.
   Future<void> bootstrap() async {
     final saved = await _store.load();
@@ -108,11 +116,17 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
       return;
     }
 
-    if (!saved.accessExpired) {
-      state = saved;
-      return;
-    }
+    // Publish the stored session first: routing only needs the role, so the UI
+    // renders immediately instead of waiting on the network.
+    state = saved;
+    if (!saved.accessExpired) return;
 
+    // `timeout` does not cancel the request — a slow refresh keeps running and
+    // still updates the session when it lands.
+    await _refresh(saved).timeout(bootstrapRefreshTimeout, onTimeout: () {});
+  }
+
+  Future<void> _refresh(AuthSession saved) async {
     try {
       final result =
           await _ref.read(authApiProvider).refresh(saved.refreshToken);
@@ -120,12 +134,10 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
     } on AuthApiException catch (e) {
       if (e.code == 'INVALID_TOKEN' || e.statusCode == 401) {
         await clear();
-        return;
       }
       // Network / transient — keep saved tokens so offline UI still works.
-      state = saved;
     } catch (_) {
-      state = saved;
+      // Keep saved tokens.
     }
   }
 
