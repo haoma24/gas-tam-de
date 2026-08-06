@@ -14,7 +14,8 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
   - 6 ô số thành decoration dưới một `TextField` trong suốt phủ kín → tap focus trực tiếp, bàn phím mở; `autofocus` giữ bàn phím từ bước 1; đủ 6 số tự xác nhận
   - `AuthScrollBody` cho màn OTP / SĐT / admin login: bàn phím không còn làm overflow layout hay che ô nhập
   - `bootstrap()` publish session đã lưu trước, refresh chỉ chặn UI tối đa 4s và tiếp tục chạy nền
-  - Build `--no-web-resources-cdn` (CanvasKit từ origin của mình) + nén gzip -9 lúc build + `gzip_static` (main.dart.js 1.05 MB → 958 KB)
+  - Build `--no-web-resources-cdn` (CanvasKit từ origin của mình) + nén sẵn `brotli -q 11`/`gzip -9` lúc build, serve bằng `brotli_static`/`gzip_static`; runtime image đổi sang nginx của Alpine vì image `nginx` chính thức không có module brotli
+  - First load: 3.26 MB → **2.48 MB**, first frame @4 Mbps 7.3s → **5.8s** (đo bằng CDP trên image production)
   - `index.html`: splash logo + spinner xoá khi `flutter-first-frame`, preload `main.dart.js`, preconnect `fonts.gstatic.com`
   - `/healthz` dùng `default_type` (trước đó trả hai header `Content-Type`)
   - Bỏ dòng test “🚀 Test CI/CD tự động — GCP stag v2” trên màn đăng nhập

@@ -20,7 +20,6 @@
 - Ngoài scope:
   - Code splitting / deferred import cho `main.dart.js`
   - Bundle font Be Vietnam Pro vào assets (vẫn dùng `google_fonts` runtime)
-  - Brotli (image `nginx:1.27-alpine` không có module brotli)
 
 ## Nguyên nhân
 
@@ -64,9 +63,21 @@ Thêm nữa: `Column` + `Spacer` với `Scaffold.resizeToAvoidBottomInset = true
   tiếp; `Future.timeout` không cancel nên refresh vẫn chạy nền và cập nhật session.
 - **CanvasKit chạy từ origin của mình** (`--no-web-resources-cdn`): bỏ một
   DNS + TLS handshake sang gstatic và bỏ phụ thuộc bên thứ ba (ISP chặn/chậm
-  gstatic là một giả thuyết hợp lý cho 30s). Đổi lại mất brotli của CDN, nên bù
-  bằng gzip -9 dựng sẵn.
-- **Nén sẵn khi build + `gzip_static on`** thay vì nén động mức 1 mỗi request.
+  gstatic là một giả thuyết hợp lý cho 30s).
+- **Có brotli, nên self-host không tốn thêm byte nào.** Đo thực tế:
+  gstatic trả `chromium/canvaskit.wasm` **br 1.65 MB** (chỉ gzip thì nó trả
+  **nguyên 5.76 MB không nén**), còn nén sẵn `brotli -q 11` của mình ra
+  **1.63 MB** — nhỏ hơn CDN. Nếu chỉ có gzip -9 (2.13 MB) thì self-host sẽ đắt
+  hơn CDN ~480 KB, nên brotli là điều kiện để quyết định này đúng.
+- **Runtime image đổi sang nginx của Alpine** (`apk add nginx nginx-mod-http-brotli`):
+  image `nginx:1.27-alpine` chính thức **không** build kèm brotli, còn package
+  Alpine có module cùng version nên chắc chắn tương thích (không phải tự compile
+  module, tránh lỗi “module is not binary compatible” khi base image bump).
+  Lưu ý: trên Alpine, `conf.d` được include ở **root context** → server block
+  phải đặt ở `/etc/nginx/http.d/default.conf`.
+- **Nén sẵn khi build + `brotli_static` / `gzip_static`** thay vì nén động mức 1
+  mỗi request. Vẫn giữ `.gz` vì browser chỉ gửi `Accept-Encoding: br` trên
+  secure context — local `http://127.0.0.1:8090` sẽ rơi về gzip.
 - **Splash trong `index.html`**: người dùng thấy logo + spinner ngay từ HTML đầu
   tiên, xoá khi Flutter bắn `flutter-first-frame`.
 - **Không preload CanvasKit**: engine chọn `canvaskit/` hoặc `canvaskit/chromium/`
@@ -80,7 +91,8 @@ Thêm nữa: `Column` + `Spacer` với `Scaffold.resizeToAvoidBottomInset = true
 - [x] Field OTP thật, phủ kín ô số, `autofocus`, auto-verify khi đủ 6 số
 - [x] Hint “Chạm vào ô để mở bàn phím” (mờ dần khi đã focus)
 - [x] `AuthSessionNotifier.bootstrap()` không chặn UI quá 4s
-- [x] `--no-web-resources-cdn` + gzip -9 build-time + `gzip_static`
+- [x] `--no-web-resources-cdn` + nén sẵn `brotli -q 11` / `gzip -9` +
+      `brotli_static` / `gzip_static` (runtime image: nginx của Alpine)
 - [x] Splash + preload `main.dart.js` + preconnect `fonts.gstatic.com`
 - [x] `/healthz` dùng `default_type` (trước đó trả 2 header `Content-Type`)
 - [x] Bỏ dòng test “🚀 Test CI/CD tự động — GCP stag v2” trên màn đăng nhập
@@ -97,19 +109,29 @@ Thêm nữa: `Column` + `Spacer` với `Scaffold.resizeToAvoidBottomInset = true
 | `apps/mobile/lib/features/auth/auth_session.dart` | modified | bootstrap không chặn UI, timeout 4s |
 | `apps/mobile/web/index.html` | modified | splash, preload, preconnect, viewport meta |
 | `apps/mobile/test/otp_page_test.dart` | added | regression: field có kích thước, tap focus, auto-verify, bàn phím |
-| `deploy/Dockerfile.web` | modified | `--no-web-resources-cdn`, gzip -9 |
-| `deploy/nginx.web.conf` | modified | `gzip_static`, `gzip_vary`, level 6, `default_type` cho healthz |
+| `deploy/Dockerfile.web` | modified | `--no-web-resources-cdn`, stage `compress`, runtime nginx Alpine + brotli |
+| `deploy/nginx.web.conf` | modified | `brotli_static`, `gzip_static`, `gzip_vary`, level 6, `default_type` cho healthz |
+| `README.md` | modified | ghi chú image `web`: nginx Alpine + brotli, asset nén sẵn |
 
 ## Số liệu (build release, Flutter 3.44.8)
 
-| Asset | Raw | gzip -9 |
-|-------|-----|---------|
-| `main.dart.js` | 3.2 MB | 958 KB (nginx mức 1: ~1.05 MB) |
-| `canvaskit/chromium/canvaskit.wasm` (Chrome) | 5.6 MB | 2.13 MB |
-| `canvaskit/canvaskit.wasm` (Safari/Firefox) | 7.1 MB | 2.83 MB |
+| Asset | Raw | gzip -9 | brotli -q 11 |
+|-------|-----|---------|--------------|
+| `main.dart.js` | 3.2 MB | 958 KB | **739 KB** |
+| `canvaskit/chromium/canvaskit.wasm` (Chrome) | 5.6 MB | 2.13 MB | **1.63 MB** |
+| `canvaskit/canvaskit.wasm` (Safari/Firefox) | 7.1 MB | 2.83 MB | 2.18 MB |
 
-`main.dart.js` vẫn ~1 MB — muốn giảm tiếp phải tách route bằng deferred import
-(chưa làm, xem “Việc còn lại”).
+Tổng payload first load (Chrome, cache trống, qua đúng image production):
+
+| | Byte tải về | First frame @10 Mbps | @4 Mbps | @1.5 Mbps |
+|---|---|---|---|---|
+| gzip (bước trung gian) | 3.26 MB | 3.4s | 7.3s | 18.2s |
+| brotli (bản cuối) | **2.48 MB** | **2.8s** | **5.8s** | **14.1s** |
+
+Đo bằng CDP (`Network.emulateNetworkConditions`, cache tắt, viewport 390×780).
+`main.dart.js` vẫn 739 KB — muốn giảm tiếp phải tách route bằng deferred import
+(chưa làm, xem “Việc còn lại”). Lần vào sau nhanh hơn nhiều vì Flutter service
+worker đã cache toàn bộ.
 
 ## Cách verify
 
@@ -133,22 +155,29 @@ overflow khi `viewInsets.bottom = 420`.
 
 ### Đã verify trong môi trường agent
 
+- Đã `docker build -f deploy/Dockerfile.web` (đúng lệnh CI) và chạy image thật:
+  embedded api-gateway healthy, `/healthz` + `/gateway-healthz` 200, `/v1/*`
+  proxy tới auth-service OK, access log ra stdout.
 - Chrome headless (CDP, viewport 390×780, touch emulation) chạy hết luồng
-  SĐT → OTP → đăng nhập thành công trên **build release** phục vụ bởi đúng
-  `deploy/nginx.web.conf` (container `nginx:1.27-alpine`, asset nén sẵn).
+  SĐT → OTP → đăng nhập thành công **trên image production đó**.
 - Sau khi vào màn OTP: `document.activeElement` = `INPUT#one-time-code`
   (trước đây là `FLUTTER-VIEW`, tức không có input nào được focus → không có
   bàn phím). Chạm vào ô số cũng cho `INPUT#one-time-code`.
-- `nginx -t` OK; `Content-Encoding: gzip` + `Vary` cho `main.dart.js`,
-  `canvaskit/**.wasm`, `index.html`; `/healthz` chỉ còn một `Content-Type`.
+- `Content-Encoding: br` cho `index.html`, `main.dart.js` (739 KB),
+  `canvaskit/chromium/canvaskit.wasm` (1.63 MB); client chỉ nhận gzip vẫn được
+  `.gz` (958 KB). `/healthz` chỉ còn một `Content-Type`.
 - Splash bị xoá sau `flutter-first-frame`, 0 JS exception.
 
 ## Việc còn lại / rủi ro
 
-- **Không có brotli.** `nginx:1.27-alpine` không build kèm module brotli; nếu muốn
-  ~15–20% nữa thì phải đổi base image hoặc build module.
-- **`main.dart.js` ~1 MB nén.** Tách deferred import theo route (admin vs khách)
+- **Runtime image đổi base** (`nginx:1.27-alpine` → `alpine` + package nginx).
+  Nếu Alpine bump nginx thì module brotli bump cùng nên vẫn khớp, nhưng khi
+  sửa image `web` sau này phải nhớ server block nằm ở `http.d/`, và
+  `/var/log/nginx/*.log` là symlink sang stdout/stderr.
+- **`main.dart.js` 739 KB nén.** Tách deferred import theo route (admin vs khách)
   là bước tiếp theo nếu vẫn thấy chậm.
+- **Image `web` nặng thêm ~20 MB** vì giữ cả `.br` và `.gz` bên cạnh file gốc.
+  Chỉ tốn lúc VPS pull, không ảnh hưởng người dùng.
 - **Font runtime.** `google_fonts` vẫn tải Be Vietnam Pro từ `fonts.gstatic.com`
   (đã `preconnect`). Nếu mạng chặn gstatic thì chữ rơi về font hệ thống — không
   chặn first frame.
