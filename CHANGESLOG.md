@@ -5,6 +5,24 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-06] Fix bàn phím màn OTP + load trang chậm ~30s
+
+- **Loại:** fix
+- **Phạm vi:** `apps/mobile` (auth screens, startup), `apps/mobile/web/index.html`, `deploy/Dockerfile.web`, `deploy/nginx.web.conf`
+- **Tóm tắt:** Màn OTP không mở được bàn phím trên mobile web vì field thật nằm trong `SizedBox(height: 0)`; trang đăng nhập chờ ~30s vì startup `await` refresh token với Dio timeout 15s + 15s và first load kéo CanvasKit từ gstatic sau một `index.html` trống.
+- **Chi tiết:**
+  - 6 ô số thành decoration dưới một `TextField` trong suốt phủ kín → tap focus trực tiếp, bàn phím mở; `autofocus` giữ bàn phím từ bước 1; đủ 6 số tự xác nhận
+  - `AuthScrollBody` cho màn OTP / SĐT / admin login: bàn phím không còn làm overflow layout hay che ô nhập
+  - `bootstrap()` publish session đã lưu trước, refresh chỉ chặn UI tối đa 4s và tiếp tục chạy nền
+  - Build `--no-web-resources-cdn` (CanvasKit từ origin của mình) + nén sẵn `brotli -q 11`/`gzip -9` lúc build, serve bằng `brotli_static`/`gzip_static`; runtime image đổi sang nginx của Alpine vì image `nginx` chính thức không có module brotli
+  - First load: 3.26 MB → **2.48 MB**, first frame @4 Mbps 7.3s → **5.8s** (đo bằng CDP trên image production)
+  - `index.html`: splash logo + spinner xoá khi `flutter-first-frame`, preload `main.dart.js`, preconnect `fonts.gstatic.com`
+  - `/healthz` dùng `default_type` (trước đó trả hai header `Content-Type`)
+  - Bỏ dòng test “🚀 Test CI/CD tự động — GCP stag v2” trên màn đăng nhập
+  - Thêm `apps/mobile/test/otp_page_test.dart` (field có kích thước, tap focus, auto-verify, layout khi bàn phím mở)
+- **Workdocs:** `docs/workdocs_fix_otp_ban_phim_va_load_cham_06082026/`
+- **Liên quan:** báo cáo staging `tamde-stag.tinhgon.xyz`
+
 ## [2026-08-05] Fix GCP SSH deploy: publickey auth rejected
 
 - **Loại:** fix

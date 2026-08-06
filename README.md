@@ -187,6 +187,13 @@ Go do `backend-ci.yml` push, còn website do `web-image.yml` push
 (`gas-tam-de/web:stag`). Thiếu image `web` thì bước pull hỏng và website không
 bao giờ lên.
 
+Image `web` chạy nginx từ package Alpine (kèm `nginx-mod-http-brotli`, image
+`nginx` chính thức không có brotli). Asset được nén **một lần lúc build**
+(`brotli -q 11` + `gzip -9`) rồi serve bằng `brotli_static` / `gzip_static`;
+CanvasKit nằm luôn trong image (`flutter build web --no-web-resources-cdn`) nên
+first load không phải đi `www.gstatic.com`. Đổi web server thì phải giữ cả hai:
+`.br` cho HTTPS, `.gz` cho client không gửi `Accept-Encoding: br`.
+
 Website gọi API **same-origin**: nginx (container `:8080`) proxy `/v1/*` sang
 `api-gateway:8080`; `/healthz` trả JSON từ nginx (liveness Traefik). Gateway
 liveness riêng: `/gateway-healthz`. nginx resolve hostname `api-gateway`
