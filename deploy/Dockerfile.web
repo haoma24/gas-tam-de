@@ -21,7 +21,19 @@ RUN flutter pub get
 COPY apps/mobile ./
 
 ARG API_BASE_URL=""
-RUN flutter build web --release --dart-define=API_BASE_URL="${API_BASE_URL}"
+# --no-web-resources-cdn keeps CanvasKit (~1.5 MB wasm) on our own origin instead
+# of www.gstatic.com, which is the slowest hop of a first load in Vietnam.
+RUN flutter build web --release \
+      --no-web-resources-cdn \
+      --dart-define=API_BASE_URL="${API_BASE_URL}"
+
+# Pre-compress once at build time (gzip -9) so nginx `gzip_static` can serve it
+# without re-compressing every request at a lower level.
+RUN find build/web -type f \
+      \( -name '*.js' -o -name '*.mjs' -o -name '*.json' -o -name '*.css' \
+         -o -name '*.html' -o -name '*.wasm' -o -name '*.svg' \
+         -o -name '*.ttf' -o -name '*.otf' \) \
+      -size +1k -exec gzip -9 -k -f {} +
 
 FROM nginx:1.27-alpine
 RUN apk add --no-cache wget

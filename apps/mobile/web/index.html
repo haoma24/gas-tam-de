@@ -4,7 +4,10 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Gas Tam Đệ — đặt giao gas.">
+  <meta name="theme-color" content="#1C1917">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Gas Tam Đệ">
@@ -12,9 +15,67 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
   <title>Gas Tam Đệ</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Start the app bundle with the document instead of waiting for
+       flutter_bootstrap.js to parse. CanvasKit is deliberately not preloaded:
+       the engine picks canvaskit/ or canvaskit/chromium/ per browser, so a
+       fixed hint downloads the wrong variant. -->
+  <link rel="preload" href="main.dart.js" as="script">
+  <!-- google_fonts fetches Be Vietnam Pro at runtime. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #1C1917; }
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: #1C1917;
+      color: #FAF7F4;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      transition: opacity .25s ease-out;
+    }
+    #boot.done { opacity: 0; pointer-events: none; }
+    #boot-mark {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #F59E0B, #EA580C);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    #boot-hint { font-size: 13px; color: rgba(250, 247, 244, .55); }
+    #boot-spin {
+      width: 26px;
+      height: 26px;
+      border: 2.5px solid rgba(245, 158, 11, .25);
+      border-top-color: #F59E0B;
+      border-radius: 50%;
+      animation: boot-spin .8s linear infinite;
+    }
+    @keyframes boot-spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
   <!-- Geolocator web uses the browser Geolocation API (HTTPS or localhost). -->
+  <div id="boot">
+    <div id="boot-mark">GAS TAM ĐỆ</div>
+    <div id="boot-spin"></div>
+    <div id="boot-hint">Đang tải ứng dụng…</div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+      if (!boot) return;
+      boot.classList.add('done');
+      setTimeout(function () { boot.remove(); }, 300);
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
