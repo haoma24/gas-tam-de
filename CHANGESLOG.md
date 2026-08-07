@@ -5,6 +5,19 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-07] Hiển thị ảnh và grid sản phẩm responsive
+
+- **Loại:** fix + feature
+- **Phạm vi:** `apps/mobile` (catalog, cửa hàng, đặt hàng)
+- **Tóm tắt:** `image_url` trước đây đã được lưu và trả về từ API nhưng giao diện chỉ vẽ biểu tượng bình gas, nên thêm URL vẫn không thấy ảnh. Các màn sản phẩm nay tải ảnh thật và hiển thị dạng grid responsive.
+- **Chi tiết:**
+  - Widget ảnh dùng chung có loading và fallback an toàn khi URL trống/sai hoặc host ảnh lỗi
+  - Cửa hàng khách, bước chọn sản phẩm và danh sách quản trị tự đổi số cột theo chiều rộng
+  - Form quản trị kiểm tra URL HTTP/HTTPS và hướng dẫn dùng link ảnh trực tiếp
+  - Widget test bao phủ URL hợp lệ và fallback
+- **Workdocs:** `docs/workdocs_hien_anh_va_grid_san_pham_07082026/`
+- **Liên quan:** phản hồi staging ngày 07/08/2026
+
 ## [2026-08-07] Fix 401 mọi route có JWT (auth-service thiếu JWT_SECRET) + đăng nhập admin bằng SĐT
 
 - **Loại:** fix + feature

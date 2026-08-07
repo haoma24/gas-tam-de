@@ -7,6 +7,7 @@ import '../auth/auth_session.dart';
 import '../auth/me_api.dart';
 import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
+import '../catalog/product_image.dart';
 
 /// Post-OTP brand shop — hero + catalogue cards + bottom nav.
 class CustomerShopPage extends ConsumerStatefulWidget {
@@ -66,9 +67,7 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
     final session = ref.watch(authSessionProvider);
     final profileAsync = ref.watch(customerProfileProvider);
     final name = profileAsync.maybeWhen(
-      data: (p) => p?.fullName?.trim().isNotEmpty == true
-          ? p!.fullName!
-          : null,
+      data: (p) => p?.fullName?.trim().isNotEmpty == true ? p!.fullName! : null,
       orElse: () => null,
     );
     final phone = profileAsync.maybeWhen(
@@ -124,8 +123,7 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
           ),
         ),
         bottomNavigationBar: _ShopBottomNav(onProfile: widget.onProfile),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.centerFloat,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         floatingActionButton: _OrderFAB(onTap: widget.onStartOrder),
       ),
     );
@@ -156,12 +154,10 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
                   _error!,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 15),
+                      color: Theme.of(context).colorScheme.error, fontSize: 15),
                 ),
                 const SizedBox(height: 16),
-                OutlinedButton(
-                    onPressed: _load, child: const Text('Thử lại')),
+                OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
               ],
             ),
           ),
@@ -192,11 +188,18 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
     return [
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-        sliver: SliverList.separated(
+        sliver: SliverGrid.builder(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 220,
+            mainAxisExtent: 304,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
           itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, i) =>
-              _ProductCard(product: items[i], onOrder: widget.onStartOrder),
+          itemBuilder: (context, i) => _ProductCard(
+            product: items[i],
+            onOrder: widget.onStartOrder,
+          ),
         ),
       ),
     ];
@@ -248,8 +251,7 @@ class _ShopHeroSliver extends StatelessWidget {
                             Text(
                               'Xin chào 👋',
                               style: TextStyle(
-                                color: AppColors.onDark
-                                    .withValues(alpha: 0.55),
+                                color: AppColors.onDark.withValues(alpha: 0.55),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -272,8 +274,7 @@ class _ShopHeroSliver extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color:
-                                  AppColors.ash.withValues(alpha: 0.45),
+                              color: AppColors.ash.withValues(alpha: 0.45),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -396,41 +397,27 @@ class _ProductCard extends StatelessWidget {
     return GestureDetector(
       onTap: onOrder,
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: AppColors.surface1,
           borderRadius: AppRadius.md,
           boxShadow: AppShadow.card,
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Icon panel
-            Container(
-              width: 96,
-              height: 96,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.ash, AppColors.coal],
-                ),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.propane_tank_rounded,
-                  color: AppColors.amber,
-                  size: 40,
+            SizedBox(
+              height: 136,
+              child: ProductImage(
+                product: product,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
                 ),
               ),
             ),
-            // Info
             Expanded(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -441,14 +428,14 @@ class _ProductCard extends StatelessWidget {
                         fontSize: 15,
                         letterSpacing: -0.2,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (desc != null && desc.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
                         desc,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: const Color(0xFF78716C),
@@ -457,40 +444,36 @@ class _ProductCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                    const Spacer(),
+                    Text(
+                      formatVnd(product.salePrice),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: AppColors.fire,
+                      ),
+                    ),
                     const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${formatVnd(product.salePrice)} / ${product.unit}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              color: AppColors.fire,
-                            ),
-                          ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.amber, AppColors.fire],
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 5),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.amber, AppColors.fire],
-                            ),
-                            borderRadius: AppRadius.pill,
-                          ),
-                          child: const Text(
-                            'Đặt',
-                            style: TextStyle(
-                              color: AppColors.obsidian,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
-                            ),
-                          ),
+                        borderRadius: AppRadius.pill,
+                      ),
+                      child: Text(
+                        'Đặt / ${product.unit}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppColors.obsidian,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -522,8 +505,7 @@ class _ShopBottomNav extends StatelessWidget {
       destinations: const [
         NavigationDestination(
           icon: Icon(Icons.storefront_outlined),
-          selectedIcon: Icon(Icons.storefront_rounded,
-              color: AppColors.fire),
+          selectedIcon: Icon(Icons.storefront_rounded, color: AppColors.fire),
           label: 'Cửa hàng',
         ),
         NavigationDestination(
