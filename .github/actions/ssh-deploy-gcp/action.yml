@@ -39,6 +39,10 @@ runs:
         SSH_KEY_PATH: ~/.ssh/deploy_key
         SSH_PASSPHRASE: ${{ inputs.passphrase }}
       run: |
+        # Use a quoted heredoc and run 'bash -s' on the remote side to avoid local shell
+        # interpreting or mangling the provided script. This preserves multiline
+        # conditionals (if/elif/fi) and other shell constructs intact when delivered
+        # to the remote host.
         if [ -n "$SSH_PASSPHRASE" ]; then
           # Install sshpass for passphrase support
           sudo apt-get update -qq && sudo apt-get install -y sshpass > /dev/null 2>&1 || true
@@ -46,13 +50,15 @@ runs:
             -i $SSH_KEY_PATH \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
-            ${{ inputs.username }}@${{ inputs.host }} \
-            "${{ inputs.script }}"
+            ${{ inputs.username }}@${{ inputs.host }} 'bash -s' <<'REMOTE_SCRIPT'
+${{ inputs.script }}
+REMOTE_SCRIPT
         else
           ssh \
             -i $SSH_KEY_PATH \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
-            ${{ inputs.username }}@${{ inputs.host }} \
-            "${{ inputs.script }}"
+            ${{ inputs.username }}@${{ inputs.host }} 'bash -s' <<'REMOTE_SCRIPT'
+${{ inputs.script }}
+REMOTE_SCRIPT
         fi
