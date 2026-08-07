@@ -131,10 +131,31 @@ jobs:
             git checkout stag
             git pull origin stag
 
-            echo "==> docker compose pull"
             export COMPOSE_PROJECT_NAME="gas-tamde-stag"
             export PROXY_NETWORK="tensorship-net"
-            docker compose \
+
+            # Diagnostics to capture what compose binary is available on the server
+            echo "==> diagnostic: docker/compose versions and paths"
+            docker --version || true
+            docker compose version 2>/dev/null || true
+            docker-compose --version 2>/dev/null || true
+            which docker || true
+            which docker-compose || true
+
+            # Pick a compose command that exists (prefer "docker compose" plugin)
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE_CMD="docker compose"
+            elif command -v docker-compose >/dev/null 2>&1; then
+              COMPOSE_CMD="docker-compose"
+            else
+              echo "ERROR: no docker compose command found (need 'docker compose' plugin or 'docker-compose' binary)"
+              exit 1
+            fi
+
+            echo "Using compose command: ${COMPOSE_CMD}"
+
+            echo "==> docker compose pull"
+            ${COMPOSE_CMD} \
               -f deploy/docker-compose.yml \
               -f deploy/docker-compose.local.yml \
               --env-file deploy/.env \
@@ -142,7 +163,7 @@ jobs:
               pull
 
             echo "==> docker compose up"
-            docker compose \
+            ${COMPOSE_CMD} \
               -f deploy/docker-compose.yml \
               -f deploy/docker-compose.local.yml \
               --env-file deploy/.env \
@@ -154,4 +175,5 @@ jobs:
             curl -sf http://127.0.0.1:80/gateway-healthz && echo " gateway OK" || echo " gateway NOT OK"
             curl -sf http://127.0.0.1:80/v1/hello && echo " api OK" || echo " api NOT OK"
 
-            docker compose -p "${COMPOSE_PROJECT_NAME}" ps -a
+            # Show final container status (uses plugin if available)
+            ${COMPOSE_CMD} -p "${COMPOSE_PROJECT_NAME}" ps -a
