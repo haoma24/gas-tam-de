@@ -167,15 +167,15 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
     final items = _products ?? const <Product>[];
     if (items.isEmpty) {
       return [
-        SliverToBoxAdapter(
+        const SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+            padding: EdgeInsets.fromLTRB(24, 48, 24, 24),
             child: Column(
               children: [
-                const Icon(Icons.inventory_2_outlined,
+                Icon(Icons.inventory_2_outlined,
                     size: 52, color: AppColors.ash),
-                const SizedBox(height: 12),
-                const Text(
+                SizedBox(height: 12),
+                Text(
                   'Cửa hàng chưa mở bán sản phẩm.',
                   style: TextStyle(fontSize: 15, color: AppColors.ash),
                 ),
@@ -313,7 +313,7 @@ class _ShopHeroSliver extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 6,
                       children: [
-                        _HeroChip(
+                        const _HeroChip(
                           icon: Icons.bolt_rounded,
                           label: 'Giao nhanh',
                           color: AppColors.gold,
@@ -437,8 +437,8 @@ class _ProductCard extends StatelessWidget {
                         desc,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: const Color(0xFF78716C),
+                        style: const TextStyle(
+                          color: Color(0xFF78716C),
                           fontSize: 12.5,
                           height: 1.4,
                         ),
@@ -459,8 +459,8 @@ class _ProductCard extends StatelessWidget {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 7),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
                           colors: [AppColors.amber, AppColors.fire],
                         ),
                         borderRadius: AppRadius.pill,

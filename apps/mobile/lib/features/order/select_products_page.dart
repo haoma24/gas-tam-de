@@ -70,7 +70,7 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cart = ref.watch(orderCartProvider);
-    final canContinue = !cart.isEmpty;
+    final canContinue = cart.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -269,7 +269,7 @@ class _ProductPickCard extends StatelessWidget {
 
     return Material(
       color: selected
-          ? theme.colorScheme.primaryContainer.withOpacity(0.35)
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.35)
           : theme.colorScheme.surfaceContainerLowest,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
