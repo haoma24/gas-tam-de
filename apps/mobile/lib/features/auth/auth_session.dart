@@ -95,6 +95,7 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
   AuthSessionNotifier(this._ref) : super(null);
 
   final Ref _ref;
+  Future<bool>? _refreshing;
 
   AuthSessionStore get _store => _ref.read(authSessionStoreProvider);
 
@@ -123,21 +124,45 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
 
     // `timeout` does not cancel the request — a slow refresh keeps running and
     // still updates the session when it lands.
-    await _refresh(saved).timeout(bootstrapRefreshTimeout, onTimeout: () {});
+    await refresh().timeout(bootstrapRefreshTimeout, onTimeout: () => false);
   }
 
-  Future<void> _refresh(AuthSession saved) async {
+  /// Rotates the current access token once. Concurrent callers share the same
+  /// refresh request so a rotating refresh token cannot be used twice.
+  ///
+  /// API requests call this proactively for known-expired tokens and after a
+  /// 401 for sessions persisted by older app versions without an expiry time.
+  Future<bool> refresh() {
+    final inFlight = _refreshing;
+    if (inFlight != null) return inFlight;
+
+    final saved = state;
+    if (saved == null || saved.refreshToken.isEmpty) {
+      return Future.value(false);
+    }
+
+    final refresh = _refresh(saved);
+    _refreshing = refresh;
+    return refresh.whenComplete(() {
+      if (identical(_refreshing, refresh)) _refreshing = null;
+    });
+  }
+
+  Future<bool> _refresh(AuthSession saved) async {
     try {
       final result =
           await _ref.read(authApiProvider).refresh(saved.refreshToken);
       await setSession(AuthSession.fromTokens(result));
+      return true;
     } on AuthApiException catch (e) {
       if (e.code == 'INVALID_TOKEN' || e.statusCode == 401) {
         await clear();
       }
       // Network / transient — keep saved tokens so offline UI still works.
+      return false;
     } catch (_) {
       // Keep saved tokens.
+      return false;
     }
   }
 

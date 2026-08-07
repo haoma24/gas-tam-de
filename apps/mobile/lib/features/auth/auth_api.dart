@@ -85,6 +85,7 @@ class AuthApi {
       final res = await _dio.post<Map<String, dynamic>>(
         '/v1/auth/refresh',
         data: {'refresh_token': refreshToken},
+        options: Options(extra: const {'skipAuthRefresh': true}),
       );
       final data = res.data;
       if (data == null) {

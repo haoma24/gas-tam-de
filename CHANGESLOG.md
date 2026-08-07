@@ -5,6 +5,17 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-07] Khôi phục phiên khách khi mở hồ sơ/đơn hàng và điều hướng đảo chiều
+
+- **Loại:** fix
+- **Phạm vi:** `apps/mobile` (auth session, API client, router)
+- **Tóm tắt:** Access token hết hạn được làm mới trước request hoặc sau 401 và request được thử lại một lần, nên phiên còn refresh token hợp lệ không còn báo hết hạn khi vào Hồ sơ hay Đơn hàng của tôi. Điều hướng tiến/lùi giữ stack để animation chạy đúng chiều.
+- **Chi tiết:**
+  - Gom refresh đồng thời để không dùng hai lần refresh token xoay vòng; refresh endpoint không tự retry.
+  - Route mở màn dùng `push()`, route quay lại dùng `pop()` với fallback cho deep link.
+- **Workdocs:** `docs/workdocs_fix_phien_va_dieu_huong_07082026/`
+- **Liên quan:** phản hồi staging ngày 07/08/2026
+
 ## [2026-08-07] OTP UI: một hàng 6 ô (bỏ ô nhập thứ hai)
 
 - **Loại:** fix
