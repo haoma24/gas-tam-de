@@ -44,7 +44,6 @@ class _CustomerAuthFlowPageState extends ConsumerState<CustomerAuthFlowPage> {
   late int _index;
   late String _phone;
   late String _phoneMasked;
-  late int _resendAfterSec;
   String? _devCode;
 
   final _phoneController = TextEditingController();
@@ -68,7 +67,6 @@ class _CustomerAuthFlowPageState extends ConsumerState<CustomerAuthFlowPage> {
       _index = _otpIndex;
       _phone = seed.phone;
       _phoneMasked = seed.phoneMasked;
-      _resendAfterSec = seed.resendAfterSec;
       _devCode = seed.devCode;
       _cooldown = seed.resendAfterSec;
       if (seed.requestOtpOnMount) {
@@ -82,7 +80,6 @@ class _CustomerAuthFlowPageState extends ConsumerState<CustomerAuthFlowPage> {
       _index = _phoneIndex;
       _phone = '';
       _phoneMasked = '';
-      _resendAfterSec = 60;
     }
     _otpController.addListener(_onOtpChanged);
     _otpFocus.addListener(() => setState(() {}));
@@ -158,7 +155,6 @@ class _CustomerAuthFlowPageState extends ConsumerState<CustomerAuthFlowPage> {
         _phoneMasked = result.phoneMasked.isNotEmpty
             ? result.phoneMasked
             : maskVnPhone(_phone);
-        _resendAfterSec = result.resendAfterSec;
         _devCode = result.devCode;
       });
       _startCooldown(result.resendAfterSec);
