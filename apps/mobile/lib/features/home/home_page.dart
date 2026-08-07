@@ -46,7 +46,7 @@ class HomePage extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.local_fire_department,
-                              color: AppColors.amber, size: 14),
+                              color: AppColors.amber, size: 13),
                           SizedBox(width: 6),
                           Flexible(
                             child: Text(
