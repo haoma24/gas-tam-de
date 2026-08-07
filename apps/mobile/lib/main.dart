@@ -28,6 +28,14 @@ import 'features/order/order_review_page.dart';
 import 'features/order/order_success_page.dart';
 import 'features/order/select_products_page.dart';
 
+void _popOrGo(BuildContext context, String fallbackLocation) {
+  if (GoRouter.of(context).canPop()) {
+    context.pop();
+  } else {
+    context.go(fallbackLocation);
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
@@ -60,13 +68,13 @@ final _router = GoRouter(
 
           if (session != null && session.isCustomer) {
             return CustomerShopPage(
-              onStartOrder: () => context.go('/order'),
-              onProfile: () => context.go('/profile'),
+              onStartOrder: () => context.push('/order'),
+              onProfile: () => context.push('/profile'),
             );
           }
 
           return HomePage(
-            onLogin: () => context.go('/auth/phone'),
+            onLogin: () => context.push('/auth/phone'),
           );
         },
       ),
@@ -76,7 +84,7 @@ final _router = GoRouter(
       builder: (context, state) => Consumer(
         builder: (context, ref, _) {
           return CustomerAuthFlowPage(
-            onBack: () => context.go('/'),
+            onBack: () => _popOrGo(context, '/'),
             onVerified: () {
               final session = ref.read(authSessionProvider);
               if (session != null && session.isAdmin) {
@@ -105,7 +113,7 @@ final _router = GoRouter(
           builder: (context, ref, _) {
             return CustomerAuthFlowPage(
               initialOtpArgs: args,
-              onBack: () => context.go('/auth/phone'),
+              onBack: () => _popOrGo(context, '/auth/phone'),
               onVerified: () {
                 final session = ref.read(authSessionProvider);
                 if (session != null && session.isAdmin) {
@@ -133,8 +141,8 @@ final _router = GoRouter(
             );
           }
           return CustomerProfilePage(
-            onBack: () => context.go('/'),
-            onMyOrders: () => context.go('/orders/history'),
+            onBack: () => _popOrGo(context, '/'),
+            onMyOrders: () => context.push('/orders/history'),
             onLoggedOut: () => context.go('/'),
           );
         },
@@ -143,23 +151,23 @@ final _router = GoRouter(
     GoRoute(
       path: '/order',
       builder: (context, state) => SelectProductsPage(
-        onBack: () => context.go('/'),
-        onContinue: () => context.go('/order/address'),
+        onBack: () => _popOrGo(context, '/'),
+        onContinue: () => context.push('/order/address'),
       ),
     ),
     GoRoute(
       path: '/order/address',
       builder: (context, state) => OrderAddressPage(
-        onBack: () => context.go('/order'),
-        onContinue: () => context.go('/order/review'),
+        onBack: () => _popOrGo(context, '/order'),
+        onContinue: () => context.push('/order/review'),
       ),
     ),
     GoRoute(
       path: '/order/review',
       builder: (context, state) => OrderReviewPage(
-        onBack: () => context.go('/order/address'),
+        onBack: () => _popOrGo(context, '/order/address'),
         onPlaced: (PlacedOrder order) =>
-            context.go('/order/success', extra: order),
+            context.push('/order/success', extra: order),
       ),
     ),
     GoRoute(
@@ -184,7 +192,7 @@ final _router = GoRouter(
       path: '/orders/history',
       builder: (context, state) => MyOrdersPage(
         // Order history lives under profile after login.
-        onBack: () => context.go('/profile'),
+        onBack: () => _popOrGo(context, '/profile'),
       ),
     ),
     GoRoute(
@@ -201,7 +209,7 @@ final _router = GoRouter(
             );
           }
           return AdminLoginPage(
-            onBack: () => context.go('/'),
+            onBack: () => _popOrGo(context, '/'),
             onLoggedIn: () => context.go('/admin'),
           );
         },
@@ -221,14 +229,14 @@ final _router = GoRouter(
             );
           }
           return AdminDashboardPage(
-            onBack: () => context.go('/'),
-            onOpenOrders: () => context.go('/admin/orders'),
-            onOpenProducts: () => context.go('/admin/products'),
-            onOpenDeliveryFee: () => context.go('/admin/delivery-fee'),
-            onOpenStore: () => context.go('/admin/store'),
-            onOpenDeskSettings: () => context.go('/admin/desk-settings'),
-            onOpenDebts: () => context.go('/admin/debts'),
-            onOpenInventory: () => context.go('/admin/inventory'),
+            onBack: () => _popOrGo(context, '/'),
+            onOpenOrders: () => context.push('/admin/orders'),
+            onOpenProducts: () => context.push('/admin/products'),
+            onOpenDeliveryFee: () => context.push('/admin/delivery-fee'),
+            onOpenStore: () => context.push('/admin/store'),
+            onOpenDeskSettings: () => context.push('/admin/desk-settings'),
+            onOpenDebts: () => context.push('/admin/debts'),
+            onOpenInventory: () => context.push('/admin/inventory'),
             onLoggedOut: () => context.go('/'),
           );
         },
@@ -237,9 +245,9 @@ final _router = GoRouter(
     GoRoute(
       path: '/admin/orders',
       builder: (context, state) => AdminOrdersPage(
-        onBack: () => context.go('/admin'),
+        onBack: () => _popOrGo(context, '/admin'),
         onOpenOrder: (AdminOrder o) =>
-            context.go('/admin/orders/detail', extra: o),
+            context.push('/admin/orders/detail', extra: o),
       ),
     ),
     GoRoute(
@@ -256,24 +264,24 @@ final _router = GoRouter(
         }
         return AdminOrderDetailPage(
           order: order,
-          onBack: () => context.go('/admin/orders'),
-          onCompleted: () => context.go('/admin/orders'),
+          onBack: () => _popOrGo(context, '/admin/orders'),
+          onCompleted: () => _popOrGo(context, '/admin/orders'),
         );
       },
     ),
     GoRoute(
       path: '/admin/products',
       builder: (context, state) => AdminProductsPage(
-        onBack: () => context.go('/admin'),
-        onCreate: () => context.go('/admin/products/new'),
-        onEdit: (Product p) => context.go('/admin/products/${p.id}'),
+        onBack: () => _popOrGo(context, '/admin'),
+        onCreate: () => context.push('/admin/products/new'),
+        onEdit: (Product p) => context.push('/admin/products/${p.id}'),
       ),
     ),
     GoRoute(
       path: '/admin/products/new',
       builder: (context, state) => AdminProductFormPage(
-        onBack: () => context.go('/admin/products'),
-        onDone: () => context.go('/admin/products'),
+        onBack: () => _popOrGo(context, '/admin/products'),
+        onDone: () => _popOrGo(context, '/admin/products'),
       ),
     ),
     GoRoute(
@@ -282,39 +290,39 @@ final _router = GoRouter(
         final id = state.pathParameters['id'] ?? '';
         return AdminProductFormPage(
           productId: id,
-          onBack: () => context.go('/admin/products'),
-          onDone: () => context.go('/admin/products'),
+          onBack: () => _popOrGo(context, '/admin/products'),
+          onDone: () => _popOrGo(context, '/admin/products'),
         );
       },
     ),
     GoRoute(
       path: '/admin/delivery-fee',
       builder: (context, state) => AdminDeliveryFeePage(
-        onBack: () => context.go('/admin'),
+        onBack: () => _popOrGo(context, '/admin'),
       ),
     ),
     GoRoute(
       path: '/admin/store',
       builder: (context, state) => AdminStorePage(
-        onBack: () => context.go('/admin'),
+        onBack: () => _popOrGo(context, '/admin'),
       ),
     ),
     GoRoute(
       path: '/admin/desk-settings',
       builder: (context, state) => AdminDeskSettingsPage(
-        onBack: () => context.go('/admin'),
+        onBack: () => _popOrGo(context, '/admin'),
       ),
     ),
     GoRoute(
       path: '/admin/debts',
       builder: (context, state) => AdminDebtsPage(
-        onBack: () => context.go('/admin'),
+        onBack: () => _popOrGo(context, '/admin'),
       ),
     ),
     GoRoute(
       path: '/admin/inventory',
       builder: (context, state) => AdminInventoryPage(
-        onBack: () => context.go('/admin'),
+        onBack: () => _popOrGo(context, '/admin'),
       ),
     ),
   ],
@@ -339,7 +347,8 @@ class GasTamDeApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const seed = Color(0xFFB45309); // amber/gas cylinder tone — not purple default
+    const seed =
+        Color(0xFFB45309); // amber/gas cylinder tone — not purple default
     final boot = ref.watch(authBootstrapProvider);
 
     return MaterialApp.router(
