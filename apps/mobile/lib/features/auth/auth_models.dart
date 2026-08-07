@@ -6,6 +6,7 @@ class OtpNavArgs {
     required this.resendAfterSec,
     required this.expiresInSec,
     this.devCode,
+    this.requestOtpOnMount = false,
   });
 
   final String phone;
@@ -13,6 +14,10 @@ class OtpNavArgs {
   final int resendAfterSec;
   final int expiresInSec;
   final String? devCode;
+
+  /// When true, [OtpPage] / auth flow sends OTP after open (phone screen navigates
+  /// here synchronously on button tap so mobile web keeps the user-gesture chain).
+  final bool requestOtpOnMount;
 }
 
 class OtpRequestResult {

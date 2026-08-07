@@ -292,9 +292,99 @@ class DarkTextField extends StatelessWidget {
   }
 }
 
-/// Height of a single [OtpBoxRow] digit box — the transparent input on
-/// [OtpBoxRow] must cover exactly this area so taps reach the text field.
+/// Height of a single [OtpBoxRow] digit box.
 const double kOtpBoxHeight = 58;
+
+/// Visible OTP entry: digit boxes plus a real, tappable text field.
+///
+/// Mobile browsers (especially iOS Safari) often refuse to open the keyboard for
+/// zero-size or fully transparent inputs. A [Listener] on pointer-down keeps
+/// focus in the same user gesture when the user taps the digit row.
+class OtpEntryBlock extends StatelessWidget {
+  const OtpEntryBlock({
+    super.key,
+    required this.controller,
+    required this.focusNode,
+    required this.enabled,
+    required this.digits,
+    required this.focused,
+    this.autofocus = false,
+    this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool enabled;
+  final String digits;
+  final bool focused;
+  final bool autofocus;
+  final VoidCallback? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: enabled ? (_) => focusNode.requestFocus() : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OtpBoxRow(digits: digits, focused: focused),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            focusNode: focusNode,
+            autofocus: autofocus,
+            enabled: enabled,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.onDark,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 6,
+            ),
+            cursorColor: AppColors.amber,
+            decoration: InputDecoration(
+              hintText: 'Nhập 6 số OTP',
+              hintStyle: TextStyle(
+                color: AppColors.onDark.withValues(alpha: 0.35),
+                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                letterSpacing: 0,
+              ),
+              filled: true,
+              fillColor: AppColors.ash.withValues(alpha: 0.35),
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide:
+                    BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide:
+                    BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.md,
+                borderSide:
+                    const BorderSide(color: AppColors.amber, width: 1.5),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+            onSubmitted: onSubmitted != null ? (_) => onSubmitted!() : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// 6 individual digit boxes reflecting controller value.
 class OtpBoxRow extends StatelessWidget {

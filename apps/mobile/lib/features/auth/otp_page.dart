@@ -44,6 +44,37 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     _startCooldown(widget.args.resendAfterSec);
     _controller.addListener(_onCodeChanged);
     _focusNode.addListener(_onFocusChanged);
+    if (widget.args.requestOtpOnMount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _sendInitialOtp();
+      });
+    }
+  }
+
+  Future<void> _sendInitialOtp() async {
+    if (_resending || _loading) return;
+    setState(() {
+      _resending = true;
+      _error = null;
+    });
+    try {
+      final result =
+          await ref.read(authApiProvider).requestOtp(widget.args.phone);
+      if (!mounted) return;
+      setState(() => _devCode = result.devCode);
+      _startCooldown(result.resendAfterSec);
+    } on AuthApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.displayMessage);
+      if (e.retryAfterSec != null && e.retryAfterSec! > 0) {
+        _startCooldown(e.retryAfterSec!);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Không gửi được mã. Thử lại.');
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
   }
 
   @override
@@ -260,74 +291,14 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // The digit boxes are decoration only; a transparent,
-                        // full-size text field sits on top so a tap focuses it
-                        // directly. A zero-size field never gets a browser
-                        // keyboard on mobile web.
-                        SizedBox(
-                          height: kOtpBoxHeight,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              IgnorePointer(
-                                child: OtpBoxRow(
-                                  digits: _digits,
-                                  focused: _focusNode.hasFocus,
-                                ),
-                              ),
-                              TextField(
-                                controller: _controller,
-                                focusNode: _focusNode,
-                                // Autofocus keeps the keyboard from step 1 up
-                                // on mobile web, where a programmatic focus
-                                // without a user gesture cannot reopen it.
-                                autofocus: true,
-                                enabled: !_loading,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.done,
-                                autofillHints: const [
-                                  AutofillHints.oneTimeCode,
-                                ],
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(6),
-                                ],
-                                textAlign: TextAlign.center,
-                                showCursor: false,
-                                enableInteractiveSelection: false,
-                                enableSuggestions: false,
-                                style: const TextStyle(
-                                  color: Colors.transparent,
-                                  fontSize: 24,
-                                  height: 1.0,
-                                ),
-                                decoration: const InputDecoration(
-                                  contentPadding: EdgeInsets.zero,
-                                  isCollapsed: true,
-                                  filled: false,
-                                  border: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                ),
-                                onSubmitted: (_) => _verify(),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        AnimatedOpacity(
-                          opacity: _focusNode.hasFocus ? 0 : 1,
-                          duration: const Duration(milliseconds: 200),
-                          child: Center(
-                            child: Text(
-                              'Chạm vào ô để mở bàn phím',
-                              style: TextStyle(
-                                color: AppColors.onDark.withValues(alpha: 0.45),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
+                        OtpEntryBlock(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          enabled: !_loading && !_resending,
+                          digits: _digits,
+                          focused: _focusNode.hasFocus,
+                          autofocus: true,
+                          onSubmitted: _verify,
                         ),
                         if (_error != null) ...[
                           const SizedBox(height: 12),

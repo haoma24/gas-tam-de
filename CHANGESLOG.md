@@ -5,6 +5,19 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-07] Fix bàn phím OTP (mobile web): luồng một màn + ô nhập hiển thị
+
+- **Loại:** fix
+- **Phạm vi:** `apps/mobile` (`CustomerAuthFlowPage`, `OtpEntryBlock`, router)
+- **Tóm tắt:** Sau PR #31 bàn phím vẫn không mở trên thiết bị thật vì chuyển màn OTP **sau** `await requestOtp()` làm mất user-gesture; input trong suốt trên Safari cũng hay bị chặn. Gộp bước SĐT + OTP trong `IndexedStack`, focus OTP đồng bộ khi bấm «Gửi mã OTP», API gửi OTP chạy sau; thêm ô «Nhập 6 số OTP» hiển thị rõ.
+- **Chi tiết:**
+  - `CustomerAuthFlowPage`: hai bước luôn mount, đổi bước không qua `go_router` → giữ chuỗi gesture mobile web
+  - `OtpEntryBlock`: hàng ô số + `TextField` thật (không trong suốt), `Listener.onPointerDown` focus khi chạm ô
+  - Router `/auth/phone` và `/auth/otp` trỏ flow mới; `OtpNavArgs.requestOtpOnMount` cho deep link
+  - Dòng test CI/CD đã bỏ từ trước trong source — staging cần deploy image mới
+- **Workdocs:** `docs/workdocs_fix_otp_ban_phim_va_load_cham_06082026/` (bổ sung)
+- **Liên quan:** PR #31, feedback sau deploy
+
 ## [2026-08-06] Fix bàn phím màn OTP + load trang chậm ~30s
 
 - **Loại:** fix

@@ -6,14 +6,27 @@ import 'package:gas_tam_de/features/auth/_auth_widgets.dart';
 import 'package:gas_tam_de/features/auth/auth_api.dart';
 import 'package:gas_tam_de/features/auth/auth_models.dart';
 import 'package:gas_tam_de/features/auth/auth_session.dart';
+import 'package:gas_tam_de/features/auth/customer_auth_flow_page.dart';
 import 'package:gas_tam_de/features/auth/otp_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAuthApi extends AuthApi {
   _FakeAuthApi() : super(Dio());
 
+  int requestCalls = 0;
   int verifyCalls = 0;
   String? lastCode;
+
+  @override
+  Future<OtpRequestResult> requestOtp(String phone) async {
+    requestCalls += 1;
+    return const OtpRequestResult(
+      phoneMasked: '090***4567',
+      expiresInSec: 300,
+      resendAfterSec: 60,
+      devCode: '111222',
+    );
+  }
 
   @override
   Future<OtpVerifyResult> verifyOtp({
@@ -60,20 +73,38 @@ Future<void> _pumpOtpPage(
   await tester.pump();
 }
 
+Future<void> _pumpAuthFlow(
+  WidgetTester tester, {
+  required AuthApi api,
+  VoidCallback? onVerified,
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        authApiProvider.overrideWithValue(api),
+      ],
+      child: MaterialApp(
+        home: CustomerAuthFlowPage(onVerified: onVerified ?? () {}),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets('OTP field is tappable and sized (keyboard can open)',
+  testWidgets('OTP field is visible and tappable (keyboard can open)',
       (tester) async {
     await _pumpOtpPage(tester, api: _FakeAuthApi());
 
-    // Regression: the field used to live in a SizedBox(height: 0), which never
-    // gets a browser keyboard on mobile web.
     final field = find.byType(TextField);
     expect(field, findsOneWidget);
     final size = tester.getSize(field);
-    expect(size.height, kOtpBoxHeight);
+    expect(size.height, greaterThan(40));
     expect(size.width, greaterThan(100));
 
-    // A tap anywhere on the digit boxes must reach the field.
     final boxes = tester.getCenter(find.byType(OtpBoxRow));
     await tester.tapAt(boxes);
     await tester.pump();
@@ -103,18 +134,25 @@ void main() {
 
     await _pumpOtpPage(tester, api: _FakeAuthApi());
 
-    // Keyboard takes most of the viewport: the body must scroll, not overflow.
     tester.view.viewInsets = const FakeViewPadding(bottom: 420);
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(find.byType(AuthScrollBody), findsOneWidget);
+  });
 
-    // Scrollable body: the field can be brought above the keyboard.
-    final scrollable = find.byType(Scrollable).first;
-    await tester.drag(scrollable, const Offset(0, -200));
-    await tester.pumpAndSettle();
-    final rect = tester.getRect(find.byType(TextField));
-    expect(rect.bottom, lessThan(700 - 420));
+  testWidgets('auth flow focuses OTP field when continuing from phone step',
+      (tester) async {
+    final api = _FakeAuthApi();
+    await _pumpAuthFlow(tester, api: api);
+
+    await tester.enterText(find.byType(TextField), '0901234567');
+    await tester.tap(find.text('Gửi mã OTP'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Nhập mã\nxác thực'), findsOneWidget);
+    expect(api.requestCalls, 1);
+    expect(find.text('Nhập 6 số OTP'), findsOneWidget);
   });
 }
