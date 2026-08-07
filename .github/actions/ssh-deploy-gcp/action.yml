@@ -1,0 +1,58 @@
+name: SSH deploy to GCP
+description: Deploy to GCP VM via SSH
+
+inputs:
+  host:
+    description: GCP VM host IP
+    required: true
+  username:
+    description: SSH user
+    required: true
+  key:
+    description: Private SSH key
+    required: true
+  passphrase:
+    description: SSH key passphrase (optional)
+    required: false
+  script:
+    description: Bash script to run on remote
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Normalize SSH key
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ inputs.key }}" | sed 's/\\n/\n/g' > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+
+    - name: Add host to known_hosts
+      shell: bash
+      run: |
+        ssh-keyscan -H ${{ inputs.host }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+    - name: SSH deploy
+      shell: bash
+      env:
+        SSH_KEY_PATH: ~/.ssh/deploy_key
+        SSH_PASSPHRASE: ${{ inputs.passphrase }}
+      run: |
+        if [ -n "$SSH_PASSPHRASE" ]; then
+          # Install sshpass for passphrase support
+          sudo apt-get update -qq && sudo apt-get install -y sshpass > /dev/null 2>&1 || true
+          sshpass -p "$SSH_PASSPHRASE" ssh \
+            -i $SSH_KEY_PATH \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            ${{ inputs.username }}@${{ inputs.host }} \
+            "${{ inputs.script }}"
+        else
+          ssh \
+            -i $SSH_KEY_PATH \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            ${{ inputs.username }}@${{ inputs.host }} \
+            "${{ inputs.script }}"
+        fi
