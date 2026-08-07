@@ -74,5 +74,20 @@ else
 fi
 
 echo "==> SSH key ready: path=${out} lines=${lines} type=${ktype} user=${GCP_VM_USER} host=${GCP_VM_HOST}"
-echo "==> Public half of this key must be in ${GCP_VM_USER}@${GCP_VM_HOST}:~/.ssh/authorized_keys"
 echo "==> Prefer ed25519 keys (RSA ssh-rsa is often rejected by drone-ssh / modern sshd)."
+
+# Print the public half the secret actually carries. A well-formed key that the
+# server still rejects means only one thing — this exact line is not in the
+# VM's authorized_keys — and without it the operator cannot tell which of their
+# keys ended up in the secret. Public keys and fingerprints are not sensitive.
+if pub="$(ssh-keygen -y -P "" -f "${out}" 2>/dev/null)"; then
+  echo "==> This secret holds the private half of:"
+  echo "${pub}"
+  echo "==> Fingerprint: $(ssh-keygen -lf <(echo "${pub}") 2>/dev/null || echo unknown)"
+  echo "==> That key must be in ${GCP_VM_USER}@${GCP_VM_HOST}:~/.ssh/authorized_keys."
+  echo "    On the VM, this must print 1 or more:"
+  echo "    grep -c $(echo "${pub}" | awk '{print $2}') ~/.ssh/authorized_keys"
+else
+  echo "::warning::Could not derive the public half — the key is passphrase-protected."
+  echo "Set GCP_VM_SSH_PASSPHRASE, or re-issue a key with no passphrase (-N '')."
+fi

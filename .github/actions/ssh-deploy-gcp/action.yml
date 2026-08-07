@@ -52,3 +52,28 @@ runs:
         timeout: 120s
         command_timeout: 300s
         script: ${{ inputs.script }}
+
+    - name: Explain an auth failure
+      if: failure() && steps.ssh.outcome == 'failure'
+      shell: bash
+      env:
+        GCP_VM_USER: ${{ inputs.username }}
+      run: |
+        cat <<MSG
+        ::error::SSH deploy failed. If the log says
+        "unable to authenticate, attempted methods [none publickey]", the key
+        parsed and was offered — the VM refused it. Nothing in this repo can fix
+        that; the deploy key has to be installed on the VM.
+
+        The step above printed the public half of GCP_VM_SSH_KEY. Append that
+        exact line to /home/${GCP_VM_USER}/.ssh/authorized_keys on the VM
+        (chmod 700 ~/.ssh, chmod 600 ~/.ssh/authorized_keys), then re-run.
+
+        Other causes, in order of likelihood:
+          - GCP_VM_USER is not the user that owns that authorized_keys file
+          - the VM has OS Login enabled, which ignores ~/.ssh/authorized_keys
+          - the key has a passphrase but GCP_VM_SSH_PASSPHRASE is unset
+
+        Full runbook, including the exact compose command to deploy by hand
+        while this stays red: docs/workdocs_fix_gcp_ssh_auth_05082026/README.md
+        MSG

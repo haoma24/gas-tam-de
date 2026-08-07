@@ -26,6 +26,26 @@ Job đã tới được host (không phải timeout) nhưng **private key bị t
 |-----|-----------|-------------|----------|
 | `31019115236` | ~16:15 | `INPUT_HOST` / `USER` / `KEY` **trống** → `missing server host` | Secrets chưa set |
 | `31025224189` | ~16:41 | `INPUT_*` đã mask `***` nhưng handshake publickey fail | Secret có giá trị nhưng **key không khớp** / format sai / RSA bị sshd từ chối |
+| `31154317640` | 07/08 06:34 | `lines=7 type=OPENSSH`, vẫn `attempted methods [none publickey]` | Key **hợp lệ** (ed25519 không passphrase — đúng 7 dòng) và đã được gửi đi; **VM từ chối** ⇒ public half chưa nằm trong `authorized_keys` |
+
+### Đọc log thế nào
+
+`attempted methods [none publickey]` nghĩa là client **đã** parse được key và **đã** chào
+bằng publickey — server mới là bên từ chối. Nếu secret hỏng format thì drone-ssh
+báo lỗi parse chứ không tới bước này. Vậy nên khi thấy thông báo này, đừng sửa
+secret nữa: vấn đề nằm ở phía VM.
+
+Số dòng của key cho biết ngay loại key:
+
+| `lines=` | Nghĩa |
+|----------|-------|
+| 7 | ed25519 **không** passphrase (bình thường) |
+| 8 | ed25519 **có** passphrase → phải set `GCP_VM_SSH_PASSPHRASE` |
+| ~49 | RSA 4096 → drone-ssh / sshd mới hay từ chối, nên đổi sang ed25519 |
+
+Từ 07/08, bước "Normalize & validate SSH key" in luôn **public half + fingerprint**
+của key trong secret. Đây không phải thông tin nhạy cảm, và nó là thứ duy nhất cho
+biết secret đang chứa key nào để đối chiếu với VM.
 
 ## Quyết định chính
 
@@ -34,6 +54,20 @@ Job đã tới được host (không phải timeout) nhưng **private key bị t
 3. Operator phải đảm bảo **ed25519** private key trong secret khớp public key trên VM.
 
 ## Việc maintainer phải làm (bắt buộc để job xanh)
+
+### 0. Nhanh nhất: cài đúng key đang có trong secret lên VM
+
+Nếu log đã in `type=OPENSSH` và một dòng `ssh-ed25519 AAAA…` thì **không cần tạo key
+mới**. Copy đúng dòng đó rồi trên VM chạy:
+
+```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+echo 'ssh-ed25519 AAAA…  # dán từ log GHA' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Chạy đúng với user trong `GCP_VM_USER` (log in ra ngay cạnh). Xong thì re-run
+workflow. Nếu vẫn fail, VM nhiều khả năng bật **OS Login** — xem mục 2.
 
 ### 1. Tạo key deploy (máy local, không passphrase hoặc nhớ passphrase)
 
@@ -100,7 +134,37 @@ Rồi **Actions → Deploy → GCP stag → Run workflow**, hoặc push lại `s
 2. Re-run deploy workflow → bước "Normalize & validate SSH key" in `type=OPENSSH`.
 3. Bước SSH deploy chạy `git pull` / `compose up` trên VM.
 
+## Deploy tay khi CD còn đỏ
+
+CD chỉ là đường ống; image `:stag` vẫn được CI build và push bình thường. Muốn
+đưa bản mới lên staging ngay, chạy **đúng** những lệnh mà workflow chạy:
+
+```bash
+ssh <user>@<GCP_VM_HOST>
+cd /opt/gas-tam-de
+git pull origin stag
+
+docker compose \
+  -f deploy/docker-compose.yml \
+  -f deploy/docker-compose.local.yml \
+  --env-file deploy/.env \
+  -p gas-tamde-stag \
+  pull
+
+docker compose \
+  -f deploy/docker-compose.yml \
+  -f deploy/docker-compose.local.yml \
+  --env-file deploy/.env \
+  -p gas-tamde-stag \
+  up -d --no-build --remove-orphans
+```
+
+**Đừng** dùng `scripts/vps-compose-up.sh` cho VM này: nó mặc định project
+`ts-tamde-stag` (khác `gas-tamde-stag` của workflow → dựng stack thứ hai thay vì
+cập nhật stack đang chạy) và **không** nạp `--env-file deploy/.env`, tức là
+`JWT_SECRET` rơi về default — đúng lỗi 401 vừa sửa ở #34.
+
 ## Ghi chú / blocker
 
-- Agent **không** đọc/ghi được GitHub Actions secrets (API 403) — unblock phụ thuộc maintainer paste key đúng.
+- Agent **không** đọc/ghi được GitHub Actions secrets (API 403) và **không** SSH được vào VM — bước cài `authorized_keys` bắt buộc do maintainer làm.
 - drone-ssh / golang `x/crypto/ssh` hay từ chối RSA `ssh-rsa` trên Ubuntu 20.04+ → dùng **ed25519**.
