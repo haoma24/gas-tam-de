@@ -45,6 +45,14 @@ func main() {
 	accessTTL := time.Duration(accessTTLSec) * time.Second
 	refreshTTL := time.Duration(refreshTTLSec) * time.Second
 
+	// api-gateway must print the same fingerprint, otherwise it rejects every
+	// token this service signs ("invalid or expired access token").
+	slog.Info("access token signing key",
+		"jwt_secret_fp", config.SecretFingerprint(jwtSecret),
+		"access_ttl_sec", accessTTLSec,
+		"refresh_ttl_sec", refreshTTLSec,
+	)
+
 	otp := newOTPService(db, jwtSecret, accessTTL, refreshTTL)
 	tokens := newTokenService(db, jwtSecret, accessTTL, refreshTTL)
 	me := &meService{db: db}

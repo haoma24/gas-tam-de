@@ -105,6 +105,11 @@ func buildGatewayHandler() http.Handler {
 		billing:   config.Get("BILLING_SERVICE_URL", "http://127.0.0.1:8086"),
 		report:    config.Get("REPORT_SERVICE_URL", "http://127.0.0.1:8087"),
 	}
+	// Must match the fingerprint auth-service logs, otherwise every
+	// authenticated route 401s even straight after a successful login.
+	slog.Info("access token verification key",
+		"jwt_secret_fp", config.SecretFingerprint(jwtSecret),
+	)
 	slog.Info("upstream urls",
 		"auth", u.auth,
 		"catalog", u.catalog,
@@ -187,6 +192,9 @@ func newGatewayRouter(jwtSecret string, corsOrigins []string, u upstreams, rl *r
 		// Admin-only — JWT role=admin; audit mutating actions; split by upstream service.
 		v1.Group(func(admin chi.Router) {
 			admin.Use(RequireJWT(jwtSecret), RequireRole(roleAdmin), AuditAdminMutations(audit))
+
+			admin.Handle("/admin/admin-phones", authProxy)
+			admin.Handle("/admin/admin-phones/*", authProxy)
 
 			admin.Handle("/admin/products", catalogProxy)
 			admin.Handle("/admin/products/*", catalogProxy)
