@@ -84,6 +84,25 @@ Thêm nữa: `Column` + `Spacer` với `Scaffold.resizeToAvoidBottomInset = true
   theo browser; preload cố định làm Chrome tải sai file (đã thấy warning
   “preloaded but not used” khi thử).
 
+## Follow-up 2026-08-07 (PR sau #31)
+
+Feedback staging: bàn phím OTP vẫn không mở.
+
+**Nguyên nhân thêm:** PR #31 vẫn `await requestOtp()` trên màn SĐT rồi mới
+`context.go('/auth/otp')` — trên mobile web user-gesture hết hạn sau await, nên
+`autofocus` / `requestFocus` trên màn mới không mở bàn phím. Input trong suốt
+phủ ô số vẫn không đủ trên Safari.
+
+**Fix:**
+
+- `CustomerAuthFlowPage` + `IndexedStack`: hai bước luôn trong cây widget; bấm
+  «Gửi mã OTP» đặt `_index = otp` và `_otpFocus.requestFocus()` **đồng bộ** trong
+  cùng handler nút, rồi mới `unawaited(_sendOtp())`.
+- `OtpEntryBlock`: ô «Nhập 6 số OTP» hiển thị (DarkTextField-style), không dùng
+  `TextField` trong suốt size 0.
+- Router dùng flow mới; dòng CI/CD đã xóa trong source từ 2026-08-06 — cần image
+  `:stag` mới trên VPS.
+
 ## Đã làm
 
 - [x] `OtpBoxRow` nhận `focused`, export `kOtpBoxHeight`

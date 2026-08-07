@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/app_theme.dart';
 import '_auth_widgets.dart';
-import 'auth_api.dart';
 import 'auth_models.dart';
 import 'phone_utils.dart';
 
@@ -26,7 +25,6 @@ class PhonePage extends ConsumerStatefulWidget {
 class _PhonePageState extends ConsumerState<PhonePage> {
   final _controller = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _loading = false;
   String? _error;
 
   @override
@@ -35,32 +33,17 @@ class _PhonePageState extends ConsumerState<PhonePage> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  void _submit() {
     setState(() => _error = null);
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final phone = _controller.text.trim();
-    setState(() => _loading = true);
-    try {
-      final result = await ref.read(authApiProvider).requestOtp(phone);
-      if (!mounted) return;
-      widget.onOtpSent(OtpNavArgs(
-        phone: phone,
-        phoneMasked: result.phoneMasked.isNotEmpty
-            ? result.phoneMasked
-            : maskVnPhone(phone),
-        resendAfterSec: result.resendAfterSec,
-        expiresInSec: result.expiresInSec,
-        devCode: result.devCode,
-      ));
-    } on AuthApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.displayMessage);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _error = 'Có lỗi xảy ra. Thử lại.');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+    widget.onOtpSent(OtpNavArgs(
+      phone: phone,
+      phoneMasked: maskVnPhone(phone),
+      resendAfterSec: 60,
+      expiresInSec: 300,
+      requestOtpOnMount: true,
+    ));
   }
 
   @override
@@ -87,7 +70,7 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                             IconButton(
                               icon: const Icon(Icons.arrow_back_ios_new_rounded,
                                   color: AppColors.onDark, size: 20),
-                              onPressed: _loading ? null : widget.onBack,
+                              onPressed: widget.onBack,
                             ),
                           const Spacer(),
                           const AuthStepChip(step: 1, total: 2),
@@ -139,7 +122,7 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                         children: [
                           DarkTextField(
                             controller: _controller,
-                            enabled: !_loading,
+                            enabled: true,
                             keyboardType: TextInputType.phone,
                             textInputAction: TextInputAction.done,
                             autofillHints: const [
@@ -161,9 +144,7 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                               }
                               return null;
                             },
-                            onSubmitted: (_) {
-                              if (!_loading) _submit();
-                            },
+                            onSubmitted: (_) => _submit(),
                           ),
                           if (_error != null) ...[
                             const SizedBox(height: 10),
@@ -172,7 +153,7 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                           const SizedBox(height: 20),
                           GradientCTAButton(
                             label: 'Gửi mã OTP',
-                            loading: _loading,
+                            loading: false,
                             onTap: _submit,
                           ),
                         ],

@@ -7,9 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'features/auth/admin_login_page.dart';
 import 'features/auth/auth_models.dart';
 import 'features/auth/auth_session.dart';
+import 'features/auth/customer_auth_flow_page.dart';
 import 'features/auth/customer_profile_page.dart';
-import 'features/auth/otp_page.dart';
-import 'features/auth/phone_page.dart';
 import 'features/billing/admin_debts_page.dart';
 import 'features/catalog/admin_product_form_page.dart';
 import 'features/catalog/admin_products_page.dart';
@@ -74,9 +73,20 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/auth/phone',
-      builder: (context, state) => PhonePage(
-        onBack: () => context.go('/'),
-        onOtpSent: (args) => context.go('/auth/otp', extra: args),
+      builder: (context, state) => Consumer(
+        builder: (context, ref, _) {
+          return CustomerAuthFlowPage(
+            onBack: () => context.go('/'),
+            onVerified: () {
+              final session = ref.read(authSessionProvider);
+              if (session != null && session.isAdmin) {
+                context.go('/admin');
+              } else {
+                context.go('/');
+              }
+            },
+          );
+        },
       ),
     ),
     GoRoute(
@@ -84,7 +94,6 @@ final _router = GoRouter(
       builder: (context, state) {
         final args = state.extra;
         if (args is! OtpNavArgs) {
-          // Deep-link / refresh without extra → restart phone step.
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) context.go('/auth/phone');
           });
@@ -94,10 +103,9 @@ final _router = GoRouter(
         }
         return Consumer(
           builder: (context, ref, _) {
-            return OtpPage(
-              args: args,
+            return CustomerAuthFlowPage(
+              initialOtpArgs: args,
               onBack: () => context.go('/auth/phone'),
-              // After OTP → brand shop; admin role (if ever) → /admin.
               onVerified: () {
                 final session = ref.read(authSessionProvider);
                 if (session != null && session.isAdmin) {
