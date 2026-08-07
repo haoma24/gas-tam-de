@@ -18,6 +18,7 @@ class AdminDashboardPage extends ConsumerStatefulWidget {
     required this.onOpenDeskSettings,
     required this.onOpenDebts,
     required this.onOpenInventory,
+    required this.onOpenAdminPhones,
     this.onLoggedOut,
   });
 
@@ -29,6 +30,7 @@ class AdminDashboardPage extends ConsumerStatefulWidget {
   final VoidCallback onOpenDeskSettings;
   final VoidCallback onOpenDebts;
   final VoidCallback onOpenInventory;
+  final VoidCallback onOpenAdminPhones;
   final VoidCallback? onLoggedOut;
 
   @override
@@ -85,9 +87,17 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   Widget build(BuildContext context) {
     final session = ref.watch(authSessionProvider);
     final theme = Theme.of(context);
-    final label = session?.user.displayName?.trim().isNotEmpty == true
-        ? session!.user.displayName!
-        : (session?.user.username ?? 'admin');
+    // A phone admin has no username or display name — greet them by the number
+    // they signed in with instead of the generic "admin".
+    final user = session?.user;
+    final label = [
+      user?.displayName,
+      user?.username,
+      user?.phoneMasked,
+    ].firstWhere(
+      (v) => v != null && v.trim().isNotEmpty,
+      orElse: () => 'admin',
+    )!;
 
     return Scaffold(
       appBar: AppBar(
@@ -215,6 +225,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 title: 'Tồn kho',
                 subtitle: 'Xem tồn, nhập / xuất / điều chỉnh',
                 onTap: widget.onOpenInventory,
+              ),
+              const SizedBox(height: 12),
+              _AdminNavTile(
+                icon: Icons.admin_panel_settings_outlined,
+                title: 'Số điện thoại admin',
+                subtitle: 'Số nào đăng nhập OTP là vào được trang quản trị',
+                onTap: widget.onOpenAdminPhones,
               ),
             ],
           ),

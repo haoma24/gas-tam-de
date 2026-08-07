@@ -166,6 +166,8 @@ class AuthApiException implements Exception {
         return 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
       case 'FORBIDDEN':
         return 'Không có quyền thực hiện thao tác này.';
+      case 'LAST_ADMIN_PHONE':
+        return 'Phải giữ lại ít nhất một số điện thoại admin.';
       case 'NETWORK':
         return 'Không kết nối được máy chủ. Kiểm tra API đang chạy.';
       case 'api_unavailable':
