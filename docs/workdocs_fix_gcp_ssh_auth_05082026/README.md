@@ -137,14 +137,32 @@ Rồi **Actions → Deploy → GCP stag → Run workflow**, hoặc push lại `s
 ## Deploy tay khi CD còn đỏ
 
 CD chỉ là đường ống; image `:stag` vẫn được CI build và push bình thường. Muốn
-đưa bản mới lên staging ngay:
+đưa bản mới lên staging ngay, chạy **đúng** những lệnh mà workflow chạy:
 
 ```bash
 ssh <user>@<GCP_VM_HOST>
 cd /opt/gas-tam-de
 git pull origin stag
-./scripts/vps-compose-up.sh          # pull GHCR :stag + up -d --no-build
+
+docker compose \
+  -f deploy/docker-compose.yml \
+  -f deploy/docker-compose.local.yml \
+  --env-file deploy/.env \
+  -p gas-tamde-stag \
+  pull
+
+docker compose \
+  -f deploy/docker-compose.yml \
+  -f deploy/docker-compose.local.yml \
+  --env-file deploy/.env \
+  -p gas-tamde-stag \
+  up -d --no-build --remove-orphans
 ```
+
+**Đừng** dùng `scripts/vps-compose-up.sh` cho VM này: nó mặc định project
+`ts-tamde-stag` (khác `gas-tamde-stag` của workflow → dựng stack thứ hai thay vì
+cập nhật stack đang chạy) và **không** nạp `--env-file deploy/.env`, tức là
+`JWT_SECRET` rơi về default — đúng lỗi 401 vừa sửa ở #34.
 
 ## Ghi chú / blocker
 
