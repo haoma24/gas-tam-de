@@ -123,6 +123,53 @@ func TestProxy_AdminSplitsUpstreams(t *testing.T) {
 	}
 }
 
+// The admin phone allow-list lives in auth-service, unlike every other
+// /v1/admin route, so it needs its own upstream mapping.
+func TestProxy_AdminPhonesGoToAuthService(t *testing.T) {
+	secret := "secret"
+	auth, cap, mu := startMockUpstream(t)
+	r := testRouter(t, secret, upstreams{auth: auth.URL})
+	adminTok := issueTestToken(t, secret, "a1", roleAdmin, "s1", time.Hour)
+
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodGet, "/v1/admin/admin-phones"},
+		{http.MethodPost, "/v1/admin/admin-phones"},
+		{http.MethodDelete, "/v1/admin/admin-phones/abc"},
+	} {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		req.Header.Set("Authorization", "Bearer "+adminTok)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s: status=%d body=%s", tc.method, tc.path, rec.Code, rec.Body.String())
+		}
+		mu.Lock()
+		gotPath, gotRole := cap.Path, cap.Header.Get("X-User-Role")
+		mu.Unlock()
+		if gotPath != tc.path {
+			t.Fatalf("upstream path=%q want=%q", gotPath, tc.path)
+		}
+		if gotRole != roleAdmin {
+			t.Fatalf("upstream X-User-Role=%q", gotRole)
+		}
+	}
+}
+
+func TestProxy_AdminPhonesRejectCustomer(t *testing.T) {
+	secret := "secret"
+	auth, _, _ := startMockUpstream(t)
+	r := testRouter(t, secret, upstreams{auth: auth.URL})
+	tok := issueTestToken(t, secret, "u1", roleCustomer, "s1", time.Hour)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/admin/admin-phones", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestProxy_CustomerOrdersForwardsIdentityHeaders(t *testing.T) {
 	secret := "secret"
 	order, cap, mu := startMockUpstream(t)
