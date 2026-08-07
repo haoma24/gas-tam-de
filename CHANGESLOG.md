@@ -5,6 +5,21 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-07] Fix 401 mọi route có JWT (auth-service thiếu JWT_SECRET) + đăng nhập admin bằng SĐT
+
+- **Loại:** fix + feature
+- **Phạm vi:** `deploy` (compose env), `services/auth-service`, `services/api-gateway`, `apps/mobile`
+- **Tóm tắt:** `auth-service` ký access token nhưng compose không truyền `JWT_SECRET` cho nó, nên trên deploy có secret thật gateway từ chối **mọi** token vừa phát hành — Hồ sơ báo `invalid or expired access token`, Đơn hàng báo "Phiên đăng nhập hết hạn", và refresh phía client không cứu được. Đồng thời thêm allow-list số điện thoại admin: `0909777020` đăng nhập OTP là vào thẳng trang quản trị và tự thêm/bớt được số khác.
+- **Chi tiết:**
+  - `auth-service` nhận `JWT_SECRET`, TTL token, giới hạn OTP và biến seed admin; cả bên ký lẫn bên xác minh log `jwt_secret_fp` (8 hex của SHA-256) để so lệch secret mà không lộ secret
+  - `deploy/compose_env_test.go` chạy trong `make test`, chặn tái diễn; `PHONE_ENC_KEY`/`PHONE_HASH_PEPPER` cố tình vẫn để trống vì đổi pepper sẽ mồ côi user cũ trong `auth.db`
+  - Bảng `admin_phones` khoá bằng cùng peppered hash với `users.phone_hash`, seed từ `ADMIN_PHONES` (mặc định `0909777020`); OTP verify cấp `role=admin` cho số trong danh sách
+  - `refresh` đọc lại allow-list mỗi lần xoay token → thêm/bớt số có hiệu lực ngay ở lần refresh kế tiếp; không xoá được entry cuối cùng
+  - `GET/POST/DELETE /v1/admin/admin-phones` (auth-service, gateway route admin) + màn **Quản trị → Số điện thoại admin**
+  - Client xoá session khi 401 vẫn còn sau refresh + retry, để router đưa về đăng nhập thay vì hiện lỗi tiếng Anh
+- **Workdocs:** `docs/workdocs_fix_jwt_secret_va_admin_theo_sdt_07082026/`
+- **Liên quan:** phản hồi staging ngày 07/08/2026, tiếp nối PR #33
+
 ## [2026-08-07] Khôi phục phiên khách khi mở hồ sơ/đơn hàng và điều hướng đảo chiều
 
 - **Loại:** fix

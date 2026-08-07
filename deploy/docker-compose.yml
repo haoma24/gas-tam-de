@@ -98,6 +98,30 @@ services:
     environment:
       AUTH_ADDR: ":8081"
       AUTH_DB: "/data/auth.db"
+      # auth-service signs the access JWT, api-gateway (standalone + the one
+      # embedded in `web`) verifies it. All three must read the same
+      # JWT_SECRET/TTL or every authenticated call 401s with
+      # "invalid or expired access token" even right after a successful login.
+      # Compare the `jwt_secret_fp` line in each container's startup log.
+      JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-me}"
+      JWT_ACCESS_TTL_SEC: "${JWT_ACCESS_TTL_SEC:-900}"
+      JWT_REFRESH_TTL_SEC: "${JWT_REFRESH_TTL_SEC:-2592000}"
+      # PHONE_ENC_KEY / PHONE_HASH_PEPPER are deliberately NOT wired here:
+      # phone_hash is the customer identity key, so changing the pepper on a
+      # live auth.db orphans every existing user and their order history.
+      OTP_HASH_PEPPER: "${OTP_HASH_PEPPER:-dev-otp-hash-pepper-change-me}"
+      OTP_TTL_SEC: "${OTP_TTL_SEC:-300}"
+      OTP_COOLDOWN_SEC: "${OTP_COOLDOWN_SEC:-60}"
+      OTP_MAX_PER_PHONE_HOUR: "${OTP_MAX_PER_PHONE_HOUR:-5}"
+      OTP_MAX_PER_IP_HOUR: "${OTP_MAX_PER_IP_HOUR:-20}"
+      OTP_MAX_ATTEMPTS: "${OTP_MAX_ATTEMPTS:-5}"
+      ADMIN_SEED: "${ADMIN_SEED:-1}"
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin-change-me}"
+      ADMIN_DISPLAY_NAME: "${ADMIN_DISPLAY_NAME:-Admin}"
+      # Phones that get role=admin after a normal OTP login (comma-separated).
+      # Editable at runtime from Quản trị → Số điện thoại admin.
+      ADMIN_PHONES: "${ADMIN_PHONES:-0909777020}"
       NATS_URL: "nats://nats:4222"
       NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
       OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-1}"

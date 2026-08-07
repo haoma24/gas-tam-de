@@ -134,6 +134,15 @@ func (s *otpService) handleOTPVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Numbers on the admin allow-list sign in through this same OTP flow and
+	// get an admin session, so the app routes them straight to /admin.
+	role, err := roleForPhone(tx, phoneHash)
+	if err != nil {
+		slog.Error("resolve role for phone", "err", err)
+		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not verify OTP")
+		return
+	}
+
 	refreshRaw, refreshHash, err := generateRefreshToken()
 	if err != nil {
 		slog.Error("generate refresh", "err", err)
@@ -142,13 +151,13 @@ func (s *otpService) handleOTPVerify(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := uuid.NewString()
 	sessionExp := now.Add(s.refreshTTL)
-	if err := insertSession(tx, sessionID, userID, "customer", refreshHash, sessionExp, now); err != nil {
+	if err := insertSession(tx, sessionID, userID, role, refreshHash, sessionExp, now); err != nil {
 		slog.Error("insert session", "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not issue tokens")
 		return
 	}
 
-	access, err := issueAccessToken(s.jwtSecret, userID, "customer", masked, sessionID, s.accessTTL, now)
+	access, err := issueAccessToken(s.jwtSecret, userID, role, masked, sessionID, s.accessTTL, now)
 	if err != nil {
 		slog.Error("issue access jwt", "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not issue tokens")
@@ -165,6 +174,7 @@ func (s *otpService) handleOTPVerify(w http.ResponseWriter, r *http.Request) {
 		"user_id", userID,
 		"session_id", sessionID,
 		"phone_hash", phoneHash,
+		"role", role,
 	)
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
@@ -175,7 +185,7 @@ func (s *otpService) handleOTPVerify(w http.ResponseWriter, r *http.Request) {
 		"expires_in":    int(s.accessTTL.Seconds()),
 		"user": map[string]any{
 			"id":           userID,
-			"role":         "customer",
+			"role":         role,
 			"phone_masked": masked,
 		},
 	})

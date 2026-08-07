@@ -13,6 +13,11 @@ import (
 
 const tokenIssuer = "gas-tam-de-auth"
 
+const (
+	roleCustomer = "customer"
+	roleAdmin    = "admin"
+)
+
 // AccessClaims is the customer/admin access JWT payload.
 type AccessClaims struct {
 	Role        string `json:"role"`

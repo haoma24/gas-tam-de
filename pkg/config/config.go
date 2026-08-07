@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"strconv"
 	"strings"
@@ -55,6 +57,17 @@ func GetFloat(key string, fallback float64) float64 {
 		return fallback
 	}
 	return n
+}
+
+// SecretFingerprint is a short, non-reversible tag for a shared secret so two
+// processes can be compared in logs without printing the secret itself.
+// Services that sign and services that verify must print the same value.
+func SecretFingerprint(secret string) string {
+	if secret == "" {
+		return "empty"
+	}
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:4])
 }
 
 // MustGet returns env value or panics if empty (and no fallback used).

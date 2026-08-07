@@ -75,33 +75,7 @@ class MeApi {
     }
   }
 
-  AuthApiException _mapDio(DioException e) {
-    if (e.type == DioExceptionType.connectionError ||
-        e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.receiveTimeout ||
-        e.type == DioExceptionType.sendTimeout) {
-      return AuthApiException(
-        code: 'NETWORK',
-        message: e.message ?? 'network error',
-      );
-    }
-    final data = e.response?.data;
-    if (data is Map<String, dynamic>) {
-      final err = data['error'];
-      if (err is Map<String, dynamic>) {
-        return AuthApiException(
-          code: err['code'] as String? ?? 'UNKNOWN',
-          message: err['message'] as String? ?? 'request failed',
-          statusCode: e.response?.statusCode,
-        );
-      }
-    }
-    return AuthApiException(
-      code: 'HTTP',
-      message: e.message ?? 'request failed',
-      statusCode: e.response?.statusCode,
-    );
-  }
+  AuthApiException _mapDio(DioException e) => mapDioToAuthException(e);
 }
 
 /// Cached profile for the current customer session (null if logged out / admin).

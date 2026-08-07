@@ -44,6 +44,19 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
   disabled_at   TEXT
 );
 
+-- Phones that receive role=admin after a normal customer OTP login (T1.2.4).
+-- Keyed by the same peppered hash as users.phone_hash so the plaintext number
+-- is never stored; phone_masked is kept only so the admin UI can list entries.
+-- Bootstrapped from ADMIN_PHONES, then managed from the admin screen.
+CREATE TABLE IF NOT EXISTS admin_phones (
+  id           TEXT PRIMARY KEY,
+  phone_hash   TEXT NOT NULL UNIQUE,
+  phone_masked TEXT NOT NULL,
+  label        TEXT,
+  created_at   TEXT NOT NULL,
+  created_by   TEXT
+);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   id          TEXT PRIMARY KEY,
   actor_id    TEXT NOT NULL,

@@ -45,7 +45,13 @@ tests); consumers attach from the `onReady` callback. `NATS_STARTUP_TIMEOUT_SEC`
 `tcp4`, because an IPv6-only bind makes `wget http://127.0.0.1:<port>/healthz`
 probes fail on hosts with `net.ipv6.bindv6only=1`.
 
-Dev defaults (no `.env` required): see `deploy/.env.example`. Local OTP returns `dev_code` when `OTP_DEV_REVEAL=1`. Seeded admin: `admin` / `admin-change-me` (`ADMIN_SEED=1`).
+Dev defaults (no `.env` required): see `deploy/.env.example`. Local OTP returns `dev_code` when `OTP_DEV_REVEAL=1`. Seeded admin: `admin` / `admin-change-me` (`ADMIN_SEED=1`), plus the phone allow-list `ADMIN_PHONES` (default `0909777020`) whose numbers get `role=admin` straight from the customer OTP flow.
+
+`JWT_SECRET` must be identical for **auth-service** (signs the access token) and
+both api-gateways — the standalone container and the one embedded in `web`.
+A mismatch 401s every authenticated route immediately after a successful login,
+which no client-side token refresh can recover from. Each process logs
+`jwt_secret_fp=<8 hex>` at startup; compare those before debugging anything else.
 
 ### Cloud VM gotchas
 

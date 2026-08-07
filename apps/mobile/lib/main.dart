@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'features/auth/admin_admin_phones_page.dart';
 import 'features/auth/admin_login_page.dart';
 import 'features/auth/auth_models.dart';
 import 'features/auth/auth_session.dart';
@@ -237,6 +238,7 @@ final _router = GoRouter(
             onOpenDeskSettings: () => context.push('/admin/desk-settings'),
             onOpenDebts: () => context.push('/admin/debts'),
             onOpenInventory: () => context.push('/admin/inventory'),
+            onOpenAdminPhones: () => context.push('/admin/admin-phones'),
             onLoggedOut: () => context.go('/'),
           );
         },
@@ -322,6 +324,12 @@ final _router = GoRouter(
     GoRoute(
       path: '/admin/inventory',
       builder: (context, state) => AdminInventoryPage(
+        onBack: () => _popOrGo(context, '/admin'),
+      ),
+    ),
+    GoRoute(
+      path: '/admin/admin-phones',
+      builder: (context, state) => AdminPhonesPage(
         onBack: () => _popOrGo(context, '/admin'),
       ),
     ),

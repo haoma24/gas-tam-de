@@ -132,6 +132,12 @@ Android emulator → host: `--dart-define=API_BASE_URL=http://10.0.2.2:8082`.
 
 Seed admin mặc định (auth-service): username `admin` / password `admin-change-me` (đổi qua env khi deploy).
 
+Ngoài tài khoản username/password, một số điện thoại nằm trong danh sách admin sẽ
+nhận session `role=admin` khi đăng nhập bằng OTP như khách bình thường, và app
+điều hướng thẳng vào `/admin`. Danh sách khởi tạo từ `ADMIN_PHONES` (mặc định
+`0909777020`) rồi quản lý tại **Quản trị → Số điện thoại admin**; thêm/bớt số có
+hiệu lực ở lần làm mới token kế tiếp, không cần đăng nhập lại.
+
 ### Verify nhanh CTA shell (T9.2.4)
 
 1. `flutter pub get` trong `apps/mobile`.

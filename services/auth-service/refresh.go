@@ -85,58 +85,28 @@ func (s *tokenService) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	principal, err := resolveRefreshPrincipal(tx, sess)
+	if err != nil {
+		if errors.Is(err, errPrincipalGone) {
+			httpx.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired refresh token")
+			return
+		}
+		slog.Error("resolve principal for refresh", "err", err)
+		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not refresh")
+		return
+	}
+
 	newSessionID := uuid.NewString()
 	sessionExp := now.Add(s.refreshTTL)
-	if err := insertSession(tx, newSessionID, sess.UserID, sess.Role, refreshHash, sessionExp, now); err != nil {
+	if err := insertSession(tx, newSessionID, sess.UserID, principal.Role, refreshHash, sessionExp, now); err != nil {
 		slog.Error("insert rotated session", "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not issue tokens")
 		return
 	}
 
-	phoneMasked := ""
-	userPayload := map[string]any{
-		"id":   sess.UserID,
-		"role": sess.Role,
-	}
-	switch sess.Role {
-	case "admin":
-		admin, err := loadAdminByID(tx, sess.UserID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				httpx.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired refresh token")
-				return
-			}
-			slog.Error("load admin for refresh", "err", err)
-			httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not refresh")
-			return
-		}
-		if admin.DisabledAt.Valid {
-			httpx.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired refresh token")
-			return
-		}
-		userPayload["username"] = admin.Username
-		if admin.DisplayName.Valid && admin.DisplayName.String != "" {
-			userPayload["display_name"] = admin.DisplayName.String
-		}
-	case "customer":
-		masked, err := loadCustomerPhoneMasked(tx, sess.UserID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				httpx.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired refresh token")
-				return
-			}
-			slog.Error("load customer for refresh", "err", err)
-			httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not refresh")
-			return
-		}
-		phoneMasked = masked
-		userPayload["phone_masked"] = masked
-	default:
-		httpx.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired refresh token")
-		return
-	}
-
-	access, err := issueAccessToken(s.jwtSecret, sess.UserID, sess.Role, phoneMasked, newSessionID, s.accessTTL, now)
+	access, err := issueAccessToken(
+		s.jwtSecret, sess.UserID, principal.Role, principal.PhoneMasked, newSessionID, s.accessTTL, now,
+	)
 	if err != nil {
 		slog.Error("issue access jwt", "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not issue tokens")
@@ -151,7 +121,7 @@ func (s *tokenService) handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("token refreshed",
 		"user_id", sess.UserID,
-		"role", sess.Role,
+		"role", principal.Role,
 		"old_session_id", sess.ID,
 		"session_id", newSessionID,
 	)
@@ -162,8 +132,74 @@ func (s *tokenService) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		"refresh_token": refreshRaw,
 		"token_type":    "Bearer",
 		"expires_in":    int(s.accessTTL.Seconds()),
-		"user":          userPayload,
+		"user":          principal.userPayload(sess.UserID),
 	})
+}
+
+// errPrincipalGone marks a session whose account no longer exists, is disabled,
+// or carries an unknown role — the caller turns it into a 401.
+var errPrincipalGone = errors.New("refresh principal unavailable")
+
+// refreshPrincipal is who a rotated session belongs to and what it may do.
+type refreshPrincipal struct {
+	Role        string
+	PhoneMasked string
+	Username    string
+	DisplayName string
+}
+
+func (p refreshPrincipal) userPayload(userID string) map[string]any {
+	out := map[string]any{"id": userID, "role": p.Role}
+	if p.PhoneMasked != "" {
+		out["phone_masked"] = p.PhoneMasked
+	}
+	if p.Username != "" {
+		out["username"] = p.Username
+	}
+	if p.DisplayName != "" {
+		out["display_name"] = p.DisplayName
+	}
+	return out
+}
+
+// resolveRefreshPrincipal re-derives the role for a rotating session.
+//
+// A username/password admin is identified by admin_accounts. A phone admin
+// signs in through the customer OTP flow, so its identity lives in users and
+// its privilege in admin_phones — which is re-read here, letting the allow-list
+// grant or revoke admin on the next rotation instead of on the next login.
+func resolveRefreshPrincipal(tx *sql.Tx, sess *sessionRow) (refreshPrincipal, error) {
+	if sess.Role == roleAdmin {
+		admin, err := loadAdminByID(tx, sess.UserID)
+		switch {
+		case err == nil:
+			if admin.DisabledAt.Valid {
+				return refreshPrincipal{}, errPrincipalGone
+			}
+			p := refreshPrincipal{Role: roleAdmin, Username: admin.Username}
+			if admin.DisplayName.Valid {
+				p.DisplayName = admin.DisplayName.String
+			}
+			return p, nil
+		case !errors.Is(err, sql.ErrNoRows):
+			return refreshPrincipal{}, err
+		}
+	} else if sess.Role != roleCustomer {
+		return refreshPrincipal{}, errPrincipalGone
+	}
+
+	user, err := loadPhoneUser(tx, sess.UserID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return refreshPrincipal{}, errPrincipalGone
+	}
+	if err != nil {
+		return refreshPrincipal{}, err
+	}
+	role, err := roleForPhone(tx, user.PhoneHash)
+	if err != nil {
+		return refreshPrincipal{}, err
+	}
+	return refreshPrincipal{Role: role, PhoneMasked: user.PhoneMasked}, nil
 }
 
 func lockSessionByRefreshHash(tx *sql.Tx, refreshHash string) (*sessionRow, error) {
@@ -205,8 +241,16 @@ func loadAdminByID(tx *sql.Tx, id string) (*adminAccountRow, error) {
 	return &a, nil
 }
 
-func loadCustomerPhoneMasked(tx *sql.Tx, userID string) (string, error) {
-	var masked string
-	err := tx.QueryRow(`SELECT phone_masked FROM users WHERE id = ?`, userID).Scan(&masked)
-	return masked, err
+// phoneUser is the OTP-backed identity behind a customer or phone-admin session.
+type phoneUser struct {
+	PhoneHash   string
+	PhoneMasked string
+}
+
+func loadPhoneUser(tx *sql.Tx, userID string) (phoneUser, error) {
+	var u phoneUser
+	err := tx.QueryRow(
+		`SELECT phone_hash, phone_masked FROM users WHERE id = ?`, userID,
+	).Scan(&u.PhoneHash, &u.PhoneMasked)
+	return u, err
 }

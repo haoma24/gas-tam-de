@@ -39,15 +39,30 @@ func main() {
 		os.Exit(1)
 	}
 
+	phonePepper := loadPhonePepper()
+	if err := seedAdminPhones(db, loadAdminPhonesSeed(), phonePepper); err != nil {
+		slog.Error("seed admin phones", "err", err)
+		os.Exit(1)
+	}
+
 	accessTTLSec := config.GetInt("JWT_ACCESS_TTL_SEC", 900)
 	refreshTTLSec := config.GetInt("JWT_REFRESH_TTL_SEC", 2592000) // 30 days
 	jwtSecret := config.Get("JWT_SECRET", "dev-jwt-secret-change-me")
 	accessTTL := time.Duration(accessTTLSec) * time.Second
 	refreshTTL := time.Duration(refreshTTLSec) * time.Second
 
+	// api-gateway must print the same fingerprint, otherwise it rejects every
+	// token this service signs ("invalid or expired access token").
+	slog.Info("access token signing key",
+		"jwt_secret_fp", config.SecretFingerprint(jwtSecret),
+		"access_ttl_sec", accessTTLSec,
+		"refresh_ttl_sec", refreshTTLSec,
+	)
+
 	otp := newOTPService(db, jwtSecret, accessTTL, refreshTTL)
 	tokens := newTokenService(db, jwtSecret, accessTTL, refreshTTL)
 	me := &meService{db: db}
+	adminPhones := &adminPhoneService{db: db, phonePepper: phonePepper}
 
 	r := httpx.NewRouter(serviceName)
 	httpx.MountHealth(r, serviceName)
@@ -58,6 +73,9 @@ func main() {
 	r.Post("/v1/auth/refresh", tokens.handleRefresh)
 	r.Get("/v1/me", me.handleGetMe)
 	r.Patch("/v1/me", me.handlePatchMe)
+	r.Get("/v1/admin/admin-phones", adminPhones.handleList)
+	r.Post("/v1/admin/admin-phones", adminPhones.handleCreate)
+	r.Delete("/v1/admin/admin-phones/{id}", adminPhones.handleDelete)
 
 	if err := httpx.ListenAndServe(addr, serviceName, r); err != nil {
 		slog.Error("server stopped", "err", err)
@@ -81,7 +99,6 @@ func newOTPService(db *sql.DB, jwtSecret string, accessTTL, refreshTTL time.Dura
 	maxIP := config.GetInt("OTP_MAX_PER_IP_HOUR", 20)
 	maxAttempts := config.GetInt("OTP_MAX_ATTEMPTS", 5)
 
-	phonePepper := config.Get("PHONE_HASH_PEPPER", config.Get("PHONE_ENC_KEY", "dev-phone-pepper-change-me"))
 	otpPepper := config.Get("OTP_HASH_PEPPER", config.Get("JWT_SECRET", "dev-otp-pepper-change-me"))
 	phoneEncKey := config.Get("PHONE_ENC_KEY", "dev-phone-enc-key-32bytes-min!!")
 
@@ -99,7 +116,7 @@ func newOTPService(db *sql.DB, jwtSecret string, accessTTL, refreshTTL time.Dura
 		db:           db,
 		limiter:      newOTPRateLimiter(cooldown, maxPhone, maxIP),
 		sms:          sms,
-		phonePepper:  phonePepper,
+		phonePepper:  loadPhonePepper(),
 		otpPepper:    otpPepper,
 		phoneKey:     derivePhoneKey(phoneEncKey),
 		jwtSecret:    jwtSecret,
@@ -111,6 +128,25 @@ func newOTPService(db *sql.DB, jwtSecret string, accessTTL, refreshTTL time.Dura
 		devRevealOTP: devReveal,
 	}
 }
+
+// loadPhonePepper resolves the pepper behind users.phone_hash. It is the
+// customer identity key, so every caller must derive it the same way — changing
+// it against a populated auth.db orphans existing accounts.
+func loadPhonePepper() string {
+	return config.Get("PHONE_HASH_PEPPER", config.Get("PHONE_ENC_KEY", "dev-phone-pepper-change-me"))
+}
+
+// loadAdminPhonesSeed returns the numbers bootstrapped into the admin
+// allow-list. Setting ADMIN_PHONES to an empty value seeds nothing, which is
+// why LookupEnv is used instead of the usual fallback helper.
+func loadAdminPhonesSeed() string {
+	if v, ok := os.LookupEnv("ADMIN_PHONES"); ok {
+		return v
+	}
+	return defaultAdminPhones
+}
+
+const defaultAdminPhones = "0909777020"
 
 func smsProviderName(s SMSSender) string {
 	switch s.(type) {

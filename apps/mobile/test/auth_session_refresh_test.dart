@@ -122,4 +122,32 @@ void main() {
     expect(apiCalls, 2);
     expect(refreshCalls, 1);
   });
+
+  test('a 401 that survives a refresh drops the session', () async {
+    final container = containerWithRefreshApi(() => 0);
+    addTearDown(container.dispose);
+    await container.read(authSessionProvider.notifier).setSession(oldSession());
+
+    // Stands in for a gateway that cannot verify anything auth-service signs:
+    // refreshing works, yet the new token is rejected just like the old one.
+    final dio = container.read(dioProvider);
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) => handler.reject(
+          DioException(
+            requestOptions: options,
+            response: Response<void>(requestOptions: options, statusCode: 401),
+            type: DioExceptionType.badResponse,
+          ),
+          true,
+        ),
+      ),
+    );
+
+    await expectLater(
+      dio.get<Map<String, dynamic>>('/v1/me'),
+      throwsA(isA<DioException>()),
+    );
+    expect(container.read(authSessionProvider), isNull);
+  });
 }
