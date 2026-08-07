@@ -68,6 +68,12 @@ final dioProvider = Provider<Dio>((ref) {
         try {
           handler.resolve(await dio.fetch<dynamic>(retry));
         } on DioException catch (retryError) {
+          // A freshly refreshed token was still rejected, so the session can
+          // never succeed. Drop it: the router then sends the user to login
+          // instead of leaving them on a screen that only shows the API error.
+          if (retryError.response?.statusCode == 401) {
+            await ref.read(authSessionProvider.notifier).clear();
+          }
           handler.next(retryError);
         }
       },

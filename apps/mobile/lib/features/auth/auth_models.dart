@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 /// Args passed from phone screen → OTP screen (via go_router `extra`).
 class OtpNavArgs {
   const OtpNavArgs({
@@ -160,7 +162,10 @@ class AuthApiException implements Exception {
       case 'INVALID_CREDENTIALS':
         return 'Tên đăng nhập hoặc mật khẩu không đúng.';
       case 'INVALID_TOKEN':
+      case 'UNAUTHORIZED':
         return 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
+      case 'FORBIDDEN':
+        return 'Không có quyền thực hiện thao tác này.';
       case 'NETWORK':
         return 'Không kết nối được máy chủ. Kiểm tra API đang chạy.';
       case 'api_unavailable':
@@ -171,4 +176,38 @@ class AuthApiException implements Exception {
         return message.isNotEmpty ? message : 'Có lỗi xảy ra. Thử lại.';
     }
   }
+}
+
+/// Maps a Dio failure onto the `{"error":{"code","message"}}` envelope every Go
+/// service returns, so all auth-backed clients surface the same Vietnamese copy.
+AuthApiException mapDioToAuthException(DioException e) {
+  if (e.type == DioExceptionType.connectionError ||
+      e.type == DioExceptionType.connectionTimeout ||
+      e.type == DioExceptionType.receiveTimeout ||
+      e.type == DioExceptionType.sendTimeout) {
+    return AuthApiException(
+      code: 'NETWORK',
+      message: e.message ?? 'network error',
+    );
+  }
+
+  final data = e.response?.data;
+  if (data is Map<String, dynamic>) {
+    final err = data['error'];
+    if (err is Map<String, dynamic>) {
+      return AuthApiException(
+        code: err['code'] as String? ?? 'UNKNOWN',
+        message: err['message'] as String? ?? 'request failed',
+        statusCode: e.response?.statusCode,
+        retryAfterSec: (err['retry_after_sec'] as num?)?.toInt(),
+        attemptsRemaining: (err['attempts_remaining'] as num?)?.toInt(),
+      );
+    }
+  }
+
+  return AuthApiException(
+    code: 'HTTP',
+    message: e.message ?? 'request failed',
+    statusCode: e.response?.statusCode,
+  );
 }
