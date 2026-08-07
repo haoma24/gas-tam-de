@@ -141,6 +141,9 @@ func deleteAdminPhone(q queryer, id string) (adminPhoneRow, error) {
 	return row, nil
 }
 
+// seedLabel tells an admin why a number they never added is on the list.
+const seedLabel = "Từ cấu hình ADMIN_PHONES"
+
 // seedAdminPhones bootstraps the allow-list from ADMIN_PHONES (comma-separated).
 // Idempotent: entries added or removed from the admin screen are never undone by
 // a restart, so the env var only ever adds the numbers it lists.
@@ -155,7 +158,7 @@ func seedAdminPhones(db *sql.DB, raw, pepper string) error {
 			return fmt.Errorf("admin phone seed %q: %w", item, err)
 		}
 		hash := hashPhone(e164, pepper)
-		row, created, err := insertAdminPhone(db, hash, maskPhoneE164(e164), "ADMIN_PHONES", "", time.Now())
+		row, created, err := insertAdminPhone(db, hash, maskPhoneE164(e164), seedLabel, "", time.Now())
 		if err != nil {
 			return fmt.Errorf("admin phone seed %q: %w", item, err)
 		}
