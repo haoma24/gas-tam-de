@@ -123,6 +123,7 @@ jobs:
           passphrase: ${{ secrets.GCP_VM_SSH_PASSPHRASE }}
           script: |
             set -euo pipefail
+            git config --global --add safe.directory /opt/gas-tam-de
             cd /opt/gas-tam-de
 
             echo "==> git pull stag"
