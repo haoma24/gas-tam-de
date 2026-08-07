@@ -5,6 +5,13 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-07] OTP UI: một hàng 6 ô (bỏ ô nhập thứ hai)
+
+- **Loại:** fix
+- **Phạm vi:** `apps/mobile` (`OtpEntryBlock`)
+- **Tóm tắt:** Màn OTP hiển thị trùng (6 ô + ô «Nhập 6 số OTP»). Giữ hàng 6 ô, field thật phủ lên (text alpha 0.01, full chiều cao) — bàn phím vẫn mở nhờ luồng `CustomerAuthFlowPage` + `Listener`.
+- **Workdocs:** n/a (chỉnh UI nhỏ)
+
 ## [2026-08-07] Fix bàn phím OTP (mobile web): luồng một màn + ô nhập hiển thị
 
 - **Loại:** fix

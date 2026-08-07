@@ -102,7 +102,7 @@ void main() {
     final field = find.byType(TextField);
     expect(field, findsOneWidget);
     final size = tester.getSize(field);
-    expect(size.height, greaterThan(40));
+    expect(size.height, kOtpBoxHeight);
     expect(size.width, greaterThan(100));
 
     final boxes = tester.getCenter(find.byType(OtpBoxRow));
@@ -153,6 +153,6 @@ void main() {
 
     expect(find.text('Nhập mã\nxác thực'), findsOneWidget);
     expect(api.requestCalls, 1);
-    expect(find.text('Nhập 6 số OTP'), findsOneWidget);
+    expect(find.text('Nhập 6 số OTP'), findsNothing);
   });
 }

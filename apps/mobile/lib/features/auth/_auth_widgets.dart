@@ -295,11 +295,12 @@ class DarkTextField extends StatelessWidget {
 /// Height of a single [OtpBoxRow] digit box.
 const double kOtpBoxHeight = 58;
 
-/// Visible OTP entry: digit boxes plus a real, tappable text field.
+/// OTP entry: six digit boxes with one full-size field layered on top.
 ///
-/// Mobile browsers (especially iOS Safari) often refuse to open the keyboard for
-/// zero-size or fully transparent inputs. A [Listener] on pointer-down keeps
-/// focus in the same user gesture when the user taps the digit row.
+/// Only the boxes are visible; the [TextField] captures taps and keyboard input.
+/// Text uses a near-transparent color (not `Colors.transparent`) so iOS Safari
+/// still opens the keyboard. [CustomerAuthFlowPage] keeps focus in the button
+/// gesture; [Listener.onPointerDown] covers taps on the boxes afterward.
 class OtpEntryBlock extends StatelessWidget {
   const OtpEntryBlock({
     super.key,
@@ -320,67 +321,58 @@ class OtpEntryBlock extends StatelessWidget {
   final bool autofocus;
   final VoidCallback? onSubmitted;
 
+  /// Invisible to the eye but not fully transparent — Safari ignores 0-opacity inputs.
+  static final _hiddenTextStyle = TextStyle(
+    color: AppColors.onDark.withValues(alpha: 0.01),
+    fontSize: 24,
+    height: 1.0,
+    letterSpacing: 0,
+  );
+
   @override
   Widget build(BuildContext context) {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: enabled ? (_) => focusNode.requestFocus() : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OtpBoxRow(digits: digits, focused: focused),
-          const SizedBox(height: 14),
-          TextField(
-            controller: controller,
-            focusNode: focusNode,
-            autofocus: autofocus,
-            enabled: enabled,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.done,
-            autofillHints: const [AutofillHints.oneTimeCode],
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(6),
-            ],
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.onDark,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 6,
+      child: SizedBox(
+        height: kOtpBoxHeight,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            IgnorePointer(
+              child: OtpBoxRow(digits: digits, focused: focused),
             ),
-            cursorColor: AppColors.amber,
-            decoration: InputDecoration(
-              hintText: 'Nhập 6 số OTP',
-              hintStyle: TextStyle(
-                color: AppColors.onDark.withValues(alpha: 0.35),
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-                letterSpacing: 0,
+            TextField(
+              controller: controller,
+              focusNode: focusNode,
+              autofocus: autofocus,
+              enabled: enabled,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              textAlign: TextAlign.center,
+              showCursor: false,
+              enableInteractiveSelection: false,
+              enableSuggestions: false,
+              style: _hiddenTextStyle,
+              cursorColor: AppColors.amber,
+              decoration: const InputDecoration(
+                contentPadding: EdgeInsets.zero,
+                isCollapsed: true,
+                filled: false,
+                border: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
               ),
-              filled: true,
-              fillColor: AppColors.ash.withValues(alpha: 0.35),
-              border: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide:
-                    BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide:
-                    BorderSide(color: AppColors.ash.withValues(alpha: 0.4)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide:
-                    const BorderSide(color: AppColors.amber, width: 1.5),
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              onSubmitted: onSubmitted != null ? (_) => onSubmitted!() : null,
             ),
-            onSubmitted: onSubmitted != null ? (_) => onSubmitted!() : null,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
