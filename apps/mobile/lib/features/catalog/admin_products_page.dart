@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'catalog_api.dart';
 import 'catalog_models.dart';
+import 'product_image.dart';
 
 /// Admin product list — load from `GET /v1/admin/products`.
 class AdminProductsPage extends ConsumerStatefulWidget {
@@ -200,13 +201,18 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
+      child: GridView.builder(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 240,
+          mainAxisExtent: 286,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final p = items[index];
-          return _ProductTile(
+          return _ProductAdminCard(
             product: p,
             onTap: () => widget.onEdit(p),
             onToggleActive: () => _toggleActive(p),
@@ -217,8 +223,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   }
 }
 
-class _ProductTile extends StatelessWidget {
-  const _ProductTile({
+class _ProductAdminCard extends StatelessWidget {
+  const _ProductAdminCard({
     required this.product,
     required this.onTap,
     required this.onToggleActive,
@@ -235,62 +241,78 @@ class _ProductTile extends StatelessWidget {
     return Material(
       color: theme.colorScheme.surfaceContainerLowest,
       borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 130,
+              child: ProductImage(product: product),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Text(
                             product.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: product.active
-                                  ? null
-                                  : muted,
+                              color: product.active ? null : muted,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        _ActiveChip(active: product.active),
+                        IconButton(
+                          tooltip:
+                              product.active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: onToggleActive,
+                          icon: Icon(
+                            product.active
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const Spacer(),
                     Text(
                       '${product.sku} · ${product.unit}',
-                      style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(color: muted),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      formatVnd(product.salePrice),
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.primary,
-                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            formatVnd(product.salePrice),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        _ActiveChip(active: product.active),
+                      ],
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: product.active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm',
-                onPressed: onToggleActive,
-                icon: Icon(
-                  product.active
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

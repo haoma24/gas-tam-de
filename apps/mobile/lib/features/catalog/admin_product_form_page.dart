@@ -222,7 +222,9 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
           } on InventoryApiException catch (e) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Tạo SP OK nhưng nhập kho lỗi: ${e.displayMessage}')),
+              SnackBar(
+                  content: Text(
+                      'Tạo SP OK nhưng nhập kho lỗi: ${e.displayMessage}')),
             );
           } catch (_) {
             if (!mounted) return;
@@ -401,8 +403,22 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
                           textInputAction: TextInputAction.done,
                           decoration: const InputDecoration(
                             labelText: 'URL ảnh (tuỳ chọn)',
+                            hintText: 'https://.../san-pham.jpg',
+                            helperText: 'Dùng link ảnh trực tiếp http/https.',
                             border: OutlineInputBorder(),
                           ),
+                          validator: (value) {
+                            final raw = value?.trim() ?? '';
+                            if (raw.isEmpty) return null;
+                            final uri = Uri.tryParse(raw);
+                            if (uri == null ||
+                                (uri.scheme != 'http' &&
+                                    uri.scheme != 'https') ||
+                                uri.host.isEmpty) {
+                              return 'URL ảnh phải bắt đầu bằng http:// hoặc https://.';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 8),
                         SwitchListTile(
@@ -448,7 +464,9 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
                                     color: theme.colorScheme.onPrimary,
                                   ),
                                 )
-                              : Text(widget.isEdit ? 'Lưu thay đổi' : 'Tạo sản phẩm'),
+                              : Text(widget.isEdit
+                                  ? 'Lưu thay đổi'
+                                  : 'Tạo sản phẩm'),
                         ),
                       ],
                     ),

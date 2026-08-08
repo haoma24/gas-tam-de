@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
+import '../catalog/product_image.dart';
 import '../inventory/stock_levels_api.dart';
 import 'order_cart.dart';
 
@@ -69,7 +70,7 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cart = ref.watch(orderCartProvider);
-    final canContinue = !cart.isEmpty;
+    final canContinue = cart.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -198,43 +199,54 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
     final cart = ref.watch(orderCartProvider);
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        itemCount: items.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: Text(
                 'Chọn bình gas / sản phẩm cần giao.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            );
-          }
-          final p = items[index - 1];
-          final onHand = _stock[p.id] ?? 0;
-          final qty = cart.quantityOf(p.id);
-          return _ProductPickTile(
-            product: p,
-            quantity: qty,
-            onHand: onHand,
-            onIncrement: onHand <= 0 || qty >= onHand
-                ? null
-                : () => ref.read(orderCartProvider.notifier).increment(p),
-            onDecrement: () =>
-                ref.read(orderCartProvider.notifier).decrement(p),
-          );
-        },
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 230,
+                mainAxisExtent: 326,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final p = items[index];
+                final onHand = _stock[p.id] ?? 0;
+                final qty = cart.quantityOf(p.id);
+                return _ProductPickCard(
+                  product: p,
+                  quantity: qty,
+                  onHand: onHand,
+                  onIncrement: onHand <= 0 || qty >= onHand
+                      ? null
+                      : () => ref.read(orderCartProvider.notifier).increment(p),
+                  onDecrement: () =>
+                      ref.read(orderCartProvider.notifier).decrement(p),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ProductPickTile extends StatelessWidget {
-  const _ProductPickTile({
+class _ProductPickCard extends StatelessWidget {
+  const _ProductPickCard({
     required this.product,
     required this.quantity,
     required this.onHand,
@@ -257,20 +269,27 @@ class _ProductPickTile extends StatelessWidget {
 
     return Material(
       color: selected
-          ? theme.colorScheme.primaryContainer.withOpacity(0.35)
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.35)
           : theme.colorScheme.surfaceContainerLowest,
       borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 126,
+            child: ProductImage(product: product),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -278,38 +297,49 @@ class _ProductPickTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     oos ? 'Tạm hết hàng' : 'Còn $onHand · ${product.unit}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: oos ? theme.colorScheme.error : muted,
                       fontWeight: oos ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   Text(
                     formatVnd(product.salePrice),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: theme.colorScheme.primary,
                     ),
                   ),
+                  const Spacer(),
+                  if (oos)
+                    SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        'Hết hàng',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.error,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  else
+                    Center(
+                      child: _QtyStepper(
+                        quantity: quantity,
+                        onIncrement: onIncrement,
+                        onDecrement: onDecrement,
+                      ),
+                    ),
                 ],
               ),
             ),
-            if (oos)
-              Text(
-                'Hết hàng',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.error,
-                  fontWeight: FontWeight.w700,
-                ),
-              )
-            else
-              _QtyStepper(
-                quantity: quantity,
-                onIncrement: onIncrement,
-                onDecrement: onDecrement,
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -341,11 +371,12 @@ class _QtyStepper extends StatelessWidget {
       children: [
         IconButton.filledTonal(
           tooltip: 'Giảm',
+          visualDensity: VisualDensity.compact,
           onPressed: onDecrement,
           icon: const Icon(Icons.remove),
         ),
         SizedBox(
-          width: 36,
+          width: 30,
           child: Text(
             '$quantity',
             textAlign: TextAlign.center,
@@ -356,6 +387,7 @@ class _QtyStepper extends StatelessWidget {
         ),
         IconButton.filledTonal(
           tooltip: 'Tăng',
+          visualDensity: VisualDensity.compact,
           onPressed: onIncrement,
           icon: const Icon(Icons.add),
         ),
