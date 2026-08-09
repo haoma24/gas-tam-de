@@ -53,6 +53,17 @@ func TestAuthServiceHasTokenLifetimes(t *testing.T) {
 	}
 }
 
+// TestOrderServiceUsesComposeInventoryURL prevents order-service from falling
+// back to 127.0.0.1:8085 inside its own container. That fallback makes every
+// checkout fail with INVENTORY_UNAVAILABLE even while inventory-service is up.
+func TestOrderServiceUsesComposeInventoryURL(t *testing.T) {
+	env := parseComposeEnv(t, "docker-compose.yml")["order-service"]
+	const want = "http://inventory-service:8085"
+	if got := env["INVENTORY_SERVICE_URL"]; got != want {
+		t.Errorf("order-service INVENTORY_SERVICE_URL=%q, want %q", got, want)
+	}
+}
+
 // TestPhoneSecretsNotWired guards the deliberate omission documented in
 // docker-compose.yml: phone_hash is the customer identity key, so wiring a
 // pepper that differs from the one already used by a live auth.db would orphan

@@ -5,6 +5,17 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-09] Fix đặt hàng không kết nối được dịch vụ tồn kho
+
+- **Loại:** fix
+- **Phạm vi:** `deploy`, `order-service` → `inventory-service`
+- **Tóm tắt:** `order-service` trong container thiếu `INVENTORY_SERVICE_URL` nên gọi fallback `127.0.0.1:8085` và mọi đơn hàng báo không thể trừ tồn kho. Cấu hình nay dùng đúng DNS nội bộ `inventory-service:8085`.
+- **Chi tiết:**
+  - Order chờ healthcheck inventory khi stack khởi động
+  - Thêm test hồi quy khóa URL inventory trong Compose
+- **Workdocs:** `docs/workdocs_fix_ket_noi_tru_ton_kho_09082026/`
+- **Liên quan:** lỗi đặt hàng trên staging ngày 09/08/2026
+
 ## [2026-08-07] Hiển thị ảnh và grid sản phẩm responsive
 
 - **Loại:** fix + feature
