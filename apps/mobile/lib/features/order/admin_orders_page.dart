@@ -56,6 +56,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Browsers publish their voice list asynchronously; discovering it now
+    // means the first alert already speaks Vietnamese instead of English.
+    NewOrderVoice.prewarm();
     _loadDeskSettings();
     _load();
     _startPolling();

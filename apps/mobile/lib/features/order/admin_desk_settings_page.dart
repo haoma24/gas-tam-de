@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'desk_settings_api.dart';
 import 'desk_settings_models.dart';
+import 'new_order_voice.dart';
 
 /// Admin — ngưỡng màu chờ + interval TTS Order Desk.
 class AdminDeskSettingsPage extends ConsumerStatefulWidget {
@@ -25,6 +26,9 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  bool _testingVoice = false;
+  String? _voiceStatus;
+  bool _voiceIsVietnamese = false;
 
   @override
   void initState() {
@@ -165,6 +169,29 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
                     enabled: !_saving,
                     helper: 'Tối thiểu 30 giây (mặc định 300 = 5 phút)',
                   ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _testingVoice ? null : _testVoice,
+                    icon: _testingVoice
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.volume_up),
+                    label: const Text('Nghe thử giọng đọc'),
+                  ),
+                  if (_voiceStatus != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _voiceStatus!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: _voiceIsVietnamese
+                            ? theme.colorScheme.onSurfaceVariant
+                            : theme.colorScheme.error,
+                      ),
+                    ),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -190,6 +217,30 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
               ),
       ),
     );
+  }
+
+  /// Speaks a sample and reports which voice the device actually used. When no
+  /// Vietnamese voice exists the engine silently reads Vietnamese text with an
+  /// English voice, so the shop needs to be told to install one — the app
+  /// cannot ship a voice itself.
+  Future<void> _testVoice() async {
+    setState(() {
+      _testingVoice = true;
+      _voiceStatus = null;
+    });
+    final voice = await NewOrderVoice.speakSample();
+    if (!mounted) return;
+    setState(() {
+      _testingVoice = false;
+      _voiceIsVietnamese = voice != null;
+      _voiceStatus = voice != null
+          ? 'Đang dùng giọng: ${voice.label}'
+          : 'Máy này chưa có giọng tiếng Việt nên hệ thống đọc bằng giọng '
+              'mặc định (tiếng Anh). Cài giọng tiếng Việt rồi tải lại trang: '
+              'Android → Cài đặt › Ngôn ngữ › Đầu ra văn bản sang lời nói › '
+              'cài dữ liệu Tiếng Việt. Windows → Settings › Time & language › '
+              'Speech › Add voices › Vietnamese.';
+    });
   }
 
   Widget _numField(
