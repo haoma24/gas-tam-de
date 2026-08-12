@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
 import 'inventory_api.dart';
 import 'inventory_models.dart';
@@ -21,6 +22,7 @@ class AdminInventoryPage extends ConsumerStatefulWidget {
 
 class _AdminInventoryPageState extends ConsumerState<AdminInventoryPage> {
   StockList? _data;
+  List<Product> _products = const [];
   bool _loading = true;
   String? _error;
 
@@ -35,11 +37,21 @@ class _AdminInventoryPageState extends ConsumerState<AdminInventoryPage> {
       _loading = true;
       _error = null;
     });
+    // Catalog is loaded alongside stock so "Nhập mới" can offer real products.
+    // It is deliberately not fatal: if catalog is unreachable the stock list
+    // still renders and the dialog falls back to typing a product_id.
+    final catalog = ref
+        .read(catalogApiProvider)
+        .listAdminProducts()
+        .then<List<Product>>((p) => p)
+        .catchError((_) => const <Product>[]);
     try {
       final data = await ref.read(inventoryApiProvider).listStock();
+      final products = await catalog;
       if (!mounted) return;
       setState(() {
         _data = data;
+        _products = products;
         _loading = false;
       });
     } on InventoryApiException catch (e) {
@@ -68,6 +80,8 @@ class _AdminInventoryPageState extends ConsumerState<AdminInventoryPage> {
         type: type,
         item: item,
         createNew: createNew,
+        products: _products,
+        stockedProductIds: _stockedProductIds,
       ),
     );
     if (result == null || !mounted) return;
@@ -106,6 +120,20 @@ class _AdminInventoryPageState extends ConsumerState<AdminInventoryPage> {
     }
   }
 
+  Set<String> get _stockedProductIds => {
+        for (final s in _data?.items ?? const <StockItem>[]) s.productId,
+      };
+
+  /// inventory-service creates a stock row from `catalog.product.updated`, so
+  /// normally every product already has one and stocking happens on the row
+  /// itself. "Nhập mới" is only offered when it can actually do something:
+  /// a product still missing a row, or catalog being unreachable (manual path).
+  bool get _canAddNewStock {
+    if (_products.isEmpty) return true;
+    final stocked = _stockedProductIds;
+    return _products.any((p) => !stocked.contains(p.id));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -124,14 +152,16 @@ class _AdminInventoryPageState extends ConsumerState<AdminInventoryPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openMovement(
-          type: StockMovementType.inn,
-          createNew: true,
-        ),
-        icon: const Icon(Icons.add),
-        label: const Text('Nhập mới'),
-      ),
+      floatingActionButton: _canAddNewStock
+          ? FloatingActionButton.extended(
+              onPressed: () => _openMovement(
+                type: StockMovementType.inn,
+                createNew: true,
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('Nhập mới'),
+            )
+          : null,
       body: SafeArea(child: _buildBody(theme)),
     );
   }
@@ -181,7 +211,8 @@ class _AdminInventoryPageState extends ConsumerState<AdminInventoryPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Nhập kho lần đầu để tạo dòng tồn theo mã sản phẩm.',
+                'Sản phẩm trong danh mục sẽ tự có dòng tồn 0 khi được đồng bộ. '
+                'Nhập kho để cộng số lượng thực tế.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -327,6 +358,29 @@ class _StockTile extends StatelessWidget {
   }
 }
 
+/// Shown when catalog could not be loaded and the admin has to type the id.
+/// A typo here creates a stock row checkout can never match, so it is called out.
+class _ManualEntryWarning extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        'Không tải được danh mục sản phẩm. Mã nhập tay phải trùng đúng id '
+        'sản phẩm, nếu sai thì đơn hàng sẽ báo hết tồn kho.',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onErrorContainer,
+        ),
+      ),
+    );
+  }
+}
+
 class _LowStockChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -377,11 +431,21 @@ class _MovementDialog extends StatefulWidget {
     required this.type,
     this.item,
     this.createNew = false,
+    this.products = const [],
+    this.stockedProductIds = const {},
   });
 
   final StockMovementType type;
   final StockItem? item;
   final bool createNew;
+
+  /// Catalog products offered when creating a stock row. Empty means catalog
+  /// was unreachable — the dialog then falls back to a manual product_id.
+  final List<Product> products;
+
+  /// Products that already have a stock row; excluded from the picker so the
+  /// admin uses "Nhập kho" on the existing row instead of creating a duplicate.
+  final Set<String> stockedProductIds;
 
   @override
   State<_MovementDialog> createState() => _MovementDialogState();
@@ -391,6 +455,7 @@ class _MovementDialogState extends State<_MovementDialog> {
   late final TextEditingController _productIdCtrl;
   late final TextEditingController _skuCtrl;
   late final TextEditingController _nameCtrl;
+  Product? _selectedProduct;
   late final TextEditingController _qtyCtrl;
   late final TextEditingController _deltaCtrl;
   late final TextEditingController _unitCostCtrl;
@@ -400,6 +465,24 @@ class _MovementDialogState extends State<_MovementDialog> {
 
   bool get _needsCreateFields =>
       widget.createNew || widget.item == null;
+
+  /// Catalog products that do not have a stock row yet.
+  List<Product> get _selectableProducts => widget.products
+      .where((p) => !widget.stockedProductIds.contains(p.id))
+      .toList();
+
+  /// True when the admin must type product_id by hand: catalog unreachable, or
+  /// empty. Picking from catalog is the only way to guarantee the stock row's
+  /// product_id matches the one checkout reserves against.
+  bool get _manualProductEntry => widget.products.isEmpty;
+
+  /// Nothing to submit when every catalog product is already stocked — the
+  /// admin has to go to the existing row (or add the product first).
+  bool get _canSubmit {
+    final creating = widget.item == null || widget.createNew;
+    if (!creating || _manualProductEntry) return true;
+    return _selectableProducts.isNotEmpty;
+  }
 
   @override
   void initState() {
@@ -436,9 +519,23 @@ class _MovementDialogState extends State<_MovementDialog> {
 
   void _submit() {
     setState(() => _localError = null);
+
+    final creating = widget.item == null || widget.createNew;
+    if (creating && !_manualProductEntry) {
+      final picked = _selectedProduct;
+      if (picked == null) {
+        setState(() => _localError = 'Chọn sản phẩm từ danh mục.');
+        return;
+      }
+      // sku/name come from catalog so the stock row can never drift from it.
+      _productIdCtrl.text = picked.id;
+      _skuCtrl.text = picked.sku;
+      _nameCtrl.text = picked.name;
+    }
+
     final productId = _productIdCtrl.text.trim();
     if (productId.isEmpty) {
-      setState(() => _localError = 'Nhập mã sản phẩm (product_id).');
+      setState(() => _localError = 'Chọn sản phẩm từ danh mục.');
       return;
     }
 
@@ -556,34 +653,80 @@ class _MovementDialogState extends State<_MovementDialog> {
                   ),
                 ),
               if (!existing) ...[
-                TextField(
-                  controller: _productIdCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Mã sản phẩm (product_id)',
-                    border: OutlineInputBorder(),
+                if (_manualProductEntry) ...[
+                  _ManualEntryWarning(),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _productIdCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Mã sản phẩm (product_id)',
+                      helperText: 'Phải trùng id trong danh mục sản phẩm',
+                      border: OutlineInputBorder(),
+                    ),
+                    textInputAction: TextInputAction.next,
                   ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                  if (type == StockMovementType.inn) ...[
+                    TextField(
+                      controller: _skuCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'SKU',
+                        border: OutlineInputBorder(),
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên sản phẩm',
+                        border: OutlineInputBorder(),
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ]
+                // Defensive: the FAB is hidden when nothing is selectable, so
+                // this is only reachable if the list refreshed while the dialog
+                // was being opened.
+                else if (_selectableProducts.isEmpty) ...[
+                  Text(
+                    'Mọi sản phẩm trong danh mục đã có dòng tồn. '
+                    'Dùng «Nhập kho» trên dòng có sẵn, hoặc thêm sản phẩm mới '
+                    'ở màn Sản phẩm trước.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ] else ...[
+                  DropdownButtonFormField<Product>(
+                    initialValue: _selectedProduct,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Sản phẩm',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final p in _selectableProducts)
+                        DropdownMenuItem<Product>(
+                          value: p,
+                          child: Text(
+                            p.active ? '${p.name} · ${p.sku}'
+                                     : '${p.name} · ${p.sku} (ngừng bán)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (p) => setState(() {
+                      _selectedProduct = p;
+                      _localError = null;
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (type == StockMovementType.inn) ...[
-                  TextField(
-                    controller: _skuCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'SKU',
-                      border: OutlineInputBorder(),
-                    ),
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên sản phẩm',
-                      border: OutlineInputBorder(),
-                    ),
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 12),
                   TextField(
                     controller: _reorderCtrl,
                     decoration: const InputDecoration(
@@ -674,7 +817,7 @@ class _MovementDialogState extends State<_MovementDialog> {
           child: const Text('Hủy'),
         ),
         FilledButton(
-          onPressed: _submit,
+          onPressed: _canSubmit ? _submit : null,
           child: const Text('Xác nhận'),
         ),
       ],

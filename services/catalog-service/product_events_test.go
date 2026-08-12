@@ -96,7 +96,7 @@ func TestJSProductPublisherPublishesEnvelope(t *testing.T) {
 	defer func() { _ = sub.Unsubscribe() }()
 
 	pub := newJSProductPublisher(natsx.Static(js))
-	p := product{ID: "prod-1", SKU: "GAS12", SalePrice: 450000, Active: true}
+	p := product{ID: "prod-1", SKU: "GAS12", Name: "Gas 12kg", SalePrice: 450000, Active: true}
 	if err := pub.PublishProductUpdated(p); err != nil {
 		t.Fatalf("PublishProductUpdated: %v", err)
 	}
@@ -120,6 +120,11 @@ func TestJSProductPublisherPublishesEnvelope(t *testing.T) {
 	}
 	if env.Payload["sku"] != "GAS12" {
 		t.Fatalf("payload sku=%v", env.Payload["sku"])
+	}
+	// inventory-service creates its stock row from this payload; without the
+	// name every synced row would be labelled with the bare SKU.
+	if env.Payload["name"] != "Gas 12kg" {
+		t.Fatalf("payload name=%v", env.Payload["name"])
 	}
 	// JSON numbers decode as float64
 	if sp, ok := env.Payload["sale_price"].(float64); !ok || int64(sp) != 450000 {

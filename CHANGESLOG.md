@@ -5,6 +5,35 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-12] Chẩn đoán được lỗi «Không trừ được tồn kho» khi đặt hàng
+
+- **Loại:** fix + feature
+- **Phạm vi:** `order-service`, `inventory-service`, `catalog-service`, `apps/mobile` (tồn kho), `scripts`, `deploy`
+- **Tóm tắt:** Checkout gọi inventory đồng bộ, nhưng khi gọi hỏng thì mọi container vẫn `healthy` và không có chỗ nào cho biết order-service đang quay số vào URL nào — sự cố chỉ lộ ra khi khách đặt đơn thất bại. Nay `/readyz` của order-service báo cáo từng upstream kèm URL thật, và màn Nhập kho chọn sản phẩm từ danh mục thay vì gõ tay `product_id`.
+- **Chi tiết:**
+  - `/readyz` probe `GET <base>/healthz` của geo, catalog, billing, inventory; 503 kèm tên dependency hỏng
+  - Lỗi và log của inventory client kèm base URL — `127.0.0.1:8085` trong container chính là chữ ký của việc thiếu `INVENTORY_SERVICE_URL`
+  - Phủ test lần đầu cho nhánh reserve của `handleCreateOrder`: happy path, 409 → `INSUFFICIENT_STOCK`, không gọi được → `INVENTORY_UNAVAILABLE`
+  - `vps-api-diagnose.sh` in env `*_SERVICE_URL` của order-service, gọi `/readyz` và lọc log `inventory reserve`
+  - `/healthz` giữ nguyên là liveness thuần — không đưa upstream vào compose healthcheck
+  - Nhập kho: dropdown sản phẩm từ `GET /v1/admin/products`, tự điền `product_id`/`sku`/`name`; ẩn sản phẩm đã có dòng tồn; catalog lỗi thì quay về nhập tay kèm cảnh báo
+  - inventory-service consume `catalog.product.updated` (durable `inventory-catalog-product-updated`, stream `CATALOG`): sản phẩm mới tự có dòng tồn `on_hand=0`, đổi tên/SKU đồng bộ sang kho mà không đụng số lượng hay giá vốn
+  - Payload `catalog.product.updated` thêm `name` — §5.1 giao inventory "đồng bộ tên/sku" nhưng payload cũ thiếu name; thêm field tương thích ngược nên `schema_version` giữ 1
+  - Xung đột SKU chỉ ghi log ERROR + đánh dấu đã xử lý, không Nak vô hạn thành poison message
+- **Workdocs:** `docs/workdocs_chan_doan_khong_tru_ton_kho_12082026/`
+- **Liên quan:** sự cố staging `tamde-stag` 12/08/2026; nối tiếp #38
+
+## [2026-08-12] Thêm CLAUDE.md hướng dẫn Claude Code
+
+- **Loại:** docs
+- **Phạm vi:** root repo
+- **Tóm tắt:** Tạo `CLAUDE.md` tóm tắt lệnh phát triển, kiến trúc gateway/service/event và các cạm bẫy vận hành để agent nắm ngữ cảnh nhanh.
+- **Chi tiết:**
+  - Nhắc lại quy trình bắt buộc CHANGESLOG + workdocs và quy ước merge vào nhánh `stag`
+  - Ghi rõ `/healthz` vs `/readyz`, đồng bộ `JWT_SECRET`, tách `docker-compose.yml` (VPS) và `docker-compose.local.yml`
+- **Workdocs:** `n/a` (chỉ thêm file hướng dẫn)
+- **Liên quan:** `.cursor/rules/change-workdocs.mdc`
+
 ## [2026-08-09] Fix đặt hàng không kết nối được dịch vụ tồn kho
 
 - **Loại:** fix

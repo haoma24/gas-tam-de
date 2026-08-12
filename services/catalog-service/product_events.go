@@ -35,9 +35,13 @@ func (j *jsProductPublisher) PublishProductUpdated(p product) error {
 	if err != nil {
 		return err
 	}
+	// `name` is additive to the §5.1 payload: inventory is documented as the
+	// consumer that syncs "tên/sku", which it cannot do without the name.
+	// Existing consumers ignore unknown fields, so schema_version stays 1.
 	env := events.NewEnvelope(events.CatalogProductUpdated, uuid.NewString(), map[string]any{
 		"product_id": p.ID,
 		"sku":        p.SKU,
+		"name":       p.Name,
 		"sale_price": p.SalePrice,
 		"active":     p.Active,
 	})

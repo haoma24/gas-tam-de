@@ -44,18 +44,30 @@ func main() {
 
 	svc := &inventoryService{db: db}
 
-	// The consumer attaches once JetStream is reachable; the HTTP server must
+	// The consumers attach once JetStream is reachable; the HTTP server must
 	// not wait for the broker or the container never passes its healthcheck.
 	var subMu sync.Mutex
-	var sub *nats.Subscription
+	var subs []*nats.Subscription
 	bus := natsx.NewBackground(natsURL)
 	bus.Start(func(js nats.JetStreamContext) error {
-		started, err := startOrderCompletedConsumer(js, svc)
-		if err != nil {
-			return err
+		started := make([]*nats.Subscription, 0, 2)
+		for _, start := range []func(nats.JetStreamContext, *inventoryService) (*nats.Subscription, error){
+			startOrderCompletedConsumer,
+			startProductUpdatedConsumer,
+		} {
+			sub, err := start(js, svc)
+			if err != nil {
+				// Unwind the ones already attached so a retry does not leave
+				// duplicate subscriptions behind.
+				for _, s := range started {
+					_ = s.Unsubscribe()
+				}
+				return err
+			}
+			started = append(started, sub)
 		}
 		subMu.Lock()
-		sub = started
+		subs = started
 		subMu.Unlock()
 		return nil
 	})
@@ -63,7 +75,7 @@ func main() {
 		bus.Close()
 		subMu.Lock()
 		defer subMu.Unlock()
-		if sub != nil {
+		for _, sub := range subs {
 			_ = sub.Unsubscribe()
 		}
 	}()

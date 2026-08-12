@@ -64,7 +64,15 @@ func main() {
 
 	r := httpx.NewRouter(serviceName)
 	httpx.MountHealth(r, serviceName)
-	httpx.MountReady(r, serviceName, httpx.ReadyCheck{Name: "nats", Check: bus.ReadyCheck})
+	// Checkout calls these four over HTTP, so an unreachable one must be
+	// diagnosable from /readyz instead of only from a customer's failed order.
+	httpx.MountReady(r, serviceName,
+		httpx.ReadyCheck{Name: "nats", Check: bus.ReadyCheck},
+		upstreamReadyCheck("geo", geoURL),
+		upstreamReadyCheck("catalog", catalogURL),
+		upstreamReadyCheck("billing", billingURL),
+		upstreamReadyCheck("inventory", inventoryURL),
+	)
 
 	r.Post("/v1/orders/quote", svc.handleQuoteOrder)
 	r.Post("/v1/orders", svc.handleCreateOrder)

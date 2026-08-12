@@ -64,14 +64,17 @@ func (c *httpInventoryClient) postStock(ctx context.Context, path, orderID strin
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// Errors carry the base URL: a 127.0.0.1 here inside a container is the
+	// signature of a missing INVENTORY_SERVICE_URL, which otherwise looks
+	// identical to inventory-service being down.
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("inventory %s: %w", path, err)
+		return fmt.Errorf("inventory %s%s: %w", c.baseURL, path, err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("inventory %s status %d: %s", path, resp.StatusCode, strings.TrimSpace(string(raw)))
+		return fmt.Errorf("inventory %s%s status %d: %s", c.baseURL, path, resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 	return nil
 }

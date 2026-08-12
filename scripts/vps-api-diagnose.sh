@@ -41,3 +41,26 @@ docker exec "$web_id" wget -qSO- http://127.0.0.1:8080/gateway-healthz 2>&1 | he
 echo
 echo "=== api-gateway logs (last 30 lines) ==="
 docker logs --tail=30 "$gw_id" 2>&1 || true
+
+# Checkout calls inventory synchronously. Without INVENTORY_SERVICE_URL the
+# order container dials 127.0.0.1:8085 (itself) and every order fails with
+# «Không trừ được tồn kho» while every container still looks healthy.
+order_id=$(docker compose -f "$COMPOSE_FILE" -p "$PROJECT" ps -q order-service 2>/dev/null | head -1)
+if [[ -z "$order_id" ]]; then
+  echo
+  echo "WARN: no order-service container — skipping checkout dependency check." >&2
+else
+  echo
+  echo "=== order-service upstream env (must be service DNS, not 127.0.0.1) ==="
+  docker inspect "$order_id" --format '{{range .Config.Env}}{{println .}}{{end}}' \
+    | grep -E '_SERVICE_URL=' || echo "NONE — container predates the compose fix; recreate it"
+
+  echo
+  echo "=== order-service /readyz (names any unreachable dependency) ==="
+  docker exec "$order_id" wget -qO- http://127.0.0.1:8084/readyz 2>&1 | head -5 || true
+
+  echo
+  echo "=== order-service reserve failures (last 20) ==="
+  docker logs --tail=200 "$order_id" 2>&1 | grep -i "inventory reserve" | tail -20 \
+    || echo "none logged"
+fi
