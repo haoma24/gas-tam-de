@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -46,7 +47,13 @@ func newSMSSenderFromEnv() SMSSender {
 			Sender: strings.TrimSpace(os.Getenv("SMS_SENDER")),
 		})
 	default:
-		// Unknown provider → safe mock so local boot never hangs on SMS.
+		// Unknown provider → safe mock so local boot never hangs on SMS. Say so
+		// loudly: a typo here used to look exactly like a working setup —
+		// OTP requests answered 200 and no message ever arrived.
+		slog.Error("unknown SMS_PROVIDER; falling back to mock and NOT sending real SMS",
+			"sms_provider", provider,
+			"expected", "mock | stringee | production",
+		)
 		return NewMockSMSSender()
 	}
 }

@@ -30,6 +30,15 @@ services:
       args:
         SERVICE: auth-service
         EXPOSE_PORT: "8081"
+    environment:
+      # Returns the OTP in the API response so no SMS vendor is needed.
+      #
+      # WARNING: this file is not local-only in practice — the GCP stag deploy
+      # merges it too (.github/workflows/web-image.yml). So staging also reveals
+      # codes, which means anyone who can reach it can log in as any phone.
+      # To close that without touching this file, set OTP_DEV_REVEAL=0 in
+      # /opt/gas-tam-de/deploy/.env on the VM: --env-file wins over this default.
+      OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-1}"
 
   catalog-service:
     build:

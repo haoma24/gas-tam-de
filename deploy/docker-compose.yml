@@ -124,7 +124,11 @@ services:
       ADMIN_PHONES: "${ADMIN_PHONES:-0909777020}"
       NATS_URL: "nats://nats:4222"
       NATS_STARTUP_TIMEOUT_SEC: "${NATS_STARTUP_TIMEOUT_SEC:-60}"
-      OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-1}"
+      # Off by default: with this on, /v1/auth/otp/request returns the code in
+      # its JSON response, so anyone who can reach the endpoint can log in as
+      # any phone number. docker-compose.local.yml turns it back on for local
+      # development, where no real SMS is sent.
+      OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-0}"
       SMS_PROVIDER: "${SMS_PROVIDER:-mock}"
       SMS_VENDOR: "${SMS_VENDOR:-}"
       SMS_API_SID: "${SMS_API_SID:-}"

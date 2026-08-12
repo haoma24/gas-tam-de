@@ -64,6 +64,31 @@ func TestOrderServiceUsesComposeInventoryURL(t *testing.T) {
 	}
 }
 
+// TestOTPDevRevealOffByDefault keeps the deploy file from handing out OTP codes
+// in API responses. With OTP_DEV_REVEAL=1, /v1/auth/otp/request returns the
+// code, so anyone who can reach the endpoint logs in as any phone number —
+// real SMS delivery does not close that hole, only this default does.
+func TestOTPDevRevealOffByDefault(t *testing.T) {
+	env := parseComposeEnv(t, "docker-compose.yml")["auth-service"]
+	const want = "${OTP_DEV_REVEAL:-0}"
+	if got := env["OTP_DEV_REVEAL"]; got != want {
+		t.Errorf("auth-service OTP_DEV_REVEAL=%q, want %q — the deploy default must not reveal codes", got, want)
+	}
+}
+
+// TestOTPDevRevealOnLocally pins the other half: `make compose-up` keeps
+// returning dev_code, so day-to-day development needs no SMS vendor.
+//
+// Note this override is not local-only — the GCP stag deploy merges this file
+// as well, so staging reveals codes until deploy/.env on the VM sets 0.
+func TestOTPDevRevealOnLocally(t *testing.T) {
+	env := parseComposeEnv(t, "docker-compose.local.yml")["auth-service"]
+	const want = "${OTP_DEV_REVEAL:-1}"
+	if got := env["OTP_DEV_REVEAL"]; got != want {
+		t.Errorf("local override OTP_DEV_REVEAL=%q, want %q", got, want)
+	}
+}
+
 // TestPhoneSecretsNotWired guards the deliberate omission documented in
 // docker-compose.yml: phone_hash is the customer identity key, so wiring a
 // pepper that differs from the one already used by a live auth.db would orphan

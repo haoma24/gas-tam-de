@@ -5,6 +5,46 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-08-12] Tắt lộ mã OTP mặc định + cảnh báo SMS_PROVIDER sai
+
+- **Loại:** security + fix
+- **Phạm vi:** `deploy`, `auth-service`
+- **Tóm tắt:** Chuẩn bị gửi OTP thật qua Stringee. `OTP_DEV_REVEAL` đang mặc định `1` khiến API trả thẳng mã OTP trong response — ai gọi được endpoint cũng đăng nhập được bằng bất kỳ số nào, gửi SMS thật không đóng được lỗ này. `SMS_PROVIDER` gõ sai thì âm thầm về mock, request vẫn 200 mà không tin nào tới máy.
+- **Chi tiết:**
+  - `docker-compose.yml` mặc định `OTP_DEV_REVEAL=0`; `docker-compose.local.yml` override `1` để `make compose-up` vẫn không cần vendor SMS
+  - `.env.vps.example` đổi sang `0`; `.env.example` giữ `1` (file local) nhưng cảnh báo rõ hậu quả
+  - `SMS_PROVIDER` không nhận dạng được nay log `ERROR` kèm giá trị sai và các giá trị hợp lệ, vẫn fallback mock để không chết boot
+  - 3 test: 2 guard mặc định compose + 1 test chốt nội dung cảnh báo
+  - Client Stringee vốn đã hoàn chỉnh — bật SMS thật chỉ cần `SMS_PROVIDER=stringee` + SID/SECRET/SENDER
+- **Workdocs:** `docs/workdocs_bat_sms_that_va_tat_dev_reveal_12082026/`
+- **Liên quan:** chuẩn bị test SMS thật
+
+## [2026-08-12] Validate số điện thoại theo đầu số di động Việt Nam
+
+- **Loại:** fix
+- **Phạm vi:** `auth-service`, `apps/mobile` (đăng nhập)
+- **Tóm tắt:** Luật cũ chỉ kiểm tra độ dài (`^0\d{9}$`) nên `0123456789`, `0000000000`, `0212345678`, `+84012345678` đều lọt và gửi SMS thật qua Stringee trước khi thất bại. Nay chỉ nhận đúng bộ đầu số di động sau đợt chuyển đổi 2018.
+- **Chi tiết:**
+  - `vnMobilePrefix` = `3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-9]`, áp cho cả dạng local và E.164
+  - Giữ nguyên chuẩn hoá `0…` / `+84…` / `84…` / `0084…` và khoảng trắng, gạch, chấm
+  - `phone_utils.dart` soi gương lại luật của server; thông báo lỗi kèm ví dụ số hợp lệ
+  - 11 test mới (5 Go + 6 Dart) gồm toàn bộ đầu số nhà mạng đang phát hành và các ca từng lọt
+- **Workdocs:** `docs/workdocs_validate_dau_so_di_dong_vn_12082026/`
+- **Liên quan:** rà soát luồng đăng nhập OTP 12/08/2026
+
+## [2026-08-12] Order Desk đọc thông báo bằng giọng tiếng Việt
+
+- **Loại:** fix
+- **Phạm vi:** `apps/mobile` (Order Desk)
+- **Tóm tắt:** Thông báo «Bạn có N đơn chưa giao» phát bằng giọng tiếng Anh. Trình duyệt nạp danh sách giọng bất đồng bộ nên lần tìm đầu tiên gặp list rỗng, mà code lại đánh dấu đã sẵn sàng và không bao giờ thử lại — kẹt vĩnh viễn ở giọng mặc định.
+- **Chi tiết:**
+  - Không cache kết quả tìm giọng thất bại; mỗi lần thông báo thử lại một lần
+  - `prewarm()` khi mở Order Desk, poll ~2s cho danh sách giọng của trình duyệt
+  - Xếp hạng giọng: locale `vi-VN` > `vi*` > tên chứa "vietnam"/"việt" (mỗi engine ghi nhãn một kiểu)
+  - Cấu hình Order Desk có nút «Nghe thử giọng đọc», hiện giọng đang dùng hoặc hướng dẫn cài giọng Việt khi máy chưa có
+- **Workdocs:** `docs/workdocs_giong_doc_tieng_viet_order_desk_12082026/`
+- **Liên quan:** phản hồi cửa hàng 12/08/2026
+
 ## [2026-08-12] Chẩn đoán được lỗi «Không trừ được tồn kho» khi đặt hàng
 
 - **Loại:** fix + feature

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -51,6 +53,30 @@ func TestNewSMSSenderFromEnvDefaultMock(t *testing.T) {
 	s := newSMSSenderFromEnv()
 	if _, ok := s.(*MockSMSSender); !ok {
 		t.Fatalf("want *MockSMSSender got %T", s)
+	}
+}
+
+// A typo in SMS_PROVIDER used to be indistinguishable from a working setup:
+// requests answered 200 and no SMS ever arrived. Falling back to mock is still
+// right (boot must not fail), but it has to be loud.
+func TestNewSMSSenderFromEnvUnknownProviderWarnsLoudly(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	t.Setenv("SMS_PROVIDER", "stringee-sms")
+	s := newSMSSenderFromEnv()
+
+	if _, ok := s.(*MockSMSSender); !ok {
+		t.Fatalf("want *MockSMSSender got %T", s)
+	}
+	out := logs.String()
+	if !strings.Contains(out, "unknown SMS_PROVIDER") {
+		t.Errorf("no warning logged for an unknown provider; got %q", out)
+	}
+	if !strings.Contains(out, "stringee-sms") {
+		t.Errorf("warning does not name the bad value; got %q", out)
 	}
 }
 
