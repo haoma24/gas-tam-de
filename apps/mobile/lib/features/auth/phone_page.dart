@@ -140,7 +140,7 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                               final s = v?.trim() ?? '';
                               if (s.isEmpty) return 'Vui lòng nhập SĐT.';
                               if (!isValidVnMobile(s)) {
-                                return 'SĐT không hợp lệ.';
+                                return 'SĐT di động không hợp lệ (VD: 0901234567).';
                               }
                               return null;
                             },

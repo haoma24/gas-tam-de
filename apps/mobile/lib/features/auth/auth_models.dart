@@ -138,7 +138,7 @@ class AuthApiException implements Exception {
   String get displayMessage {
     switch (code) {
       case 'INVALID_PHONE':
-        return 'Số điện thoại không hợp lệ.';
+        return 'Số điện thoại di động không hợp lệ (VD: 0901234567).';
       case 'RATE_LIMITED':
         return retryAfterSec != null
             ? 'Gửi quá nhiều lần. Thử lại sau $retryAfterSec giây.'

@@ -324,7 +324,9 @@ class _CustomerAuthFlowPageState extends ConsumerState<CustomerAuthFlowPage> {
                   validator: (v) {
                     final s = v?.trim() ?? '';
                     if (s.isEmpty) return 'Vui lòng nhập SĐT.';
-                    if (!isValidVnMobile(s)) return 'SĐT không hợp lệ.';
+                    if (!isValidVnMobile(s)) {
+                      return 'SĐT di động không hợp lệ (VD: 0901234567).';
+                    }
                     return null;
                   },
                   onSubmitted: (_) => _continueToOtp(),

@@ -9,9 +9,23 @@ import (
 	"strings"
 )
 
+// vnMobilePrefix is the set of Vietnamese mobile prefixes in effect since the
+// 2018 renumbering, written without the leading 0:
+//
+//	3[2-9]    Viettel          032-039
+//	5[25689]  Vietnamobile 052/056/058, Reddi 055, Gmobile 059
+//	7[06-9]   MobiFone         070, 076-079
+//	8[1-9]    VinaPhone 081-085/088, Viettel 086, Itelecom 087, MobiFone 089
+//	9[0-9]    all carriers     090-099
+//
+// Matching only the length (the previous `^0\d{9}$`) accepted retired ranges
+// like 012…, landline prefixes like 02…, and 0000000000 — every one of those
+// costs a real SMS at the Stringee gateway before failing to deliver.
+const vnMobilePrefix = `(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-9])`
+
 var (
-	reVNLocal = regexp.MustCompile(`^0\d{9}$`)
-	reE164VN  = regexp.MustCompile(`^\+84\d{9}$`)
+	reVNLocal = regexp.MustCompile(`^0` + vnMobilePrefix + `\d{7}$`)
+	reE164VN  = regexp.MustCompile(`^\+84` + vnMobilePrefix + `\d{7}$`)
 	reDigits  = regexp.MustCompile(`\D+`)
 )
 
