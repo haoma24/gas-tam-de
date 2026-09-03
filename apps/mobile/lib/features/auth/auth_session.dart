@@ -175,6 +175,18 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
     state = null;
     await _store.clear();
   }
+
+  /// Revoke the current device refresh token and always remove local state.
+  Future<void> logout() async {
+    final saved = state;
+    try {
+      if (saved != null && saved.refreshToken.isNotEmpty) {
+        await _ref.read(authApiProvider).logout(saved.refreshToken);
+      }
+    } finally {
+      await clear();
+    }
+  }
 }
 
 final authSessionProvider =

@@ -104,7 +104,7 @@ func newRateLimiters(cfg rateLimitConfig) *rateLimiters {
 	}
 }
 
-// RateLimitOTPAndLogin limits POST /v1/auth/otp/request and POST /v1/auth/admin/login by client IP.
+// RateLimitOTPAndLogin limits public authentication attempts by client IP.
 func RateLimitOTPAndLogin(rl *rateLimiters) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +114,7 @@ func RateLimitOTPAndLogin(rl *rateLimiters) func(http.Handler) http.Handler {
 					if !enforceLimit(w, rl.otpIP, "ip:"+clientIP(r), "too many OTP requests; retry later") {
 						return
 					}
-				case "/v1/auth/admin/login":
+				case "/v1/auth/admin/login", "/v1/auth/google":
 					if !enforceLimit(w, rl.loginIP, "ip:"+clientIP(r), "too many login attempts; retry later") {
 						return
 					}

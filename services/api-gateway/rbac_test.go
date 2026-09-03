@@ -227,6 +227,7 @@ func TestPublicRoutes_NoJWT(t *testing.T) {
 		{http.MethodGet, "/v1/hello", http.StatusOK},
 		{http.MethodPost, "/v1/auth/otp/request", http.StatusOK},
 		{http.MethodPost, "/v1/auth/admin/login", http.StatusOK},
+		{http.MethodPost, "/v1/auth/google", http.StatusOK},
 		{http.MethodGet, "/v1/products", http.StatusOK},
 		{http.MethodGet, "/v1/geo/store", http.StatusOK},
 		{http.MethodGet, "/v1/geo/search", http.StatusOK},

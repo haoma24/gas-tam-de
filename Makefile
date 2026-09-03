@@ -14,6 +14,8 @@ PROXY_NETWORK ?= tensorship-net
 NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
 SWAG_VERSION := v1.16.6
 SWAG_DIRS := services/api-gateway,services/auth-service,services/catalog-service,services/geo-service,services/order-service,services/inventory-service,services/billing-service,services/report-service,pkg/httpx
+GOOGLE_WEB_CLIENT_ID ?=
+GOOGLE_IOS_CLIENT_ID ?=
 
 .PHONY: help nats-up nats-down nats-logs nats-init nats wait-nats \
 	gateway auth catalog geo order inventory billing report \
@@ -231,13 +233,13 @@ flutter-create:
 	cd apps/mobile && flutter create . --project-name gas_tam_de --org vn.gastamde --platforms=web,android,ios
 
 flutter-web:
-	cd apps/mobile && flutter run -d chrome
+	cd apps/mobile && flutter run -d chrome --dart-define=GOOGLE_WEB_CLIENT_ID="$(GOOGLE_WEB_CLIENT_ID)"
 
 flutter-android:
-	cd apps/mobile && flutter run -d android
+	cd apps/mobile && flutter run -d android --dart-define=GOOGLE_WEB_CLIENT_ID="$(GOOGLE_WEB_CLIENT_ID)"
 
 flutter-ios:
-	cd apps/mobile && flutter run -d ios
+	cd apps/mobile && flutter run -d ios --dart-define=GOOGLE_WEB_CLIENT_ID="$(GOOGLE_WEB_CLIENT_ID)" --dart-define=GOOGLE_IOS_CLIENT_ID="$(GOOGLE_IOS_CLIENT_ID)"
 
 flutter-devices:
 	cd apps/mobile && flutter devices

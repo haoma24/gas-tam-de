@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"log/slog"
@@ -61,7 +62,14 @@ func main() {
 
 	otp := newOTPService(db, jwtSecret, accessTTL, refreshTTL)
 	tokens := newTokenService(db, jwtSecret, accessTTL, refreshTTL)
-	me := &meService{db: db}
+	googleAuth := newGoogleAuthService(
+		db, jwtSecret, accessTTL, refreshTTL,
+		newGoogleIDTokenVerifier(config.Get("GOOGLE_CLIENT_IDS", "")),
+	)
+	me := &meService{
+		db:       db,
+		phoneKey: derivePhoneKey(config.Get("PHONE_ENC_KEY", "dev-phone-enc-key-32bytes-min!!")),
+	}
 	adminPhones := &adminPhoneService{db: db, phonePepper: phonePepper}
 
 	r := httpx.NewRouter(serviceName)
@@ -70,7 +78,9 @@ func main() {
 	r.Post("/v1/auth/otp/request", otp.handleOTPRequest)
 	r.Post("/v1/auth/otp/verify", otp.handleOTPVerify)
 	r.Post("/v1/auth/admin/login", tokens.handleAdminLogin)
+	r.Post("/v1/auth/google", googleAuth.handleLogin)
 	r.Post("/v1/auth/refresh", tokens.handleRefresh)
+	r.Post("/v1/auth/logout", tokens.handleLogout)
 	r.Get("/v1/me", me.handleGetMe)
 	r.Patch("/v1/me", me.handlePatchMe)
 	r.Get("/v1/admin/admin-phones", adminPhones.handleList)
@@ -88,7 +98,54 @@ func migrate(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(string(sqlBytes))
+	if _, err = db.Exec(string(sqlBytes)); err != nil {
+		return err
+	}
+	// CREATE TABLE IF NOT EXISTS does not evolve databases already deployed.
+	// Keep these additive migrations idempotent for existing OTP installations.
+	for _, column := range []struct {
+		table, name, definition string
+	}{
+		{"users", "google_sub", "TEXT"},
+		{"users", "email", "TEXT"},
+		{"users", "picture_url", "TEXT"},
+		{"users", "contact_phone_e164_enc", "BLOB"},
+		{"users", "contact_phone_masked", "TEXT"},
+		{"sessions", "persistent", "INTEGER NOT NULL DEFAULT 0"},
+	} {
+		if err := ensureColumn(context.Background(), db, column.table, column.name, column.definition); err != nil {
+			return err
+		}
+	}
+	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL`)
+	return err
+}
+
+func ensureColumn(ctx context.Context, db *sql.DB, table, name, definition string) error {
+	rows, err := db.QueryContext(ctx, "PRAGMA table_info("+table+")")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var columnName, columnType string
+		var notNull, pk int
+		var defaultValue sql.NullString
+		if err := rows.Scan(&cid, &columnName, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		if columnName == name {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, "ALTER TABLE "+table+" ADD COLUMN "+name+" "+definition)
 	return err
 }
 

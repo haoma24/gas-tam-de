@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
 import 'auth_models.dart';
 import 'auth_session.dart';
+import 'google_auth.dart';
 import 'me_api.dart';
+import 'phone_utils.dart';
 
 /// Customer personal profile — rich header + form + actions.
 class CustomerProfilePage extends ConsumerStatefulWidget {
@@ -27,9 +29,11 @@ class CustomerProfilePage extends ConsumerStatefulWidget {
 
 class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _saving = false;
   bool _loggingOut = false;
   bool _editingName = false;
+  bool _editingPhone = false;
   String? _error;
   String? _savedHint;
   CustomerProfile? _profile;
@@ -43,6 +47,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -53,6 +58,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
       setState(() {
         _profile = cached;
         _nameController.text = cached.fullName ?? '';
+        _editingPhone = cached.phoneMasked.isEmpty;
       });
     } else {
       await _reload();
@@ -67,6 +73,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
       setState(() {
         _profile = p;
         _nameController.text = p.fullName ?? '';
+        _editingPhone = p.phoneMasked.isEmpty;
       });
       ref.invalidate(customerProfileProvider);
     } on AuthApiException catch (e) {
@@ -110,18 +117,54 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
     }
   }
 
+  Future<void> _savePhone() async {
+    final phone = _phoneController.text.trim();
+    if (!isValidVnMobile(phone)) {
+      setState(() => _error = 'SĐT di động không hợp lệ (VD: 0901234567).');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+      _savedHint = null;
+    });
+    try {
+      final p = await ref.read(meApiProvider).patchPhone(phone);
+      // Rotate immediately so the new contact number is carried by the JWT
+      // used when creating an order.
+      await ref.read(authSessionProvider.notifier).refresh();
+      if (!mounted) return;
+      setState(() {
+        _profile = p;
+        _phoneController.clear();
+        _editingPhone = false;
+        _savedHint = 'Đã lưu SĐT liên hệ.';
+      });
+      ref.invalidate(customerProfileProvider);
+    } on AuthApiException catch (e) {
+      if (mounted) setState(() => _error = e.displayMessage);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Không lưu được. Thử lại.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   Future<void> _logout() async {
     setState(() => _loggingOut = true);
-    await ref.read(authSessionProvider.notifier).clear();
+    await ref.read(googleAuthProvider.notifier).logout();
     if (!mounted) return;
     widget.onLoggedOut();
   }
 
   static String _initial(String name, String phone) {
     final n = name.trim();
-    if (n.isNotEmpty) return String.fromCharCodes(n.runes.take(1)).toUpperCase();
-    if (phone.isNotEmpty && phone != '—')
+    if (n.isNotEmpty) {
+      return String.fromCharCodes(n.runes.take(1)).toUpperCase();
+    }
+    if (phone.isNotEmpty && phone != '—') {
       return String.fromCharCodes(phone.runes.take(1));
+    }
     return '?';
   }
 
@@ -130,10 +173,14 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
     final session = ref.watch(authSessionProvider);
     final phone = _profile?.phoneMasked.isNotEmpty == true
         ? _profile!.phoneMasked
-        : (session?.user.phoneMasked ?? '—');
+        : session?.user.phoneMasked.isNotEmpty == true
+            ? session!.user.phoneMasked
+            : '—';
     final displayName = _profile?.fullName?.trim().isNotEmpty == true
         ? _profile!.fullName!
         : null;
+    final email = _profile?.email ?? session?.user.email;
+    final identityLabel = email?.trim().isNotEmpty == true ? email! : phone;
     final initial = _initial(_nameController.text, phone);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -156,8 +203,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                       children: [
                         // Back bar
                         Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(4, 4, 16, 0),
+                          padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
                           child: Row(
                             children: [
                               IconButton(
@@ -165,8 +211,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                                     Icons.arrow_back_ios_new_rounded,
                                     color: AppColors.onDark,
                                     size: 20),
-                                onPressed:
-                                    _loggingOut ? null : widget.onBack,
+                                onPressed: _loggingOut ? null : widget.onBack,
                               ),
                               const Spacer(),
                             ],
@@ -186,8 +231,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color:
-                                    AppColors.fire.withValues(alpha: 0.45),
+                                color: AppColors.fire.withValues(alpha: 0.45),
                                 blurRadius: 20,
                                 offset: const Offset(0, 6),
                               ),
@@ -219,14 +263,17 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.phone_outlined,
-                                color: AppColors.amber, size: 14),
+                            Icon(
+                                email != null
+                                    ? Icons.alternate_email_rounded
+                                    : Icons.phone_outlined,
+                                color: AppColors.amber,
+                                size: 14),
                             const SizedBox(width: 5),
                             Text(
-                              phone,
+                              identityLabel,
                               style: TextStyle(
-                                color: AppColors.onDark
-                                    .withValues(alpha: 0.70),
+                                color: AppColors.onDark.withValues(alpha: 0.70),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -244,8 +291,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
             // ── Scrollable body ──────────────────────────────────
             Expanded(
               child: ListView(
-                padding:
-                    const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                 children: [
                   // Pull body up over header edge
                   Transform.translate(
@@ -296,8 +342,8 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                             hintText: 'Nguyễn Văn A',
                             border: OutlineInputBorder(
                               borderRadius: AppRadius.sm,
-                              borderSide: const BorderSide(
-                                  color: AppColors.ash),
+                              borderSide:
+                                  const BorderSide(color: AppColors.ash),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: AppRadius.sm,
@@ -318,11 +364,10 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                               child: OutlinedButton(
                                 onPressed: _saving
                                     ? null
-                                    : () => setState(
-                                        () => _editingName = false),
+                                    : () =>
+                                        setState(() => _editingName = false),
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                      color: AppColors.ash),
+                                  side: const BorderSide(color: AppColors.ash),
                                 ),
                                 child: const Text('Hủy'),
                               ),
@@ -384,6 +429,70 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                           ],
                         ),
                       ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  _ProfileCard(
+                    children: [
+                      _CardHeader(
+                        icon: Icons.phone_outlined,
+                        label: 'Số điện thoại liên hệ',
+                        trailing: !_editingPhone
+                            ? GestureDetector(
+                                onTap: () =>
+                                    setState(() => _editingPhone = true),
+                                child: const Text(
+                                  'Sửa',
+                                  style: TextStyle(
+                                    color: AppColors.fire,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 10),
+                      if (_editingPhone) ...[
+                        TextField(
+                          controller: _phoneController,
+                          enabled: !_saving,
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.done,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d+\s\-.]')),
+                            LengthLimitingTextInputFormatter(16),
+                          ],
+                          decoration: InputDecoration(
+                            hintText: '0901234567',
+                            helperText: phone == '—'
+                                ? 'Cần thiết để cửa hàng liên hệ khi giao gas.'
+                                : null,
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadius.sm,
+                            ),
+                          ),
+                          onSubmitted: (_) {
+                            if (!_saving) _savePhone();
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        _FireButton(
+                          label: 'Lưu SĐT',
+                          loading: _saving,
+                          onTap: _savePhone,
+                        ),
+                      ] else
+                        Text(
+                          phone,
+                          style: const TextStyle(
+                            color: Color(0xFF1C1917),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -540,8 +649,8 @@ class _ActionTile extends StatelessWidget {
                   if (subtitle != null)
                     Text(
                       subtitle!,
-                      style: const TextStyle(
-                          color: AppColors.ash, fontSize: 12),
+                      style:
+                          const TextStyle(color: AppColors.ash, fontSize: 12),
                     ),
                 ],
               ),

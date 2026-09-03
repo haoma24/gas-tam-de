@@ -18,12 +18,41 @@ type refreshBody struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// handleLogout revokes the current device session. The response is idempotent
+// so callers can always clear local state, even when the token was rotated or
+// already revoked.
+func (s *tokenService) handleLogout(w http.ResponseWriter, r *http.Request) {
+	var body refreshBody
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "INVALID_JSON", "invalid request body")
+		return
+	}
+	raw := strings.TrimSpace(body.RefreshToken)
+	if raw == "" {
+		httpx.Error(w, http.StatusBadRequest, "INVALID_TOKEN", "refresh_token is required")
+		return
+	}
+	_, err := s.db.Exec(
+		`UPDATE sessions SET revoked_at = ? WHERE refresh_hash = ? AND revoked_at IS NULL`,
+		time.Now().UTC().Format(time.RFC3339Nano), hashRefreshToken(raw),
+	)
+	if err != nil {
+		slog.Error("logout session", "err", err)
+		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not logout")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 type sessionRow struct {
 	ID          string
 	UserID      string
 	Role        string
 	RefreshHash string
 	ExpiresAt   time.Time
+	Persistent  bool
 	RevokedAt   sql.NullString
 }
 
@@ -67,7 +96,7 @@ func (s *tokenService) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired refresh token")
 		return
 	}
-	if !now.Before(sess.ExpiresAt) {
+	if !sess.Persistent && !now.Before(sess.ExpiresAt) {
 		httpx.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired refresh token")
 		return
 	}
@@ -98,7 +127,7 @@ func (s *tokenService) handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 	newSessionID := uuid.NewString()
 	sessionExp := now.Add(s.refreshTTL)
-	if err := insertSession(tx, newSessionID, sess.UserID, principal.Role, refreshHash, sessionExp, now); err != nil {
+	if err := insertSession(tx, newSessionID, sess.UserID, principal.Role, refreshHash, sessionExp, now, sess.Persistent); err != nil {
 		slog.Error("insert rotated session", "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not issue tokens")
 		return
@@ -146,6 +175,8 @@ type refreshPrincipal struct {
 	PhoneMasked string
 	Username    string
 	DisplayName string
+	Email       string
+	PictureURL  string
 }
 
 func (p refreshPrincipal) userPayload(userID string) map[string]any {
@@ -158,6 +189,12 @@ func (p refreshPrincipal) userPayload(userID string) map[string]any {
 	}
 	if p.DisplayName != "" {
 		out["display_name"] = p.DisplayName
+	}
+	if p.Email != "" {
+		out["email"] = p.Email
+	}
+	if p.PictureURL != "" {
+		out["picture_url"] = p.PictureURL
 	}
 	return out
 }
@@ -195,6 +232,15 @@ func resolveRefreshPrincipal(tx *sql.Tx, sess *sessionRow) (refreshPrincipal, er
 	if err != nil {
 		return refreshPrincipal{}, err
 	}
+	if user.GoogleSub.Valid {
+		return refreshPrincipal{
+			Role:        roleCustomer,
+			PhoneMasked: user.PhoneMasked,
+			DisplayName: user.FullName.String,
+			Email:       user.Email.String,
+			PictureURL:  user.PictureURL.String,
+		}, nil
+	}
 	role, err := roleForPhone(tx, user.PhoneHash)
 	if err != nil {
 		return refreshPrincipal{}, err
@@ -204,13 +250,13 @@ func resolveRefreshPrincipal(tx *sql.Tx, sess *sessionRow) (refreshPrincipal, er
 
 func lockSessionByRefreshHash(tx *sql.Tx, refreshHash string) (*sessionRow, error) {
 	row := tx.QueryRow(`
-		SELECT id, user_id, role, refresh_hash, expires_at, revoked_at
+		SELECT id, user_id, role, refresh_hash, expires_at, persistent, revoked_at
 		FROM sessions
 		WHERE refresh_hash = ?
 	`, refreshHash)
 	var s sessionRow
 	var expiresRaw string
-	if err := row.Scan(&s.ID, &s.UserID, &s.Role, &s.RefreshHash, &expiresRaw, &s.RevokedAt); err != nil {
+	if err := row.Scan(&s.ID, &s.UserID, &s.Role, &s.RefreshHash, &expiresRaw, &s.Persistent, &s.RevokedAt); err != nil {
 		return nil, err
 	}
 	exp, err := parseRFC3339Flexible(expiresRaw)
@@ -245,12 +291,16 @@ func loadAdminByID(tx *sql.Tx, id string) (*adminAccountRow, error) {
 type phoneUser struct {
 	PhoneHash   string
 	PhoneMasked string
+	GoogleSub   sql.NullString
+	Email       sql.NullString
+	FullName    sql.NullString
+	PictureURL  sql.NullString
 }
 
 func loadPhoneUser(tx *sql.Tx, userID string) (phoneUser, error) {
 	var u phoneUser
 	err := tx.QueryRow(
-		`SELECT phone_hash, phone_masked FROM users WHERE id = ?`, userID,
-	).Scan(&u.PhoneHash, &u.PhoneMasked)
+		`SELECT phone_hash, COALESCE(NULLIF(contact_phone_masked, ''), phone_masked), google_sub, email, full_name, picture_url FROM users WHERE id = ?`, userID,
+	).Scan(&u.PhoneHash, &u.PhoneMasked, &u.GoogleSub, &u.Email, &u.FullName, &u.PictureURL)
 	return u, err
 }

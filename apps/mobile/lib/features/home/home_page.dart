@@ -31,37 +31,37 @@ class HomePage extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
                     child: Row(
                       children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.amber.withValues(alpha: 0.18),
-                        borderRadius: AppRadius.pill,
-                        border: Border.all(
-                          color: AppColors.amber.withValues(alpha: 0.35),
-                          width: 1,
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.local_fire_department,
-                              color: AppColors.amber, size: 13),
-                          SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              'Giao nhanh trong ngày',
-                              style: TextStyle(
-                                color: AppColors.amber,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.2,
-                              ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.amber.withValues(alpha: 0.18),
+                            borderRadius: AppRadius.pill,
+                            border: Border.all(
+                              color: AppColors.amber.withValues(alpha: 0.35),
+                              width: 1,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.local_fire_department,
+                                  color: AppColors.amber, size: 13),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Giao nhanh trong ngày',
+                                  style: TextStyle(
+                                    color: AppColors.amber,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -119,8 +119,7 @@ class HomePage extends StatelessWidget {
                               .textTheme
                               .titleMedium
                               ?.copyWith(
-                                color:
-                                    AppColors.onDark.withValues(alpha: 0.70),
+                                color: AppColors.onDark.withValues(alpha: 0.70),
                                 fontWeight: FontWeight.w400,
                                 height: 1.5,
                               ),
@@ -156,23 +155,20 @@ class HomePage extends StatelessWidget {
                       children: [
                         Text(
                           'Bắt đầu đặt hàng',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                color: AppColors.onDark,
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: AppColors.onDark,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Xác thực số điện thoại, không cần tạo tài khoản.',
+                          'Đăng nhập nhanh bằng tài khoản Google.',
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium
                               ?.copyWith(
-                                color:
-                                    AppColors.onDark.withValues(alpha: 0.55),
+                                color: AppColors.onDark.withValues(alpha: 0.55),
                               ),
                         ),
                         const SizedBox(height: 20),
@@ -208,8 +204,8 @@ class _LoginButtonState extends State<_LoginButton>
     super.initState();
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 120));
-    _scale = Tween(begin: 1.0, end: 0.96).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _scale = Tween(begin: 1.0, end: 0.96)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override

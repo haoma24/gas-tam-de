@@ -4,6 +4,11 @@ CREATE TABLE IF NOT EXISTS users (
   phone_e164_enc BLOB NOT NULL,
   phone_hash     TEXT NOT NULL UNIQUE,
   phone_masked   TEXT NOT NULL,
+  google_sub     TEXT,
+  email          TEXT,
+  picture_url    TEXT,
+  contact_phone_e164_enc BLOB,
+  contact_phone_masked   TEXT,
   full_name      TEXT,
   created_at     TEXT NOT NULL,
   updated_at     TEXT NOT NULL
@@ -29,6 +34,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   role         TEXT NOT NULL CHECK(role IN ('customer','admin')),
   refresh_hash TEXT NOT NULL,
   expires_at   TEXT NOT NULL,
+  persistent   INTEGER NOT NULL DEFAULT 0,
   revoked_at   TEXT,
   created_at   TEXT NOT NULL
 );

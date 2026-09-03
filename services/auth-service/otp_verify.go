@@ -151,7 +151,7 @@ func (s *otpService) handleOTPVerify(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := uuid.NewString()
 	sessionExp := now.Add(s.refreshTTL)
-	if err := insertSession(tx, sessionID, userID, role, refreshHash, sessionExp, now); err != nil {
+	if err := insertSession(tx, sessionID, userID, role, refreshHash, sessionExp, now, false); err != nil {
 		slog.Error("insert session", "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not issue tokens")
 		return
@@ -262,12 +262,13 @@ func (s *otpService) upsertCustomer(tx *sql.Tx, phoneHash, e164, masked string, 
 	return id, err
 }
 
-func insertSession(tx *sql.Tx, id, userID, role, refreshHash string, expiresAt, createdAt time.Time) error {
+func insertSession(tx *sql.Tx, id, userID, role, refreshHash string, expiresAt, createdAt time.Time, persistent bool) error {
 	_, err := tx.Exec(
-		`INSERT INTO sessions (id, user_id, role, refresh_hash, expires_at, revoked_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+		`INSERT INTO sessions (id, user_id, role, refresh_hash, expires_at, persistent, revoked_at, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
 		id, userID, role, refreshHash,
 		expiresAt.Format(time.RFC3339Nano),
+		persistent,
 		createdAt.Format(time.RFC3339Nano),
 	)
 	return err

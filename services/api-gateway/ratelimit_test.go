@@ -62,7 +62,8 @@ func TestRateLimit_AdminLoginByIP(t *testing.T) {
 		t.Fatalf("first login status=%d", rec1.Code)
 	}
 
-	req2 := httptest.NewRequest(http.MethodPost, "/v1/auth/admin/login", nil)
+	// Google and admin login share the same edge budget.
+	req2 := httptest.NewRequest(http.MethodPost, "/v1/auth/google", nil)
 	req2.RemoteAddr = "198.51.100.5:99"
 	rec2 := httptest.NewRecorder()
 	r.ServeHTTP(rec2, req2)

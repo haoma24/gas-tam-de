@@ -22,13 +22,17 @@ RUN flutter pub get
 COPY apps/mobile ./
 
 ARG API_BASE_URL=""
+ARG GOOGLE_WEB_CLIENT_ID=""
+ARG GOOGLE_IOS_CLIENT_ID=""
 # --no-web-resources-cdn puts CanvasKit (the single biggest download of a first
 # load) on our own origin: it then shares the page's TLS connection instead of
 # costing a DNS + handshake to www.gstatic.com, and the site keeps working where
 # gstatic is slow or filtered. Brotli below matches what the CDN would serve.
 RUN flutter build web --release \
       --no-web-resources-cdn \
-      --dart-define=API_BASE_URL="${API_BASE_URL}"
+      --dart-define=API_BASE_URL="${API_BASE_URL}" \
+      --dart-define=GOOGLE_WEB_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID}" \
+      --dart-define=GOOGLE_IOS_CLIENT_ID="${GOOGLE_IOS_CLIENT_ID}"
 
 # Compress once here instead of per request: nginx dynamic gzip is level 1 and
 # cannot do brotli at all. brotli -q 11 takes CanvasKit from 5.6 MB to ~1.6 MB.
