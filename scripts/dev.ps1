@@ -10,7 +10,7 @@ param(
     [ValidateSet(
         'help', 'nats-up', 'nats-down', 'nats-logs', 'nats-init', 'nats', 'wait-nats',
         'gateway', 'auth', 'catalog', 'geo', 'order', 'inventory', 'billing', 'report',
-        'tidy', 'test', 'build', 'compose-up', 'compose-down', 'compose-ps', 'compose-logs',
+        'tidy', 'test', 'build', 'swagger', 'swagger-check', 'compose-up', 'compose-down', 'compose-ps', 'compose-logs',
         'web-up', 'web-logs', 'web-health', 'health', 'stack-health', 'check-env-yaml',
         'flutter-get', 'flutter-create', 'flutter-web', 'flutter-android', 'flutter-ios', 'flutter-devices'
     )]
@@ -50,6 +50,8 @@ Gas Tam De - scripts/dev.ps1 (Windows DX)
   Go services
     .\scripts\dev.ps1 gateway | auth | catalog | geo | order | inventory | billing | report
     .\scripts\dev.ps1 tidy | test | build | health
+    .\scripts\dev.ps1 swagger      Regenerate gateway Swagger docs
+    .\scripts\dev.ps1 swagger-check  Fail when generated docs are stale
 
   Flutter (apps/mobile) — Web + Android + iOS CTA shell (T9.2.4)
     .\scripts\dev.ps1 flutter-get
@@ -161,6 +163,19 @@ switch ($Command) {
     }
     'build' {
         go build ./services/...
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    'swagger' {
+        go run github.com/swaggo/swag/cmd/swag@v1.16.6 init `
+            -g main.go `
+            -d services/api-gateway,services/auth-service,services/catalog-service,services/geo-service,services/order-service,services/inventory-service,services/billing-service,services/report-service,pkg/httpx `
+            -o services/api-gateway/docs
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    'swagger-check' {
+        & $PSCommandPath 'swagger'
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        git diff --exit-code -- services/api-gateway/docs
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     'health' {

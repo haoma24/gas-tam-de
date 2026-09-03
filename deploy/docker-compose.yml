@@ -64,6 +64,7 @@ services:
       PORT: "8080"
       GATEWAY_ADDR: "0.0.0.0:8080"
       GATEWAY_DB: "/data/gateway.db"
+      SWAGGER_ENABLED: "${SWAGGER_ENABLED:-0}"
       CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*,https://tamde-stag.tinhgon.xyz}"
       JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-me}"
       RATE_LIMIT_OTP_PER_IP_MINUTE: "${RATE_LIMIT_OTP_PER_IP_MINUTE:-10}"
@@ -304,6 +305,7 @@ services:
     environment:
       GATEWAY_ADDR: "127.0.0.1:8081"
       GATEWAY_DB: "/data/gateway.db"
+      SWAGGER_ENABLED: "${SWAGGER_ENABLED:-0}"
       CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*,https://tamde-stag.tinhgon.xyz}"
       JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-me}"
       RATE_LIMIT_OTP_PER_IP_MINUTE: "${RATE_LIMIT_OTP_PER_IP_MINUTE:-10}"

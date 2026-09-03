@@ -65,6 +65,30 @@ make compose-down
 | API Gateway | <http://127.0.0.1:8080> | truy cập API trực tiếp — **`/` trả 404 là đúng** |
 | NATS monitoring | <http://127.0.0.1:8222/jsz> | |
 
+### Swagger API docs
+
+Local Docker Compose bật Swagger UI tại:
+
+- Gateway trực tiếp: <http://127.0.0.1:8080/swagger/index.html>
+- Qua website/nginx: <http://127.0.0.1:8090/swagger/index.html>
+
+Khi chạy gateway trực tiếp trên host, bật docs rõ ràng trước khi start:
+
+```powershell
+$env:SWAGGER_ENABLED = "1"
+.\scripts\dev.ps1 gateway
+```
+
+Sau khi sửa annotation trong handler, generate và commit lại các file trong
+`services/api-gateway/docs`:
+
+```powershell
+.\scripts\dev.ps1 swagger
+```
+
+Linux/macOS dùng `make swagger`. Compose VPS mặc định đặt
+`SWAGGER_ENABLED=0`; chỉ bật trên môi trường public khi thực sự cần.
+
 ### Truy cập trên VPS
 
 **Coolify / Cursor Cloud (Traefik):** cổng public `labeledPort=8080` trỏ vào

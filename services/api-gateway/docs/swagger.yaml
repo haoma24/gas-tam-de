@@ -1,0 +1,267 @@
+basePath: /v1
+consumes:
+- application/json
+definitions:
+  httpx.ErrorBody:
+    properties:
+      code:
+        example: VALIDATION_ERROR
+        type: string
+      message:
+        example: invalid request
+        type: string
+    type: object
+  httpx.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/httpx.ErrorBody'
+    type: object
+  main.createProductBody:
+    properties:
+      active:
+        type: boolean
+      description:
+        type: string
+      image_url:
+        type: string
+      name:
+        type: string
+      sale_price:
+        type: integer
+      sku:
+        type: string
+      unit:
+        type: string
+    type: object
+  main.helloResponse:
+    properties:
+      message:
+        example: Gas Tam De API Gateway
+        type: string
+      status:
+        example: ok
+        type: string
+    type: object
+  main.patchProductBody:
+    properties:
+      active:
+        type: boolean
+      description:
+        type: string
+      image_url:
+        type: string
+      name:
+        type: string
+      sale_price:
+        type: integer
+      sku:
+        type: string
+      unit:
+        type: string
+    type: object
+  main.product:
+    properties:
+      active:
+        type: boolean
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      name:
+        type: string
+      sale_price:
+        type: integer
+      sku:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  main.productListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/main.product'
+        type: array
+    type: object
+info:
+  contact: {}
+  description: Public API gateway for Gas Tam De customers and administrators.
+  title: Gas Tam De API
+  version: "1.0"
+paths:
+  /admin/products:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.productListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List all products
+      tags:
+      - Admin - Products
+    post:
+      parameters:
+      - description: Product
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.createProductBody'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.product'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a product
+      tags:
+      - Admin - Products
+  /admin/products/{id}:
+    get:
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.product'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a product
+      tags:
+      - Admin - Products
+    patch:
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.patchProductBody'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.product'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a product
+      tags:
+      - Admin - Products
+  /hello:
+    get:
+      description: Returns a lightweight response when the public gateway is serving
+        requests.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.helloResponse'
+      summary: Check the API gateway
+      tags:
+      - System
+  /products:
+    get:
+      description: Returns products currently available to customers.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.productListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: List active products
+      tags:
+      - Products
+produces:
+- application/json
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter the access token as: Bearer <token>'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
