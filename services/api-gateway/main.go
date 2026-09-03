@@ -11,8 +11,10 @@ import (
 	"gas-tam-de/pkg/config"
 	"gas-tam-de/pkg/httpx"
 	"gas-tam-de/pkg/sqlite"
+	_ "gas-tam-de/services/api-gateway/docs"
 
 	"github.com/go-chi/chi/v5"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 const serviceName = "api-gateway"
@@ -55,6 +57,17 @@ func healthOnlyHandler() http.Handler {
 	return r
 }
 
+// @title Gas Tam De API
+// @version 1.0
+// @description Public API gateway for Gas Tam De customers and administrators.
+// @BasePath /v1
+// @schemes http https
+// @accept json
+// @produce json
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Enter the access token as: Bearer <token>
 func main() {
 	addr := config.ListenAddr("GATEWAY_ADDR", ":8080")
 
@@ -151,14 +164,14 @@ func newGatewayRouter(jwtSecret string, corsOrigins []string, u upstreams, rl *r
 	r.Use(CORS(corsOrigins))
 	r.Use(stripInboundIdentityHeaders)
 	httpx.MountHealth(r, serviceName)
+	if config.Get("SWAGGER_ENABLED", "0") == "1" {
+		r.Get("/swagger/*", httpSwagger.Handler(
+			httpSwagger.URL("/swagger/doc.json"),
+		))
+	}
 
 	// Sprint 0: hello endpoint for smoke test (public).
-	r.Get("/v1/hello", func(w http.ResponseWriter, _ *http.Request) {
-		httpx.JSON(w, http.StatusOK, map[string]any{
-			"message": "Gas Tam Đệ API Gateway",
-			"status":  "ok",
-		})
-	})
+	r.Get("/v1/hello", handleHello)
 
 	authProxy := reverseProxy(u.auth)
 	catalogProxy := reverseProxy(u.catalog)
@@ -219,4 +232,22 @@ func newGatewayRouter(jwtSecret string, corsOrigins []string, u upstreams, rl *r
 	})
 
 	return r
+}
+
+type helloResponse struct {
+	Message string `json:"message" example:"Gas Tam De API Gateway"`
+	Status  string `json:"status" example:"ok"`
+}
+
+// handleHello returns the public gateway smoke response.
+// @Summary Check the API gateway
+// @Description Returns a lightweight response when the public gateway is serving requests.
+// @Tags System
+// @Success 200 {object} helloResponse
+// @Router /hello [get]
+func handleHello(w http.ResponseWriter, _ *http.Request) {
+	httpx.JSON(w, http.StatusOK, helloResponse{
+		Message: "Gas Tam Đệ API Gateway",
+		Status:  "ok",
+	})
 }

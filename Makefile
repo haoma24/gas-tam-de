@@ -12,10 +12,12 @@ GATEWAY_URL ?= http://127.0.0.1:8080
 WEB_URL ?= http://127.0.0.1:$(or $(WEB_PORT),8090)
 PROXY_NETWORK ?= tensorship-net
 NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
+SWAG_VERSION := v1.16.6
+SWAG_DIRS := services/api-gateway,services/auth-service,services/catalog-service,services/geo-service,services/order-service,services/inventory-service,services/billing-service,services/report-service,pkg/httpx
 
 .PHONY: help nats-up nats-down nats-logs nats-init nats wait-nats \
 	gateway auth catalog geo order inventory billing report \
-	tidy test build compose-up compose-down compose-ps compose-logs \
+	tidy test build swagger swagger-check compose-up compose-down compose-ps compose-logs \
 	web-up web-logs web-health health stack-health doctor check-env-yaml \
 	vps-net-check vps-net-fix vps-up vps-api-diagnose ensure-proxy-net \
 	flutter-get flutter-create flutter-web flutter-android flutter-ios flutter-devices
@@ -53,6 +55,8 @@ help:
 	@echo "    make tidy         go mod tidy"
 	@echo "    make test         go test ./..."
 	@echo "    make build        go build ./services/..."
+	@echo "    make swagger      Regenerate gateway Swagger docs from service annotations"
+	@echo "    make swagger-check  Fail when generated Swagger docs are stale"
 	@echo "    make health       GET gateway /healthz + /v1/hello"
 	@echo ""
 	@echo "  Flutter (apps/mobile) — Web + Android + iOS CTA shell (T9.2.4)"
@@ -205,6 +209,12 @@ test:
 
 build:
 	go build ./services/...
+
+swagger:
+	go run github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION) init -g main.go -d $(SWAG_DIRS) -o services/api-gateway/docs
+
+swagger-check: swagger
+	git diff --exit-code -- services/api-gateway/docs
 
 health:
 	curl -sf "$(GATEWAY_URL)/healthz"

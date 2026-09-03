@@ -126,11 +126,20 @@ func JSON(w http.ResponseWriter, status int, body any) {
 }
 
 // Error writes a JSON error payload.
+type ErrorResponse struct {
+	Error ErrorBody `json:"error"`
+}
+
+type ErrorBody struct {
+	Code    string `json:"code" example:"VALIDATION_ERROR"`
+	Message string `json:"message" example:"invalid request"`
+}
+
 func Error(w http.ResponseWriter, status int, code, message string) {
-	JSON(w, status, map[string]any{
-		"error": map[string]string{
-			"code":    code,
-			"message": message,
+	JSON(w, status, ErrorResponse{
+		Error: ErrorBody{
+			Code:    code,
+			Message: message,
 		},
 	})
 }

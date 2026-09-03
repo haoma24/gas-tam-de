@@ -53,8 +53,18 @@ type patchProductBody struct {
 	ImageURL    *string `json:"image_url"`
 }
 
+type productListResponse struct {
+	Items []product `json:"items"`
+}
+
 // handleListActiveProducts serves GET /v1/products — active catalog for customers
 // (public or authenticated; authz optional at gateway).
+// @Summary List active products
+// @Description Returns products currently available to customers.
+// @Tags Products
+// @Success 200 {object} productListResponse
+// @Failure 500 {object} httpx.ErrorResponse
+// @Router /products [get]
 func (s *catalogService) handleListActiveProducts(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.Query(`
 		SELECT id, sku, name, description, unit, sale_price, active, image_url, created_at, updated_at
@@ -74,9 +84,18 @@ func (s *catalogService) handleListActiveProducts(w http.ResponseWriter, r *http
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not list products")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
+	httpx.JSON(w, http.StatusOK, productListResponse{Items: items})
 }
 
+// handleListAdminProducts lists the complete catalog for administrators.
+// @Summary List all products
+// @Tags Admin - Products
+// @Security BearerAuth
+// @Success 200 {object} productListResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 500 {object} httpx.ErrorResponse
+// @Router /admin/products [get]
 func (s *catalogService) handleListAdminProducts(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.Query(`
 		SELECT id, sku, name, description, unit, sale_price, active, image_url, created_at, updated_at
@@ -95,7 +114,7 @@ func (s *catalogService) handleListAdminProducts(w http.ResponseWriter, r *http.
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not list products")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
+	httpx.JSON(w, http.StatusOK, productListResponse{Items: items})
 }
 
 func collectProducts(rows *sql.Rows) ([]product, error) {
@@ -113,6 +132,16 @@ func collectProducts(rows *sql.Rows) ([]product, error) {
 	return items, nil
 }
 
+// handleGetAdminProduct returns one catalog product.
+// @Summary Get a product
+// @Tags Admin - Products
+// @Security BearerAuth
+// @Param id path string true "Product ID"
+// @Success 200 {object} product
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /admin/products/{id} [get]
 func (s *catalogService) handleGetAdminProduct(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {
@@ -133,6 +162,17 @@ func (s *catalogService) handleGetAdminProduct(w http.ResponseWriter, r *http.Re
 	httpx.JSON(w, http.StatusOK, p)
 }
 
+// handleCreateProduct creates a catalog product.
+// @Summary Create a product
+// @Tags Admin - Products
+// @Security BearerAuth
+// @Param body body createProductBody true "Product"
+// @Success 201 {object} product
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Router /admin/products [post]
 func (s *catalogService) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 	var body createProductBody
 	dec := json.NewDecoder(r.Body)
@@ -216,6 +256,19 @@ func (s *catalogService) handleCreateProduct(w http.ResponseWriter, r *http.Requ
 	httpx.JSON(w, http.StatusCreated, p)
 }
 
+// handlePatchProduct updates selected product fields.
+// @Summary Update a product
+// @Tags Admin - Products
+// @Security BearerAuth
+// @Param id path string true "Product ID"
+// @Param body body patchProductBody true "Fields to update"
+// @Success 200 {object} product
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Router /admin/products/{id} [patch]
 func (s *catalogService) handlePatchProduct(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {
