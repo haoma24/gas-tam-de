@@ -124,16 +124,21 @@ jobs:
           passphrase: ${{ secrets.GCP_VM_SSH_PASSPHRASE }}
           script: |
             set -euo pipefail
-            git config --global --add safe.directory /opt/gas-tam-de
             cd /opt/gas-tam-de
-
-            echo "==> git pull stag"
-            git fetch origin stag
-            git checkout stag
-            git pull origin stag
-
             export COMPOSE_PROJECT_NAME="gas-tamde-stag"
             export PROXY_NETWORK="tensorship-net"
+
+            # Reclaim space before Git or Docker needs to create temporary files.
+            # Volumes are intentionally never pruned because they contain SQLite data.
+            echo "==> pre-deploy Docker cleanup"
+            docker container prune -f --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" || true
+            docker image prune -f || true
+            df -h /
+
+            echo "==> git pull stag"
+            git -c safe.directory=/opt/gas-tam-de fetch origin stag
+            git -c safe.directory=/opt/gas-tam-de checkout stag
+            git -c safe.directory=/opt/gas-tam-de pull origin stag
 
             # Diagnostics to capture what compose binary is available on the server
             echo "==> diagnostic: docker/compose versions and paths"
@@ -178,3 +183,11 @@ jobs:
 
             # Show final container status (uses plugin if available)
             ${COMPOSE_CMD} -p "${COMPOSE_PROJECT_NAME}" ps -a
+
+            # The previous :stag images become unused only after Compose replaces
+            # their containers, so prune once more at the end of a successful deploy.
+            echo "==> post-deploy Docker cleanup"
+            docker container prune -f --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}"
+            docker image prune -f
+            docker system df
+            df -h /
