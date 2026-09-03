@@ -24,9 +24,16 @@ x-stack-networks: &stack_networks
   - default
   - tensorship-net
 
+x-default-logging: &default_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   nats:
     networks: *stack_networks
+    logging: *default_logging
     image: nats:2.10-alpine
     command: ["-c", "/etc/nats/nats.conf"]
     # No host ports here — Coolify/Traefik; local maps in docker-compose.local.yml.
@@ -45,6 +52,7 @@ services:
 
   api-gateway:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/api-gateway:stag
     # Internal only for Traefik. Stage 8 probes **web:8080** (nginx). Gateway
     # still binds 0.0.0.0:8080 immediately (healthz before SQLite) for nginx
@@ -95,6 +103,7 @@ services:
 
   auth-service:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/auth-service:stag
     environment:
       AUTH_ADDR: ":8081"
@@ -156,6 +165,7 @@ services:
 
   catalog-service:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/catalog-service:stag
     environment:
       CATALOG_ADDR: ":8082"
@@ -177,6 +187,7 @@ services:
 
   geo-service:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/geo-service:stag
     environment:
       GEO_ADDR: ":8083"
@@ -198,6 +209,7 @@ services:
 
   order-service:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/order-service:stag
     environment:
       ORDER_ADDR: ":8084"
@@ -231,6 +243,7 @@ services:
 
   inventory-service:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/inventory-service:stag
     environment:
       INVENTORY_ADDR: ":8085"
@@ -252,6 +265,7 @@ services:
 
   billing-service:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/billing-service:stag
     environment:
       BILLING_ADDR: ":8086"
@@ -273,6 +287,7 @@ services:
 
   report-service:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/report-service:stag
     environment:
       REPORT_ADDR: ":8087"
@@ -296,6 +311,7 @@ services:
   # api-gateway on 127.0.0.1:8081 (no separate api-gateway container required).
   web:
     networks: *stack_networks
+    logging: *default_logging
     image: ghcr.io/haoma24/gas-tam-de/web:stag
     # Do NOT ports-publish here (Traefik Unreachable). Local: docker-compose.local.yml
     labels:
