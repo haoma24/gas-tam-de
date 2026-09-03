@@ -52,6 +52,8 @@ class AuthUser {
     this.phoneMasked = '',
     this.username,
     this.displayName,
+    this.email,
+    this.pictureUrl,
   });
 
   final String id;
@@ -59,6 +61,8 @@ class AuthUser {
   final String phoneMasked;
   final String? username;
   final String? displayName;
+  final String? email;
+  final String? pictureUrl;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     return AuthUser(
@@ -67,6 +71,8 @@ class AuthUser {
       phoneMasked: json['phone_masked'] as String? ?? '',
       username: json['username'] as String?,
       displayName: json['display_name'] as String?,
+      email: json['email'] as String?,
+      pictureUrl: json['picture_url'] as String?,
     );
   }
 
@@ -76,6 +82,8 @@ class AuthUser {
         'phone_masked': phoneMasked,
         if (username != null) 'username': username,
         if (displayName != null) 'display_name': displayName,
+        if (email != null) 'email': email,
+        if (pictureUrl != null) 'picture_url': pictureUrl,
       };
 }
 
@@ -161,6 +169,10 @@ class AuthApiException implements Exception {
             : 'Mã OTP không đúng.';
       case 'INVALID_CREDENTIALS':
         return 'Tên đăng nhập hoặc mật khẩu không đúng.';
+      case 'INVALID_GOOGLE_TOKEN':
+        return 'Không xác minh được tài khoản Google. Vui lòng thử lại.';
+      case 'GOOGLE_AUTH_NOT_CONFIGURED':
+        return 'Máy chủ chưa cấu hình đăng nhập Google.';
       case 'INVALID_TOKEN':
       case 'UNAUTHORIZED':
         return 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';

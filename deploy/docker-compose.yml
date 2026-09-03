@@ -107,6 +107,8 @@ services:
       JWT_SECRET: "${JWT_SECRET:-dev-jwt-secret-change-me}"
       JWT_ACCESS_TTL_SEC: "${JWT_ACCESS_TTL_SEC:-900}"
       JWT_REFRESH_TTL_SEC: "${JWT_REFRESH_TTL_SEC:-2592000}"
+      # Comma-separated OAuth client IDs accepted in Google ID-token `aud`.
+      GOOGLE_CLIENT_IDS: "${GOOGLE_CLIENT_IDS:-}"
       # PHONE_ENC_KEY / PHONE_HASH_PEPPER are deliberately NOT wired here:
       # phone_hash is the customer identity key, so changing the pepper on a
       # live auth.db orphans every existing user and their order history.

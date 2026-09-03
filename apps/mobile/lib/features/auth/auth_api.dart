@@ -13,6 +13,41 @@ class AuthApi {
 
   final Dio _dio;
 
+  Future<AuthTokenResult> googleLogin(String idToken) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/auth/google',
+        data: {'id_token': idToken},
+        options: Options(extra: const {'skipAuthRefresh': true}),
+      );
+      final data = res.data;
+      if (data == null) {
+        throw AuthApiException(
+          code: 'EMPTY',
+          message: 'empty response',
+          statusCode: res.statusCode,
+        );
+      }
+      return AuthTokenResult.fromJson(data);
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
+  Future<void> logout(String refreshToken) async {
+    try {
+      await _dio.post<void>(
+        '/v1/auth/logout',
+        data: {'refresh_token': refreshToken},
+        options: Options(extra: const {'skipAuthRefresh': true}),
+      );
+    } on DioException catch (e) {
+      // A local logout must always succeed. Only surface transient failures to
+      // callers that want to report them; the stored token is still removed.
+      throw _mapDio(e);
+    }
+  }
+
   Future<OtpRequestResult> requestOtp(String phone) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(

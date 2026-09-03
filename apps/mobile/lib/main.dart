@@ -6,10 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/auth/admin_admin_phones_page.dart';
 import 'features/auth/admin_login_page.dart';
-import 'features/auth/auth_models.dart';
 import 'features/auth/auth_session.dart';
-import 'features/auth/customer_auth_flow_page.dart';
 import 'features/auth/customer_profile_page.dart';
+import 'features/auth/google_login_page.dart';
 import 'features/billing/admin_debts_page.dart';
 import 'features/catalog/admin_product_form_page.dart';
 import 'features/catalog/admin_products_page.dart';
@@ -69,24 +68,26 @@ final _router = GoRouter(
 
           if (session != null && session.isCustomer) {
             return CustomerShopPage(
-              onStartOrder: () => context.push('/order'),
+              onStartOrder: () => session.user.phoneMasked.isEmpty
+                  ? context.push('/profile')
+                  : context.push('/order'),
               onProfile: () => context.push('/profile'),
             );
           }
 
           return HomePage(
-            onLogin: () => context.push('/auth/phone'),
+            onLogin: () => context.push('/auth/login'),
           );
         },
       ),
     ),
     GoRoute(
-      path: '/auth/phone',
+      path: '/auth/login',
       builder: (context, state) => Consumer(
         builder: (context, ref, _) {
-          return CustomerAuthFlowPage(
+          return GoogleLoginPage(
             onBack: () => _popOrGo(context, '/'),
-            onVerified: () {
+            onLoggedIn: () {
               final session = ref.read(authSessionProvider);
               if (session != null && session.isAdmin) {
                 context.go('/admin');
@@ -99,34 +100,12 @@ final _router = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/auth/phone',
+      redirect: (_, __) => '/auth/login',
+    ),
+    GoRoute(
       path: '/auth/otp',
-      builder: (context, state) {
-        final args = state.extra;
-        if (args is! OtpNavArgs) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) context.go('/auth/phone');
-          });
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return Consumer(
-          builder: (context, ref, _) {
-            return CustomerAuthFlowPage(
-              initialOtpArgs: args,
-              onBack: () => _popOrGo(context, '/auth/phone'),
-              onVerified: () {
-                final session = ref.read(authSessionProvider);
-                if (session != null && session.isAdmin) {
-                  context.go('/admin');
-                } else {
-                  context.go('/');
-                }
-              },
-            );
-          },
-        );
-      },
+      redirect: (_, __) => '/auth/login',
     ),
     GoRoute(
       path: '/profile',
@@ -135,7 +114,7 @@ final _router = GoRouter(
           final session = ref.watch(authSessionProvider);
           if (session == null || !session.isCustomer) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) context.go('/auth/phone');
+              if (context.mounted) context.go('/auth/login');
             });
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),

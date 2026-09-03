@@ -83,7 +83,7 @@ func (s *tokenService) handleAdminLogin(w http.ResponseWriter, r *http.Request) 
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if err := insertSession(tx, sessionID, admin.ID, "admin", refreshHash, sessionExp, now); err != nil {
+	if err := insertSession(tx, sessionID, admin.ID, "admin", refreshHash, sessionExp, now, false); err != nil {
 		slog.Error("insert session", "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not issue tokens")
 		return

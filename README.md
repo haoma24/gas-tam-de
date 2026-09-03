@@ -89,6 +89,35 @@ Sau khi sửa annotation trong handler, generate và commit lại các file tron
 Linux/macOS dùng `make swagger`. Compose VPS mặc định đặt
 `SWAGGER_ENABLED=0`; chỉ bật trên môi trường public khi thực sự cần.
 
+### Google Sign-In
+
+Khách hàng đăng nhập bằng Google; đăng nhập admin bằng username/password vẫn
+được giữ riêng. Access token vẫn ngắn hạn, nhưng refresh session của Google là
+persistent và chỉ bị revoke khi người dùng bấm **Đăng xuất**. SĐT không còn là
+yếu tố xác thực; người dùng bổ sung SĐT liên hệ trong hồ sơ trước khi đặt đơn.
+
+Tạo OAuth clients trong Google Cloud Console rồi cấu hình:
+
+```dotenv
+# deploy/.env — backend chấp nhận một hay nhiều audience, phân cách bằng dấu phẩy
+GOOGLE_CLIENT_IDS=web-client.apps.googleusercontent.com,android-client.apps.googleusercontent.com,ios-client.apps.googleusercontent.com
+
+# Flutter Web và serverClientId dùng Web OAuth client
+GOOGLE_WEB_CLIENT_ID=web-client.apps.googleusercontent.com
+GOOGLE_IOS_CLIENT_ID=ios-client.apps.googleusercontent.com
+```
+
+- Web OAuth client cần Authorized JavaScript origins cho localhost và domain
+  staging/production. Đặt repository variable `GOOGLE_WEB_CLIENT_ID` để workflow
+  build image web nhúng client ID.
+- Android OAuth client phải đăng ký đúng package name và SHA-1/SHA-256 của key
+  ký. iOS cần thêm reversed client ID URL scheme theo hướng dẫn Google Sign-In.
+- Client ID là định danh công khai; không đưa OAuth client secret vào app.
+
+Local Flutter có thể đọc các biến trên từ shell qua `make flutter-web` hoặc
+`.\scripts\dev.ps1 flutter-web`. Backend từ chối ID token nếu `aud` không nằm
+trong `GOOGLE_CLIENT_IDS`.
+
 ### Truy cập trên VPS
 
 **Coolify / Cursor Cloud (Traefik):** cổng public `labeledPort=8080` trỏ vào

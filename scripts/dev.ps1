@@ -201,21 +201,21 @@ switch ($Command) {
     'flutter-web' {
         Push-Location apps/mobile
         try {
-            flutter run -d chrome
+            flutter run -d chrome --dart-define="GOOGLE_WEB_CLIENT_ID=$env:GOOGLE_WEB_CLIENT_ID"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         } finally { Pop-Location }
     }
     'flutter-android' {
         Push-Location apps/mobile
         try {
-            flutter run -d android
+            flutter run -d android --dart-define="GOOGLE_WEB_CLIENT_ID=$env:GOOGLE_WEB_CLIENT_ID"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         } finally { Pop-Location }
     }
     'flutter-ios' {
         Push-Location apps/mobile
         try {
-            flutter run -d ios
+            flutter run -d ios --dart-define="GOOGLE_WEB_CLIENT_ID=$env:GOOGLE_WEB_CLIENT_ID" --dart-define="GOOGLE_IOS_CLIENT_ID=$env:GOOGLE_IOS_CLIENT_ID"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         } finally { Pop-Location }
     }

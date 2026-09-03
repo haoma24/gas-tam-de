@@ -25,7 +25,7 @@ func TestMeGetAndPatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	me := &meService{db: db}
+	me := &meService{db: db, phoneKey: derivePhoneKey("test-phone-key")}
 	r := httpxNewTestRouter(me)
 
 	getReq := httptest.NewRequest(http.MethodGet, "/v1/me", nil)
@@ -61,6 +61,24 @@ func TestMeGetAndPatch(t *testing.T) {
 	}
 	if patched["full_name"] != "Nguyễn Văn A" {
 		t.Fatalf("full_name=%v", patched["full_name"])
+	}
+
+	phoneBody, _ := json.Marshal(map[string]string{"phone": "0901234567"})
+	phoneReq := httptest.NewRequest(http.MethodPatch, "/v1/me", bytes.NewReader(phoneBody))
+	phoneReq.Header.Set("Content-Type", "application/json")
+	phoneReq.Header.Set("X-User-Id", "user-1")
+	phoneReq.Header.Set("X-User-Role", "customer")
+	phoneRec := httptest.NewRecorder()
+	r.ServeHTTP(phoneRec, phoneReq)
+	if phoneRec.Code != http.StatusOK {
+		t.Fatalf("phone patch status=%d body=%s", phoneRec.Code, phoneRec.Body.String())
+	}
+	var phonePatched map[string]any
+	if err := json.Unmarshal(phoneRec.Body.Bytes(), &phonePatched); err != nil {
+		t.Fatal(err)
+	}
+	if phonePatched["phone_masked"] != "090***4567" {
+		t.Fatalf("phone_masked=%v", phonePatched["phone_masked"])
 	}
 }
 

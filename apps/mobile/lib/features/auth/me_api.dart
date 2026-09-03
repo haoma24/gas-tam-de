@@ -14,11 +14,15 @@ class CustomerProfile {
     required this.id,
     required this.phoneMasked,
     this.fullName,
+    this.email,
+    this.pictureUrl,
   });
 
   final String id;
   final String phoneMasked;
   final String? fullName;
+  final String? email;
+  final String? pictureUrl;
 
   bool get hasName => fullName != null && fullName!.trim().isNotEmpty;
 
@@ -28,6 +32,8 @@ class CustomerProfile {
       id: json['id'] as String? ?? '',
       phoneMasked: json['phone_masked'] as String? ?? '',
       fullName: (name == null || name.isEmpty) ? null : name,
+      email: json['email'] as String?,
+      pictureUrl: json['picture_url'] as String?,
     );
   }
 }
@@ -60,6 +66,26 @@ class MeApi {
       final res = await _dio.patch<Map<String, dynamic>>(
         '/v1/me',
         data: {'full_name': fullName.trim()},
+      );
+      final data = res.data;
+      if (data == null) {
+        throw AuthApiException(
+          code: 'EMPTY',
+          message: 'empty response',
+          statusCode: res.statusCode,
+        );
+      }
+      return CustomerProfile.fromJson(data);
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
+  Future<CustomerProfile> patchPhone(String phone) async {
+    try {
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '/v1/me',
+        data: {'phone': phone.trim()},
       );
       final data = res.data;
       if (data == null) {

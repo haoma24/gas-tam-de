@@ -55,8 +55,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       _error = null;
     });
     try {
-      final data =
-          await ref.read(dashboardApiProvider).fetchForPeriod(_period);
+      final data = await ref.read(dashboardApiProvider).fetchForPeriod(_period);
       if (!mounted) return;
       setState(() {
         _summary = data;
@@ -120,7 +119,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               tooltip: 'Đăng xuất',
               icon: const Icon(Icons.logout),
               onPressed: () async {
-                await ref.read(authSessionProvider.notifier).clear();
+                await ref.read(authSessionProvider.notifier).logout();
                 widget.onLoggedOut!();
               },
             ),
@@ -303,9 +302,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 520;
-            final tileW = wide
-                ? (constraints.maxWidth - 12) / 2
-                : constraints.maxWidth;
+            final tileW =
+                wide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
             return Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -326,9 +324,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                     label: 'Lợi nhuận',
                     value: formatVnd(s.profitVnd),
                     emphasize: true,
-                    valueColor: s.profitVnd < 0
-                        ? theme.colorScheme.error
-                        : null,
+                    valueColor:
+                        s.profitVnd < 0 ? theme.colorScheme.error : null,
                   ),
                 ),
                 SizedBox(
@@ -427,7 +424,8 @@ class _MetricTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, size: 26, color: emphasize ? fg : theme.colorScheme.primary),
+              Icon(icon,
+                  size: 26, color: emphasize ? fg : theme.colorScheme.primary),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
