@@ -25,6 +25,31 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
+# Flutter runs outside Docker Compose, so load its OAuth build-time values from
+# the same deploy/.env file used by the local Compose commands. Values already
+# provided by the caller's shell keep precedence.
+function Import-FlutterBuildEnvironment {
+    $envFile = Join-Path $RepoRoot 'deploy/.env'
+    if (-not (Test-Path $envFile)) { return }
+
+    $wanted = @('GOOGLE_WEB_CLIENT_ID', 'GOOGLE_IOS_CLIENT_ID')
+    foreach ($line in Get-Content -LiteralPath $envFile) {
+        if ($line -notmatch '^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$') { continue }
+        $name = $Matches[1]
+        if ($name -notin $wanted) { continue }
+        if (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { continue }
+
+        $value = $Matches[2].Trim()
+        if (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+            ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        [Environment]::SetEnvironmentVariable($name, $value)
+    }
+}
+
+Import-FlutterBuildEnvironment
+
 function Show-Help {
     @"
 Gas Tam De - scripts/dev.ps1 (Windows DX)
