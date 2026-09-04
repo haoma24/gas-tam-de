@@ -14,8 +14,8 @@ PROXY_NETWORK ?= tensorship-net
 NATS_HEALTH_URL ?= http://127.0.0.1:8222/healthz
 SWAG_VERSION := v1.16.6
 SWAG_DIRS := services/api-gateway,services/auth-service,services/catalog-service,services/geo-service,services/order-service,services/inventory-service,services/billing-service,services/report-service,pkg/httpx
-GOOGLE_WEB_CLIENT_ID ?=
-GOOGLE_IOS_CLIENT_ID ?=
+GOOGLE_WEB_CLIENT_ID ?= $(shell sed -n 's/^GOOGLE_WEB_CLIENT_ID=//p' deploy/.env 2>/dev/null | tail -n 1)
+GOOGLE_IOS_CLIENT_ID ?= $(shell sed -n 's/^GOOGLE_IOS_CLIENT_ID=//p' deploy/.env 2>/dev/null | tail -n 1)
 
 .PHONY: help nats-up nats-down nats-logs nats-init nats wait-nats \
 	gateway auth catalog geo order inventory billing report \

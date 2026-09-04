@@ -77,7 +77,7 @@ jobs:
           # Empty API_BASE_URL = same-origin calls proxied by nginx.
           build-args: |
             API_BASE_URL=
-            GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }}
+            GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID || '249466183739-88vcmagr6ejnj79hd6pjet6e4iv0aiq5.apps.googleusercontent.com' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
