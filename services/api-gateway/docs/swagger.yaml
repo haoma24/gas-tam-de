@@ -24,6 +24,10 @@ definitions:
         type: string
       image_url:
         type: string
+      image_urls:
+        items:
+          type: string
+        type: array
       name:
         type: string
       sale_price:
@@ -50,6 +54,10 @@ definitions:
         type: string
       image_url:
         type: string
+      image_urls:
+        items:
+          type: string
+        type: array
       name:
         type: string
       sale_price:
@@ -71,6 +79,10 @@ definitions:
         type: string
       image_url:
         type: string
+      image_urls:
+        items:
+          type: string
+        type: array
       name:
         type: string
       sale_price:

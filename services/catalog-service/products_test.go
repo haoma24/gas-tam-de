@@ -58,6 +58,10 @@ func TestCreateListGetPatchProduct(t *testing.T) {
 		"unit":        "binh",
 		"sale_price":  450000,
 		"active":      true,
+		"image_urls": []string{
+			"https://img.example/cover.jpg",
+			"https://img.example/detail.jpg",
+		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1/admin/products", bytes.NewReader(createBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -77,6 +81,9 @@ func TestCreateListGetPatchProduct(t *testing.T) {
 	}
 	if created.Description == nil || *created.Description != "Bình 12kg" {
 		t.Fatalf("description=%v", created.Description)
+	}
+	if created.ImageURL == nil || *created.ImageURL != "https://img.example/cover.jpg" || len(created.ImageURLs) != 2 {
+		t.Fatalf("images primary=%v gallery=%v", created.ImageURL, created.ImageURLs)
 	}
 
 	var histCount int

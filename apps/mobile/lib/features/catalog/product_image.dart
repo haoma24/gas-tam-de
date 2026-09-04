@@ -10,16 +10,19 @@ class ProductImage extends StatelessWidget {
     super.key,
     required this.product,
     this.fit = BoxFit.cover,
+    this.imageUrl,
     this.borderRadius,
   });
 
   final Product product;
   final BoxFit fit;
+  final String? imageUrl;
   final BorderRadius? borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    final rawUrl = product.imageUrl?.trim() ?? '';
+    final rawUrl = imageUrl?.trim() ??
+        (product.galleryImages.isEmpty ? '' : product.galleryImages.first);
     final uri = Uri.tryParse(rawUrl);
     final hasNetworkImage = rawUrl.isNotEmpty &&
         uri != null &&

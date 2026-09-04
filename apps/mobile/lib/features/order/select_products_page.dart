@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_theme.dart';
 import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
 import '../catalog/product_image.dart';
@@ -27,6 +28,14 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
   Map<String, int> _stock = const {};
   bool _loading = true;
   String? _error;
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -73,8 +82,11 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
     final canContinue = cart.isNotEmpty;
 
     return Scaffold(
+      backgroundColor: AppColors.surface0,
       appBar: AppBar(
-        title: const Text('Chọn sản phẩm'),
+        backgroundColor: AppColors.obsidian,
+        foregroundColor: AppColors.onDark,
+        title: const Text('Tạo đơn giao mới'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onBack,
@@ -90,7 +102,7 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
       body: SafeArea(child: _buildBody(theme)),
       bottomNavigationBar: Material(
         elevation: 8,
-        color: theme.colorScheme.surface,
+        color: AppColors.surface0,
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -120,6 +132,8 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
                   onPressed: canContinue ? widget.onContinue : null,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),
+                    backgroundColor: AppColors.fire,
+                    foregroundColor: Colors.white,
                     textStyle: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -163,8 +177,17 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
       );
     }
 
-    final items = _items ?? const <Product>[];
-    if (items.isEmpty) {
+    final allItems = _items ?? const <Product>[];
+    final query = _query.trim().toLowerCase();
+    final items = query.isEmpty
+        ? allItems
+        : allItems
+            .where((item) =>
+                item.name.toLowerCase().contains(query) ||
+                item.sku.toLowerCase().contains(query) ||
+                (item.description?.toLowerCase().contains(query) ?? false))
+            .toList(growable: false);
+    if (allItems.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -202,43 +225,112 @@ class _SelectProductsPageState extends ConsumerState<SelectProductsPage> {
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(gradient: AppColors.heroGradient),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bạn cần giao gì?',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: AppColors.onDark,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Chọn số lượng, chúng tôi sẽ chuẩn bị và giao nhanh.',
+                    style: TextStyle(
+                      color: AppColors.onDark.withValues(alpha: .65),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _query = value),
+                    style: const TextStyle(color: AppColors.obsidian),
+                    decoration: InputDecoration(
+                      hintText: 'Tìm sản phẩm…',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _query = '');
+                              },
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: const OutlineInputBorder(
+                        borderRadius: AppRadius.pill,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text(
-                'Chọn bình gas / sản phẩm cần giao.',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      query.isEmpty ? 'Sản phẩm đang bán' : 'Kết quả tìm kiếm',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text('${items.length} sản phẩm',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      )),
+                ],
+              ),
+            ),
+          ),
+          if (items.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(36),
+                child: Center(child: Text('Không tìm thấy sản phẩm phù hợp.')),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              sliver: SliverGrid.builder(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 230,
+                  mainAxisExtent: 326,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
                 ),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final p = items[index];
+                  final onHand = _stock[p.id] ?? 0;
+                  final qty = cart.quantityOf(p.id);
+                  return _ProductPickCard(
+                    product: p,
+                    quantity: qty,
+                    onHand: onHand,
+                    onIncrement: onHand <= 0 || qty >= onHand
+                        ? null
+                        : () =>
+                            ref.read(orderCartProvider.notifier).increment(p),
+                    onDecrement: () =>
+                        ref.read(orderCartProvider.notifier).decrement(p),
+                  );
+                },
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 230,
-                mainAxisExtent: 326,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final p = items[index];
-                final onHand = _stock[p.id] ?? 0;
-                final qty = cart.quantityOf(p.id);
-                return _ProductPickCard(
-                  product: p,
-                  quantity: qty,
-                  onHand: onHand,
-                  onIncrement: onHand <= 0 || qty >= onHand
-                      ? null
-                      : () => ref.read(orderCartProvider.notifier).increment(p),
-                  onDecrement: () =>
-                      ref.read(orderCartProvider.notifier).decrement(p),
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
@@ -268,10 +360,8 @@ class _ProductPickCard extends StatelessWidget {
     final oos = onHand <= 0;
 
     return Material(
-      color: selected
-          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.35)
-          : theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(12),
+      color: selected ? const Color(0xFFFFF0E6) : Colors.white,
+      borderRadius: AppRadius.md,
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -311,7 +401,7 @@ class _ProductPickCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.primary,
+                      color: AppColors.fire,
                     ),
                   ),
                   const Spacer(),

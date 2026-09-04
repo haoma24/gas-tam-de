@@ -12,6 +12,7 @@ import 'features/auth/google_login_page.dart';
 import 'features/billing/admin_debts_page.dart';
 import 'features/catalog/admin_product_form_page.dart';
 import 'features/catalog/admin_products_page.dart';
+import 'features/catalog/product_detail_page.dart';
 import 'features/catalog/catalog_models.dart';
 import 'features/dashboard/admin_dashboard_page.dart';
 import 'features/home/customer_shop_page.dart';
@@ -72,6 +73,8 @@ final _router = GoRouter(
                   ? context.push('/profile')
                   : context.push('/order'),
               onProfile: () => context.push('/profile'),
+              onOpenProduct: (product) =>
+                  context.push('/products/${product.id}', extra: product),
             );
           }
 
@@ -127,6 +130,18 @@ final _router = GoRouter(
           );
         },
       ),
+    ),
+    GoRoute(
+      path: '/products/:id',
+      builder: (context, state) {
+        final product = state.extra is Product ? state.extra as Product : null;
+        return ProductDetailRoutePage(
+          productId: state.pathParameters['id'] ?? '',
+          initialProduct: product,
+          onBack: () => _popOrGo(context, '/'),
+          onCheckout: () => context.go('/order'),
+        );
+      },
     ),
     GoRoute(
       path: '/order',
