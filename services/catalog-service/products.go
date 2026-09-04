@@ -21,36 +21,39 @@ type catalogService struct {
 }
 
 type product struct {
-	ID          string  `json:"id"`
-	SKU         string  `json:"sku"`
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	Unit        string  `json:"unit"`
-	SalePrice   int64   `json:"sale_price"`
-	Active      bool    `json:"active"`
-	ImageURL    *string `json:"image_url,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID          string   `json:"id"`
+	SKU         string   `json:"sku"`
+	Name        string   `json:"name"`
+	Description *string  `json:"description,omitempty"`
+	Unit        string   `json:"unit"`
+	SalePrice   int64    `json:"sale_price"`
+	Active      bool     `json:"active"`
+	ImageURL    *string  `json:"image_url,omitempty"`
+	ImageURLs   []string `json:"image_urls,omitempty"`
+	CreatedAt   string   `json:"created_at"`
+	UpdatedAt   string   `json:"updated_at"`
 }
 
 type createProductBody struct {
-	SKU         string  `json:"sku"`
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	Unit        string  `json:"unit"`
-	SalePrice   *int64  `json:"sale_price"`
-	Active      *bool   `json:"active"`
-	ImageURL    *string `json:"image_url"`
+	SKU         string   `json:"sku"`
+	Name        string   `json:"name"`
+	Description *string  `json:"description"`
+	Unit        string   `json:"unit"`
+	SalePrice   *int64   `json:"sale_price"`
+	Active      *bool    `json:"active"`
+	ImageURL    *string  `json:"image_url"`
+	ImageURLs   []string `json:"image_urls"`
 }
 
 type patchProductBody struct {
-	SKU         *string `json:"sku"`
-	Name        *string `json:"name"`
-	Description *string `json:"description"`
-	Unit        *string `json:"unit"`
-	SalePrice   *int64  `json:"sale_price"`
-	Active      *bool   `json:"active"`
-	ImageURL    *string `json:"image_url"`
+	SKU         *string   `json:"sku"`
+	Name        *string   `json:"name"`
+	Description *string   `json:"description"`
+	Unit        *string   `json:"unit"`
+	SalePrice   *int64    `json:"sale_price"`
+	Active      *bool     `json:"active"`
+	ImageURL    *string   `json:"image_url"`
+	ImageURLs   *[]string `json:"image_urls"`
 }
 
 type productListResponse struct {
@@ -222,7 +225,7 @@ func (s *catalogService) handleCreateProduct(w http.ResponseWriter, r *http.Requ
 		INSERT INTO products (id, sku, name, description, unit, sale_price, active, image_url, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, sku, name, nullStringPtr(body.Description), unit, *body.SalePrice, boolToInt(active),
-		nullStringPtr(body.ImageURL), now, now,
+		nullString(imageStorage(body.ImageURL, body.ImageURLs)), now, now,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -284,7 +287,7 @@ func (s *catalogService) handlePatchProduct(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if body.SKU == nil && body.Name == nil && body.Description == nil && body.Unit == nil &&
-		body.SalePrice == nil && body.Active == nil && body.ImageURL == nil {
+		body.SalePrice == nil && body.Active == nil && body.ImageURL == nil && body.ImageURLs == nil {
 		httpx.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "at least one field is required")
 		return
 	}
@@ -323,6 +326,7 @@ func (s *catalogService) handlePatchProduct(w http.ResponseWriter, r *http.Reque
 	active := existing.Active
 	description := existing.Description
 	imageURL := existing.ImageURL
+	imageURLs := existing.ImageURLs
 
 	if body.SKU != nil {
 		sku = strings.TrimSpace(*body.SKU)
@@ -344,6 +348,15 @@ func (s *catalogService) handlePatchProduct(w http.ResponseWriter, r *http.Reque
 	}
 	if body.ImageURL != nil {
 		imageURL = body.ImageURL
+		imageURLs = []string{strings.TrimSpace(*body.ImageURL)}
+	}
+	if body.ImageURLs != nil {
+		imageURLs = *body.ImageURLs
+		imageURL = nil
+		if normalized := normalizeImageURLs(imageURLs); len(normalized) > 0 {
+			imageURL = &normalized[0]
+			imageURLs = normalized
+		}
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -362,7 +375,7 @@ func (s *catalogService) handlePatchProduct(w http.ResponseWriter, r *http.Reque
 		UPDATE products
 		SET sku = ?, name = ?, description = ?, unit = ?, sale_price = ?, active = ?, image_url = ?, updated_at = ?
 		WHERE id = ?`,
-		sku, name, nullStringPtr(description), unit, salePrice, boolToInt(active), nullStringPtr(imageURL), now, id,
+		sku, name, nullStringPtr(description), unit, salePrice, boolToInt(active), nullString(imageStorage(imageURL, imageURLs)), now, id,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -433,10 +446,54 @@ func scanProduct(row rowScanner) (product, error) {
 		p.Description = &v
 	}
 	if imageURL.Valid {
-		v := imageURL.String
-		p.ImageURL = &v
+		p.ImageURLs = splitImageURLs(imageURL.String)
+		if len(p.ImageURLs) > 0 {
+			v := p.ImageURLs[0]
+			p.ImageURL = &v
+		}
 	}
 	return p, nil
+}
+
+func normalizeImageURLs(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
+func splitImageURLs(raw string) []string {
+	raw = strings.ReplaceAll(raw, "\r\n", "\n")
+	return normalizeImageURLs(strings.Split(raw, "\n"))
+}
+
+func imageStorage(legacy *string, images []string) *string {
+	values := normalizeImageURLs(images)
+	if len(values) == 0 && legacy != nil {
+		values = normalizeImageURLs([]string{*legacy})
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	joined := strings.Join(values, "\n")
+	return &joined
+}
+
+func nullString(value *string) any {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return nil
+	}
+	return *value
 }
 
 func insertPriceHistory(tx *sql.Tx, productID string, salePrice int64, changedAt, changedBy string) error {

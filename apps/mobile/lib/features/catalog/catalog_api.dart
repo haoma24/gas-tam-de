@@ -70,6 +70,7 @@ class CatalogApi {
     String? description,
     bool active = true,
     String? imageUrl,
+    List<String>? imageUrls,
   }) async {
     try {
       final body = <String, dynamic>{
@@ -85,6 +86,7 @@ class CatalogApi {
       if (imageUrl != null && imageUrl.trim().isNotEmpty) {
         body['image_url'] = imageUrl.trim();
       }
+      if (imageUrls != null) body['image_urls'] = imageUrls;
       final res = await _dio.post<Map<String, dynamic>>(
         '/v1/admin/products',
         data: body,
@@ -112,6 +114,7 @@ class CatalogApi {
     int? salePrice,
     bool? active,
     String? imageUrl,
+    List<String>? imageUrls,
   }) async {
     try {
       final body = <String, dynamic>{};
@@ -122,6 +125,7 @@ class CatalogApi {
       if (salePrice != null) body['sale_price'] = salePrice;
       if (active != null) body['active'] = active;
       if (imageUrl != null) body['image_url'] = imageUrl;
+      if (imageUrls != null) body['image_urls'] = imageUrls;
 
       final res = await _dio.patch<Map<String, dynamic>>(
         '/v1/admin/products/$id',

@@ -97,8 +97,7 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
       setState(() {
         _quoteLoading = false;
         _quote = null;
-        _error =
-            'Chưa đăng nhập. Quay lại xác thực OTP trước khi đặt đơn.';
+        _error = 'Chưa đăng nhập. Vui lòng đăng nhập Google trước khi đặt đơn.';
       });
       return;
     }
@@ -121,8 +120,7 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
         _quote = quote;
         _quoteLoading = false;
         if (!quote.inRange) {
-          _error =
-              'Địa chỉ ngoài phạm vi giao '
+          _error = 'Địa chỉ ngoài phạm vi giao '
               '(khoảng ${_fmtKm(quote.distanceKm)} km, '
               'tối đa ${_fmtKm(quote.maxRadiusKm)} km). '
               'Quay lại chọn vị trí gần hơn.';
@@ -168,7 +166,7 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
     if (session == null) {
       setState(
         () => _error =
-            'Chưa đăng nhập. Quay lại xác thực OTP trước khi đặt đơn.',
+            'Chưa đăng nhập. Vui lòng đăng nhập Google trước khi đặt đơn.',
       );
       return;
     }
@@ -192,8 +190,7 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
       if (!quote.inRange) {
         setState(() {
           _submitting = false;
-          _error =
-              'Địa chỉ ngoài phạm vi giao '
+          _error = 'Địa chỉ ngoài phạm vi giao '
               '(khoảng ${_fmtKm(quote.distanceKm)} km, '
               'tối đa ${_fmtKm(quote.maxRadiusKm)} km). '
               'Quay lại chọn vị trí gần hơn.';
@@ -219,6 +216,8 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
       ref.invalidate(customerProfileProvider);
       ref.invalidate(customerOrderPrefillProvider);
       ref.read(orderCartProvider.notifier).clear();
+      ref.read(orderAddressProvider.notifier).clear();
+      ref.read(orderGeoCheckProvider.notifier).clear();
       widget.onPlaced(order);
     } on OrderApiException catch (e) {
       if (!mounted) return;
@@ -256,7 +255,7 @@ class _OrderReviewPageState extends ConsumerState<OrderReviewPage> {
     final prefillAsync = ref.watch(customerOrderPrefillProvider);
     final prefillHint = prefillAsync.maybeWhen(
       data: (p) => p.hasName
-          ? 'Đã nhớ tên theo SĐT — chỉnh nếu cần.'
+          ? 'Đã nhớ tên trong hồ sơ — chỉnh nếu cần.'
           : 'Lần đầu đặt gas: nhập họ tên để cửa hàng gọi giao.',
       orElse: () => 'Lần đầu đặt gas: nhập họ tên để cửa hàng gọi giao.',
     );

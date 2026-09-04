@@ -58,7 +58,10 @@ func (p *photonGeocoder) Search(ctx context.Context, q string, limit int) ([]geo
 	qs := u.Query()
 	qs.Set("q", q)
 	qs.Set("limit", strconv.Itoa(limit))
-	qs.Set("lang", "vi")
+	// The public Photon instance does not guarantee every translation code and
+	// may reject unsupported `lang` values with HTTP 400. Prefer Vietnamese via
+	// the standard header and keep results inside Vietnam instead.
+	qs.Set("countrycode", "VN")
 	u.RawQuery = qs.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
@@ -67,6 +70,7 @@ func (p *photonGeocoder) Search(ctx context.Context, q string, limit int) ([]geo
 	}
 	req.Header.Set("User-Agent", p.userAgent)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Language", "vi,en;q=0.8")
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {

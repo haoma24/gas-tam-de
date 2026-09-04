@@ -33,6 +33,9 @@ func retryUntil(budget time.Duration, what string, fn func() error) error {
 		if err == nil {
 			return nil
 		}
+		if budget <= 0 {
+			return err
+		}
 		if time.Now().After(deadline) {
 			return err
 		}

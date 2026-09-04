@@ -74,7 +74,7 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
       _descriptionController.text = p.description ?? '';
       _unitController.text = p.unit;
       _priceController.text = p.salePrice.toString();
-      _imageUrlController.text = p.imageUrl ?? '';
+      _imageUrlController.text = p.galleryImages.join('\n');
       setState(() {
         _active = p.active;
         _bootstrapping = false;
@@ -177,7 +177,11 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
       return;
     }
     final description = _descriptionController.text.trim();
-    final imageUrl = _imageUrlController.text.trim();
+    final imageUrls = _imageUrlController.text
+        .split(RegExp(r'[\r\n]+'))
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
 
     setState(() => _loading = true);
     try {
@@ -191,7 +195,7 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
           salePrice: price,
           active: _active,
           description: description,
-          imageUrl: imageUrl,
+          imageUrls: imageUrls,
         );
         if (!mounted) return;
         widget.onDone();
@@ -203,7 +207,7 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
           salePrice: price,
           active: _active,
           description: description.isEmpty ? null : description,
-          imageUrl: imageUrl.isEmpty ? null : imageUrl,
+          imageUrls: imageUrls,
         );
         if (!mounted) return;
         final inbound = await _promptInitialInbound(created);
@@ -400,22 +404,28 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
                         TextFormField(
                           controller: _imageUrlController,
                           enabled: !_loading,
-                          textInputAction: TextInputAction.done,
+                          minLines: 3,
+                          maxLines: 6,
+                          keyboardType: TextInputType.multiline,
                           decoration: const InputDecoration(
-                            labelText: 'URL ảnh (tuỳ chọn)',
-                            hintText: 'https://.../san-pham.jpg',
-                            helperText: 'Dùng link ảnh trực tiếp http/https.',
+                            labelText: 'URL ảnh sản phẩm (tuỳ chọn)',
+                            hintText:
+                                'https://.../anh-1.jpg\nhttps://.../anh-2.jpg',
+                            helperText:
+                                'Mỗi dòng một ảnh; ảnh đầu tiên là ảnh đại diện.',
                             border: OutlineInputBorder(),
                           ),
                           validator: (value) {
                             final raw = value?.trim() ?? '';
                             if (raw.isEmpty) return null;
-                            final uri = Uri.tryParse(raw);
-                            if (uri == null ||
-                                (uri.scheme != 'http' &&
-                                    uri.scheme != 'https') ||
-                                uri.host.isEmpty) {
-                              return 'URL ảnh phải bắt đầu bằng http:// hoặc https://.';
+                            for (final line in raw.split(RegExp(r'[\r\n]+'))) {
+                              final uri = Uri.tryParse(line.trim());
+                              if (uri == null ||
+                                  (uri.scheme != 'http' &&
+                                      uri.scheme != 'https') ||
+                                  uri.host.isEmpty) {
+                                return 'Mỗi URL ảnh phải bắt đầu bằng http:// hoặc https://.';
+                              }
                             }
                             return null;
                           },

@@ -47,9 +47,13 @@ func testGeoService(t *testing.T, gc geocoder, limiter *geoSearchRateLimiter) (*
 
 func TestSearchPhotonProxy(t *testing.T) {
 	var gotUA string
+	var gotLanguage string
+	var gotCountry string
 	var gotPath string
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		gotUA = req.Header.Get("User-Agent")
+		gotLanguage = req.Header.Get("Accept-Language")
+		gotCountry = req.URL.Query().Get("countrycode")
 		gotPath = req.URL.Path
 		body := `{
 			"type":"FeatureCollection",
@@ -75,6 +79,9 @@ func TestSearchPhotonProxy(t *testing.T) {
 	}
 	if gotUA != "GasTamDe-Test/1.0" {
 		t.Fatalf("user-agent=%q", gotUA)
+	}
+	if gotLanguage != "vi,en;q=0.8" || gotCountry != "VN" {
+		t.Fatalf("localization language=%q country=%q", gotLanguage, gotCountry)
 	}
 	if gotPath != "/api/" {
 		t.Fatalf("path=%q", gotPath)

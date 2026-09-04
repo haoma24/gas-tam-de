@@ -8,6 +8,7 @@ import '../auth/me_api.dart';
 import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
 import '../catalog/product_image.dart';
+import '../order/order_cart.dart';
 
 /// Post-OTP brand shop — hero + catalogue cards + bottom nav.
 class CustomerShopPage extends ConsumerStatefulWidget {
@@ -15,10 +16,12 @@ class CustomerShopPage extends ConsumerStatefulWidget {
     super.key,
     required this.onStartOrder,
     required this.onProfile,
+    required this.onOpenProduct,
   });
 
   final VoidCallback onStartOrder;
   final VoidCallback onProfile;
+  final ValueChanged<Product> onOpenProduct;
 
   @override
   ConsumerState<CustomerShopPage> createState() => _CustomerShopPageState();
@@ -28,6 +31,14 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
   List<Product>? _products;
   bool _loading = true;
   String? _error;
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -93,6 +104,7 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
                 onStartOrder: widget.onStartOrder,
                 onProfile: widget.onProfile,
               ),
+              SliverToBoxAdapter(child: _buildSearch(context)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
@@ -164,7 +176,7 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
         ),
       ];
     }
-    final items = _products ?? const <Product>[];
+    final items = _filteredProducts;
     if (items.isEmpty) {
       return [
         const SliverToBoxAdapter(
@@ -198,11 +210,114 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
           itemCount: items.length,
           itemBuilder: (context, i) => _ProductCard(
             product: items[i],
-            onOrder: widget.onStartOrder,
+            onOrder: () {
+              ref.read(orderCartProvider.notifier).increment(items[i]);
+              widget.onStartOrder();
+            },
+            onOpen: () => widget.onOpenProduct(items[i]),
           ),
         ),
       ),
     ];
+  }
+
+  List<Product> get _filteredProducts {
+    final items = _products ?? const <Product>[];
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return items;
+    return items.where((product) {
+      return product.name.toLowerCase().contains(query) ||
+          product.sku.toLowerCase().contains(query) ||
+          (product.description?.toLowerCase().contains(query) ?? false);
+    }).toList(growable: false);
+  }
+
+  Widget _buildSearch(BuildContext context) {
+    final suggestions = _query.trim().isEmpty
+        ? const <Product>[]
+        : _filteredProducts.take(4).toList(growable: false);
+    return Transform.translate(
+      offset: const Offset(0, -16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Material(
+          color: AppColors.surface0,
+          elevation: 8,
+          shadowColor: AppColors.obsidian.withValues(alpha: .12),
+          borderRadius: AppRadius.md,
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
+                decoration: InputDecoration(
+                  hintText: 'Tìm bình gas, phụ kiện…',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 17),
+                ),
+              ),
+              if (suggestions.isNotEmpty) ...[
+                const Divider(height: 1),
+                for (final product in suggestions)
+                  InkWell(
+                    onTap: () => widget.onOpenProduct(product),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: ProductImage(
+                              product: product,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  formatVnd(product.salePrice),
+                                  style: const TextStyle(
+                                    color: AppColors.fire,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -385,17 +500,22 @@ class _HeroChip extends StatelessWidget {
 // Product card
 // ─────────────────────────────────────────────
 class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.product, required this.onOrder});
+  const _ProductCard({
+    required this.product,
+    required this.onOrder,
+    required this.onOpen,
+  });
 
   final Product product;
   final VoidCallback onOrder;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final desc = product.description?.trim();
 
     return GestureDetector(
-      onTap: onOrder,
+      onTap: onOpen,
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -456,22 +576,25 @@ class _ProductCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppColors.amber, AppColors.fire],
+                    GestureDetector(
+                      onTap: onOrder,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [AppColors.amber, AppColors.fire],
+                          ),
+                          borderRadius: AppRadius.pill,
                         ),
-                        borderRadius: AppRadius.pill,
-                      ),
-                      child: Text(
-                        'Đặt / ${product.unit}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.obsidian,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
+                        child: Text(
+                          'Đặt / ${product.unit}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.obsidian,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),

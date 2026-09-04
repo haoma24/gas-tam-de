@@ -304,6 +304,12 @@ const docTemplate = `{
                 "image_url": {
                     "type": "string"
                 },
+                "image_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
@@ -343,6 +349,12 @@ const docTemplate = `{
                 "image_url": {
                     "type": "string"
                 },
+                "image_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
@@ -374,6 +386,12 @@ const docTemplate = `{
                 },
                 "image_url": {
                     "type": "string"
+                },
+                "image_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "name": {
                     "type": "string"

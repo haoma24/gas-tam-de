@@ -11,6 +11,7 @@ class Product {
     required this.updatedAt,
     this.description,
     this.imageUrl,
+    this.imageUrls = const [],
   });
 
   final String id;
@@ -21,10 +22,20 @@ class Product {
   final int salePrice;
   final bool active;
   final String? imageUrl;
+  final List<String> imageUrls;
   final String createdAt;
   final String updatedAt;
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    final rawImages = json['image_urls'];
+    final images = rawImages is List
+        ? rawImages
+            .whereType<String>()
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false)
+        : const <String>[];
+    final legacyImage = (json['image_url'] as String?)?.trim();
     return Product(
       id: json['id'] as String? ?? '',
       sku: json['sku'] as String? ?? '',
@@ -33,10 +44,24 @@ class Product {
       unit: json['unit'] as String? ?? 'binh',
       salePrice: (json['sale_price'] as num?)?.toInt() ?? 0,
       active: json['active'] as bool? ?? true,
-      imageUrl: json['image_url'] as String?,
+      imageUrl: legacyImage,
+      imageUrls: images.isNotEmpty
+          ? images
+          : legacyImage != null && legacyImage.isNotEmpty
+              ? [legacyImage]
+              : const [],
       createdAt: json['created_at'] as String? ?? '',
       updatedAt: json['updated_at'] as String? ?? '',
     );
+  }
+
+  List<String> get galleryImages {
+    final values = <String>{};
+    for (final value in [if (imageUrl != null) imageUrl!, ...imageUrls]) {
+      final normalized = value.trim();
+      if (normalized.isNotEmpty) values.add(normalized);
+    }
+    return values.toList(growable: false);
   }
 }
 
