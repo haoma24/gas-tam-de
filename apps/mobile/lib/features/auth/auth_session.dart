@@ -171,6 +171,32 @@ class AuthSessionNotifier extends StateNotifier<AuthSession?> {
     await _store.save(session);
   }
 
+  /// Keep the greeting and persisted admin identity in sync after the current
+  /// account changes its username or display name. Tokens remain unchanged.
+  Future<void> updateAdminIdentity({
+    required String username,
+    String? displayName,
+  }) async {
+    final saved = state;
+    if (saved == null || !saved.isAdmin) return;
+    await setSession(AuthSession(
+      accessToken: saved.accessToken,
+      refreshToken: saved.refreshToken,
+      tokenType: saved.tokenType,
+      expiresIn: saved.expiresIn,
+      accessExpiresAt: saved.accessExpiresAt,
+      user: AuthUser(
+        id: saved.user.id,
+        role: saved.user.role,
+        phoneMasked: saved.user.phoneMasked,
+        username: username,
+        displayName: displayName,
+        email: saved.user.email,
+        pictureUrl: saved.user.pictureUrl,
+      ),
+    ));
+  }
+
   Future<void> clear() async {
     state = null;
     await _store.clear();
