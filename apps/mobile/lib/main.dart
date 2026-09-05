@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/router.dart';
 import 'core/ui/app_theme_data.dart';
+import 'core/ui/app_theme_mode.dart';
 import 'features/auth/auth_session.dart';
 
 Future<void> main() async {
@@ -30,7 +31,7 @@ class GasTamDeApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: ref.watch(routerProvider),
       builder: (context, child) {
         if (boot.isLoading) {

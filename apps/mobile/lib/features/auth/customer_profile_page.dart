@@ -346,6 +346,8 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
               ],
             ),
             const VGap(AppSpacing.xl),
+            const AppThemeModeSection(),
+            const VGap(AppSpacing.xl),
             AppNavTile(
               icon: Icons.receipt_long_outlined,
               title: 'Đơn hàng của tôi',

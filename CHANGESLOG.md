@@ -5,6 +5,26 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-09-05] Thêm nút chọn giao diện Sáng/Tối và sửa mất icon tab admin
+
+- **Loại:** feat + fix
+- **Phạm vi:** `apps/mobile` (theme mode, trang Cài đặt admin, trang Hồ sơ khách), `deploy/nginx.web.conf`
+- **Tóm tắt:** Bản refactor minimalism thêm dark theme nhưng `main.dart` để cứng `themeMode: ThemeMode.system` và không có chỗ ghi đè, nên máy đang để dark thì app luôn tối không có đường ra. Nay có khối «Giao diện» (Hệ thống / Sáng / Tối) lưu vào máy, xuất hiện ở cả Cài đặt admin lẫn Hồ sơ khách. Hai tab «Báo cáo» và «Cài đặt» mất icon **không phải do code** mà do trình duyệt dùng lại file font tree-shaken của bản deploy trước — bản đó chưa dùng `bar_chart`/`settings` nên font thiếu đúng hai glyph này; nginx trước đây không gửi `Cache-Control` cho các URL không hash của Flutter.
+- **Chi tiết:**
+  - `core/ui/app_theme_mode.dart` (mới): `ThemeModeController extends StateNotifier<ThemeMode>` đọc/ghi `SharedPreferences` khoá `gas_tam_de.theme_mode.v1`, dùng lại `sharedPreferencesProvider` sẵn có nên khôi phục ngay ở build đầu, không nhấp nháy theme
+  - `AppThemeModeSection` — `AppSection` «Giao diện» chứa `SegmentedButton<ThemeMode>` ba lựa chọn, dùng chung cho admin và khách để hai vai không lệch nhau
+  - `main.dart`: `themeMode: ThemeMode.system` → `themeMode: ref.watch(themeModeProvider)`
+  - Gắn vào `admin_settings_page.dart` (dưới thẻ tài khoản) và `customer_profile_page.dart` (trên «Đơn hàng của tôi»)
+  - Đã loại giả thuyết `const_finder` bỏ sót `IconData` trong const record: parse bảng `cmap` của `MaterialIcons-Regular.otf` vừa build cho thấy đủ cả 8 codepoint, build lại và mở Chrome thì bốn icon hiện đủ
+  - Nguyên nhân thật: `git grep` trên `8d8294c` xác nhận bản trước không dùng `bar_chart`/`settings` ⇒ font subset của bản đó thiếu glyph; Flutter phục vụ `assets/**` và `main.dart.js` ở URL cố định không hash; service worker của SDK này đã deprecated và tự huỷ đăng ký; nginx không gửi `Cache-Control` ⇒ trình duyệt áp heuristic freshness, tải JS mới nhưng dùng lại font cũ
+  - `deploy/nginx.web.conf`: thêm `Cache-Control "no-cache"` cho `main.dart.js|flutter.js|flutter_bootstrap.js`, `/assets/` và `/canvaskit/`. `no-cache` không tắt cache, chỉ ép revalidate bằng ETag (`etag on` đã bật sẵn) — file không đổi trả 304
+  - **Máy đang bị lỗi cần hard reload một lần** (`Ctrl+Shift+R`) để bỏ font cũ; từ sau đó mọi deploy tự lấy đúng asset
+  - Thêm `test/theme_mode_test.dart` (2 test: khôi phục sau restart, và đổi theme qua UI); `flutter analyze` vẫn 7 info cũ, 56/56 test pass, build web thành công
+  - Chưa kiểm được: `nginx -t` (Docker daemon không chạy) và rà mắt admin nav ở light mode (extension Chrome mất kết nối)
+- **Workdocs:** `docs/workdocs_theme_toggle_va_icon_admin_05092026/`
+- **Liên quan:** `docs/workdocs_refactor_ui_minimalism_05092026/`
+
+
 ## [2026-09-05] Refactor giao diện + luồng sử dụng theo hướng modern minimalism
 
 - **Loại:** refactor

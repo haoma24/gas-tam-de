@@ -64,6 +64,8 @@ class AdminSettingsPage extends ConsumerWidget {
             ],
           ),
           const VGap(AppSpacing.xl),
+          const AppThemeModeSection(),
+          const VGap(AppSpacing.xl),
           const AppSectionTitle('Cửa hàng'),
           AppNavTile(
             icon: Icons.inventory_2_outlined,
