@@ -13,7 +13,7 @@ Widget buildGoogleSignInButton({
         style: TextStyle(
           color: Color(0xFF4285F4),
           fontSize: 20,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
         ),
       ),
       label: const Text('Tiếp tục với Google'),

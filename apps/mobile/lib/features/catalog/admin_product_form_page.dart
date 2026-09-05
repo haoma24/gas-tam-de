@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/ui.dart';
 import '../inventory/inventory_api.dart';
 import '../inventory/inventory_models.dart';
 import 'catalog_api.dart';
@@ -11,15 +12,11 @@ import 'catalog_models.dart';
 class AdminProductFormPage extends ConsumerStatefulWidget {
   const AdminProductFormPage({
     super.key,
-    required this.onDone,
-    required this.onBack,
     this.productId,
   });
 
   /// When null → create mode; otherwise load + patch.
   final String? productId;
-  final VoidCallback onDone;
-  final VoidCallback onBack;
 
   bool get isEdit => productId != null && productId!.isNotEmpty;
 
@@ -198,7 +195,7 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
           imageUrls: imageUrls,
         );
         if (!mounted) return;
-        widget.onDone();
+        popOrGo(context, '/admin/products');
       } else {
         final created = await api.createProduct(
           sku: sku,
@@ -250,7 +247,7 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
           );
         }
         if (!mounted) return;
-        widget.onDone();
+        popOrGo(context, '/admin/products');
       }
     } on CatalogApiException catch (e) {
       if (!mounted) return;
@@ -273,12 +270,13 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
         title: Text(title),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: _loading ? null : widget.onBack,
+          onPressed:
+              _loading ? null : () => popOrGo(context, '/admin/products'),
         ),
       ),
       body: SafeArea(
         child: _bootstrapping
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppLoading()
             : (_original == null && widget.isEdit && _error != null)
                 ? Center(
                     child: Padding(
@@ -295,7 +293,8 @@ class _AdminProductFormPageState extends ConsumerState<AdminProductFormPage> {
                           ),
                           const SizedBox(height: 16),
                           FilledButton(
-                            onPressed: widget.onBack,
+                            onPressed: () =>
+                                popOrGo(context, '/admin/products'),
                             child: const Text('Quay lại'),
                           ),
                         ],

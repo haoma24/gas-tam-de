@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/ui.dart';
+
 import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
 import 'inventory_api.dart';
@@ -11,10 +13,7 @@ import 'inventory_models.dart';
 class AdminInventoryPage extends ConsumerStatefulWidget {
   const AdminInventoryPage({
     super.key,
-    required this.onBack,
   });
-
-  final VoidCallback onBack;
 
   @override
   ConsumerState<AdminInventoryPage> createState() => _AdminInventoryPageState();
@@ -140,10 +139,6 @@ class _AdminInventoryPageState extends ConsumerState<AdminInventoryPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tồn kho'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onBack,
-        ),
         actions: [
           IconButton(
             tooltip: 'Tải lại',
@@ -168,66 +163,25 @@ class _AdminInventoryPageState extends ConsumerState<AdminInventoryPage> {
 
   Widget _buildBody(ThemeData theme) {
     if (_loading && _data == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoading();
     }
     if (_error != null && _data == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _load,
-                child: const Text('Thử lại'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _load);
     }
 
     final items = _data?.items ?? const <StockItem>[];
     if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Chưa có tồn kho',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Sản phẩm trong danh mục sẽ tự có dòng tồn 0 khi được đồng bộ. '
-                'Nhập kho để cộng số lượng thực tế.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: () => _openMovement(
-                  type: StockMovementType.inn,
-                  createNew: true,
-                ),
-                icon: const Icon(Icons.add),
-                label: const Text('Nhập kho mới'),
-              ),
-            ],
+      return AppEmpty(
+        icon: Icons.inventory_2_outlined,
+        title: 'Chưa có tồn kho',
+        body: 'Sản phẩm trong danh mục sẽ tự có dòng tồn 0 khi được đồng bộ. '
+            'Nhập kho để cộng số lượng thực tế.',
+        action: AppButton.primary(
+          label: 'Nhập kho mới',
+          icon: Icons.add_rounded,
+          onPressed: () => _openMovement(
+            type: StockMovementType.inn,
+            createNew: true,
           ),
         ),
       );
@@ -283,7 +237,10 @@ class _StockTile extends StatelessWidget {
 
     return Material(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.md,
+        side: BorderSide(color: theme.colorScheme.outline),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
         child: Row(
@@ -368,7 +325,7 @@ class _ManualEntryWarning extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.sm,
       ),
       child: Text(
         'Không tải được danh mục sản phẩm. Mã nhập tay phải trùng đúng id '
@@ -389,7 +346,7 @@ class _LowStockChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: AppRadius.sm,
       ),
       child: Text(
         'Sắp hết',
@@ -463,8 +420,7 @@ class _MovementDialogState extends State<_MovementDialog> {
   late final TextEditingController _noteCtrl;
   String? _localError;
 
-  bool get _needsCreateFields =>
-      widget.createNew || widget.item == null;
+  bool get _needsCreateFields => widget.createNew || widget.item == null;
 
   /// Catalog products that do not have a stock row yet.
   List<Product> get _selectableProducts => widget.products
@@ -563,7 +519,8 @@ class _MovementDialogState extends State<_MovementDialog> {
           sku = _skuCtrl.text.trim();
           name = _nameCtrl.text.trim();
           if (sku.isEmpty || name.isEmpty) {
-            setState(() => _localError = 'SKU và tên bắt buộc khi tạo tồn mới.');
+            setState(
+                () => _localError = 'SKU và tên bắt buộc khi tạo tồn mới.');
             return;
           }
           reorder = int.tryParse(_reorderCtrl.text.trim()) ?? 0;
@@ -713,8 +670,9 @@ class _MovementDialogState extends State<_MovementDialog> {
                         DropdownMenuItem<Product>(
                           value: p,
                           child: Text(
-                            p.active ? '${p.name} · ${p.sku}'
-                                     : '${p.name} · ${p.sku} (ngừng bán)',
+                            p.active
+                                ? '${p.name} · ${p.sku}'
+                                : '${p.name} · ${p.sku} (ngừng bán)',
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

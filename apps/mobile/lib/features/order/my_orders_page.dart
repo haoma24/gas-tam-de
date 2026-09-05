@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../catalog/catalog_models.dart';
+import '../../core/ui/ui.dart';
 import 'order_api.dart';
 import 'order_models.dart';
 
@@ -9,10 +9,7 @@ import 'order_models.dart';
 class MyOrdersPage extends ConsumerStatefulWidget {
   const MyOrdersPage({
     super.key,
-    required this.onBack,
   });
-
-  final VoidCallback onBack;
 
   @override
   ConsumerState<MyOrdersPage> createState() => _MyOrdersPageState();
@@ -107,10 +104,6 @@ class _MyOrdersPageState extends ConsumerState<MyOrdersPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Đơn của tôi'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onBack,
-        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -123,96 +116,106 @@ class _MyOrdersPageState extends ConsumerState<MyOrdersPage> {
   }
 
   Widget _body(ThemeData theme) {
-    if (_loading && _items == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_loading && _items == null) return const AppLoading();
     if (_error != null && _items == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              FilledButton(onPressed: _load, child: const Text('Thử lại')),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _load);
     }
+
     final items = _items ?? const <AdminOrder>[];
     if (items.isEmpty) {
-      return Center(
-        child: Text(
-          'Chưa có đơn nào.',
-          style: theme.textTheme.titleMedium,
-        ),
+      return const AppEmpty(
+        icon: Icons.receipt_long_outlined,
+        title: 'Chưa có đơn nào',
+        body: 'Đơn bạn đặt sẽ hiện ở đây.',
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, i) {
-        final o = items[i];
-        final pending = o.status.toUpperCase() == 'PENDING';
-        return Material(
-          color: theme.colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        o.status,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      formatVnd(o.total),
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(o.addressText, maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(
-                  o.createdAt,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (pending) ...[
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton(
-                      onPressed: _busyId == o.id ? null : () => _cancel(o),
-                      child: _busyId == o.id
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Hủy đơn'),
-                    ),
-                  ),
-                ],
-              ],
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.xxl,
+        ),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const VGap(AppSpacing.sm),
+        itemBuilder: (context, i) => _OrderCard(
+          order: items[i],
+          busy: _busyId == items[i].id,
+          onCancel: () => _cancel(items[i]),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderCard extends StatelessWidget {
+  const _OrderCard({
+    required this.order,
+    required this.busy,
+    required this.onCancel,
+  });
+
+  final AdminOrder order;
+  final bool busy;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final status = order.status.toUpperCase();
+    final pending = status == OrderStatus.pending;
+    final tone = switch (status) {
+      OrderStatus.completed => AppBadgeTone.success,
+      OrderStatus.cancelled => AppBadgeTone.danger,
+      _ => AppBadgeTone.accent,
+    };
+
+    return AppSection(
+      children: [
+        Row(
+          children: [
+            AppBadge(orderStatusLabelVi(order.status), tone: tone),
+            const Spacer(),
+            MoneyText(order.total, emphasis: MoneyEmphasis.total),
+          ],
+        ),
+        const VGap(AppSpacing.md),
+        Text(
+          order.addressText,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: context.text.bodyLarge,
+        ),
+        if (order.items.isNotEmpty) ...[
+          const VGap(AppSpacing.xs),
+          Text(
+            order.items.map((i) => '${i.productName} × ${i.qty}').join(' · '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: context.text.bodySmall?.copyWith(color: p.inkMuted),
+          ),
+        ],
+        const VGap(AppSpacing.xs),
+        Text(
+          order.createdAt,
+          style: context.text.bodySmall?.copyWith(color: p.inkFaint),
+        ),
+        if (pending) ...[
+          const VGap(AppSpacing.md),
+          Align(
+            alignment: Alignment.centerRight,
+            child: AppButton.danger(
+              label: 'Hủy đơn',
+              loading: busy,
+              onPressed: busy ? null : onCancel,
             ),
           ),
-        );
-      },
+        ],
+      ],
     );
   }
 }

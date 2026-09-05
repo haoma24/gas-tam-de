@@ -370,3 +370,27 @@ class CompletedOrder {
     );
   }
 }
+
+/// Order status values as returned by order-service.
+abstract final class OrderStatus {
+  static const pending = 'PENDING';
+  static const completed = 'COMPLETED';
+  static const cancelled = 'CANCELLED';
+}
+
+/// Vietnamese label for an order status.
+///
+/// The status used to be a bare string literal compared in four places, and
+/// `my_orders_page` rendered the raw `PENDING` to the customer.
+String orderStatusLabelVi(String status) {
+  switch (status.toUpperCase()) {
+    case OrderStatus.pending:
+      return 'Chờ xử lý';
+    case OrderStatus.completed:
+      return 'Hoàn tất';
+    case OrderStatus.cancelled:
+      return 'Đã hủy';
+    default:
+      return status.isEmpty ? '—' : status;
+  }
+}

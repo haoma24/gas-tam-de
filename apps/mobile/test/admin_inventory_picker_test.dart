@@ -124,7 +124,7 @@ Widget _hostPage(Dio dio) {
       inventoryApiProvider.overrideWithValue(InventoryApi(dio)),
       catalogApiProvider.overrideWithValue(CatalogApi(dio)),
     ],
-    child: MaterialApp(home: AdminInventoryPage(onBack: () {})),
+    child: const MaterialApp(home: AdminInventoryPage()),
   );
 }
 

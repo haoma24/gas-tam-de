@@ -5,6 +5,29 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-09-05] Refactor giao diện + luồng sử dụng theo hướng modern minimalism
+
+- **Loại:** refactor
+- **Phạm vi:** `apps/mobile` (design system, router, shell điều hướng, toàn bộ màn khách và admin)
+- **Tóm tắt:** App đang tồn tại hai ngôn ngữ thị giác song song — màn khách dùng gradient tối, hiệu ứng lửa và nút pill cam; màn admin dùng Material mặc định — cùng với một router phẳng không shell khiến bottom nav biến mất ngoài trang chủ và admin phải đi qua danh sách 9 tile. Thay bằng một hệ token đơn sắc than–trắng có dark mode, một thư viện widget dùng chung, shell điều hướng thường trực cho cả hai vai, và phễu đặt hàng rút từ 4 màn xuống 2.
+- **Chi tiết:**
+  - Token semantic đặt theo vai trò (`ink`, `surface`, `border`, `accent`) dưới dạng `ThemeExtension`, nên light và dark dùng chung một call site `context.palette`; bỏ toàn bộ gradient, `FlameAmbientPainter` và `AppShadow` — độ nổi thể hiện bằng viền hairline 1px
+  - Cam chỉ còn là accent tiết chế (CTA đặt gas, badge khẩn, tab đang chọn); nút chính là khối `ink`
+  - Theme hoá mọi component đang render, bổ sung NavigationBar/Rail, ListTile, Chip, Dialog, SnackBar, SegmentedButton, Switch, Checkbox, Radio, BottomSheet, PopupMenu, TabBar, Tooltip — đây là lý do gốc khiến 24 mã hex cứng tồn tại rải rác
+  - Thư viện `core/ui/` (AppScaffold, AppSection, AppButton, AppStates, AppBadge, MoneyRow, QtyStepper, AppNavTile…) thay ~40 bản copy widget riêng lẻ: 10 khối lỗi, 8 empty state, 15 spinner, 3 product card, 3 qty stepper, 4 nút press-scale tự viết
+  - Router chuyển sang `core/router.dart` với **một** redirect guard thay 4 bản copy `Consumer + addPostFrameCallback`; bỏ toàn bộ prop `onBack`/`onContinue`/`onOpenX` (riêng dashboard cũ 10 prop) → dùng `context.go`/`popOrGo`
+  - `StatefulShellRoute` cho khách (Cửa hàng | Đơn hàng | Hồ sơ) — bottom nav nay thường trực thay vì nằm trong `CustomerShopPage`; admin gom 9 tile thành 4 tab (Đơn | Kho | Báo cáo | Cài đặt) và Order Desk trở thành màn đích khi đăng nhập
+  - Admin responsive: bottom nav dưới 900px, NavigationRail + bố cục 2 cột (danh sách | chi tiết đơn) từ 900px trở lên
+  - Phễu đặt hàng gộp còn `/order` (sản phẩm + địa chỉ + người nhận + thanh toán trên một màn) và `/order/success`; `/order/address` giữ nguyên logic search/GPS/sổ địa chỉ nhưng thành picker chỉ mở khi cần đổi. Cơ chế re-quote trước khi submit được bảo toàn
+  - Thêm «Đặt lại đơn trước» trên trang chủ dùng `GET /v1/orders/me` sẵn có: nạp sẵn giỏ và địa chỉ, khách quay lại chỉ còn 2 tap
+  - Gộp dashboard và `/admin/debts` thành tab Báo cáo (metrics kỳ + danh sách công nợ)
+  - Sửa lỗi thật: `my_orders_page` in chuỗi thô `PENDING` cho khách; tách `orderStatusLabelVi()` dùng chung thay 4 chỗ so sánh string literal
+  - Xoá ~1.008 dòng code chết của luồng OTP cũ (`customer_auth_flow_page`, `otp_page`, `phone_page`) cùng `core/app_theme.dart` và `_auth_widgets.dart`; `main.dart` từ 469 xuống 45 dòng; `lib/` từ 16.822 còn 14.930 dòng
+  - Thêm test theme (dựng được cả light và dark) và test breakpoint shell (bottom nav ↔ rail); `flutter analyze` còn 7 info đều tồn tại từ trước (giảm từ 16), 54/54 test pass, build web thành công, đã kiểm tay trên stack thật ở cả light và dark
+- **Workdocs:** `docs/workdocs_refactor_ui_minimalism_05092026/`
+- **Liên quan:** PRD §1 (CTA đặt giao gas), §2.1 (khách không muốn form dài), §3.1–3.2 (user flow khách / admin)
+
+
 ## [2026-09-05] Đồng bộ giao diện admin và sửa ô tìm kiếm trang chủ
 
 - **Loại:** fix + refactor

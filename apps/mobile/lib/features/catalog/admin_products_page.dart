@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/ui/ui.dart';
 import 'catalog_api.dart';
 import 'catalog_models.dart';
 import 'product_image.dart';
@@ -9,14 +11,7 @@ import 'product_image.dart';
 class AdminProductsPage extends ConsumerStatefulWidget {
   const AdminProductsPage({
     super.key,
-    required this.onBack,
-    required this.onCreate,
-    required this.onEdit,
   });
-
-  final VoidCallback onBack;
-  final VoidCallback onCreate;
-  final void Function(Product product) onEdit;
 
   @override
   ConsumerState<AdminProductsPage> createState() => _AdminProductsPageState();
@@ -117,7 +112,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         title: const Text('Sản phẩm'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onBack,
+          onPressed: () => popOrGo(context, '/admin/settings'),
         ),
         actions: [
           IconButton(
@@ -128,7 +123,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: widget.onCreate,
+        onPressed: () => context.push('/admin/products/new'),
         icon: const Icon(Icons.add),
         label: const Text('Thêm'),
       ),
@@ -138,63 +133,22 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
   Widget _buildBody(ThemeData theme) {
     if (_loading && _items == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoading();
     }
     if (_error != null && _items == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _load,
-                child: const Text('Thử lại'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _load);
     }
 
     final items = _items ?? const <Product>[];
     if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Chưa có sản phẩm',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Thêm bình gas / sản phẩm để khách chọn khi đặt giao.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: widget.onCreate,
-                icon: const Icon(Icons.add),
-                label: const Text('Thêm sản phẩm'),
-              ),
-            ],
-          ),
+      return AppEmpty(
+        icon: Icons.inventory_2_outlined,
+        title: 'Chưa có sản phẩm',
+        body: 'Thêm bình gas / sản phẩm để khách chọn khi đặt giao.',
+        action: AppButton.primary(
+          label: 'Thêm sản phẩm',
+          icon: Icons.add_rounded,
+          onPressed: () => context.push('/admin/products/new'),
         ),
       );
     }
@@ -214,7 +168,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           final p = items[index];
           return _ProductAdminCard(
             product: p,
-            onTap: () => widget.onEdit(p),
+            onTap: () => context.push('/admin/products/${p.id}'),
             onToggleActive: () => _toggleActive(p),
           );
         },
@@ -240,7 +194,10 @@ class _ProductAdminCard extends StatelessWidget {
     final muted = theme.colorScheme.onSurfaceVariant;
     return Material(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.md,
+        side: BorderSide(color: theme.colorScheme.outline),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -337,7 +294,7 @@ class _ActiveChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: AppRadius.sm,
       ),
       child: Text(
         active ? 'Đang bán' : 'Đã ẩn',

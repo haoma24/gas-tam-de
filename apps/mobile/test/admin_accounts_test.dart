@@ -44,7 +44,7 @@ Widget accountsHost(Dio dio) {
     overrides: [
       adminAccountsApiProvider.overrideWithValue(AdminAccountsApi(dio)),
     ],
-    child: MaterialApp(home: AdminAccountsPage(onBack: () {})),
+    child: const MaterialApp(home: AdminAccountsPage()),
   );
 }
 

@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../catalog/catalog_models.dart';
+import '../../core/ui/ui.dart';
+
 import 'desk_settings_api.dart';
 import 'desk_settings_models.dart';
 import 'navigation_link.dart';
@@ -25,14 +27,7 @@ const Duration kAdminOrdersPollInterval = Duration(seconds: 10);
 /// Auto-refreshes on [kAdminOrdersPollInterval]; pull-to-refresh / app-bar
 /// refresh still available. Pauses while the app is backgrounded.
 class AdminOrdersPage extends ConsumerStatefulWidget {
-  const AdminOrdersPage({
-    super.key,
-    required this.onBack,
-    required this.onOpenOrder,
-  });
-
-  final VoidCallback onBack;
-  final void Function(AdminOrder order) onOpenOrder;
+  const AdminOrdersPage({super.key});
 
   @override
   ConsumerState<AdminOrdersPage> createState() => _AdminOrdersPageState();
@@ -51,6 +46,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
   Set<String> _knownIds = {};
   DeskSettings _desk = DeskSettings.defaults;
   DateTime _now = DateTime.now();
+  String? _selectedId;
 
   @override
   void initState() {
@@ -131,8 +127,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
       final nextIds = items.map((o) => o.id).toSet();
       // After an empty first sync, `_knownIds` is still empty — use `_hasSynced`
       // so the first new orders still trigger a SnackBar.
-      final newCount =
-          !_hasSynced ? 0 : nextIds.difference(_knownIds).length;
+      final newCount = !_hasSynced ? 0 : nextIds.difference(_knownIds).length;
       setState(() {
         _items = items;
         _loading = false;
@@ -189,16 +184,34 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
     }
   }
 
+  /// Opens an order: a pushed page on phones, the right pane on wide screens.
+  void _openOrder(AdminOrder order) {
+    if (context.isExpanded) {
+      setState(() => _selectedId = order.id);
+    } else {
+      context.push('/admin/orders/detail', extra: order);
+    }
+  }
+
+  AdminOrder? get _selectedOrder {
+    final id = _selectedId;
+    if (id == null) return null;
+    for (final o in _items ?? const <AdminOrder>[]) {
+      if (o.id == id) return o;
+    }
+    // Selection disappeared (completed, or filtered out by a poll).
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final p = context.palette;
+    final wide = context.isExpanded;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Order Desk'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onBack,
-        ),
         actions: [
           IconButton(
             tooltip: 'Tải lại',
@@ -207,37 +220,43 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
           ),
         ],
       ),
-      body: SafeArea(child: _buildBody(theme)),
+      body: SafeArea(
+        child: wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(width: 420, child: _buildBody(theme)),
+                  VerticalDivider(width: 1, color: p.border),
+                  Expanded(
+                    child: _selectedOrder == null
+                        ? const AppEmpty(
+                            icon: Icons.touch_app_outlined,
+                            title: 'Chọn một đơn',
+                            body: 'Chi tiết đơn sẽ hiện ở đây.',
+                          )
+                        : AdminOrderDetailPage(
+                            key: ValueKey(_selectedId),
+                            order: _selectedOrder!,
+                            embedded: true,
+                            onCompleted: () {
+                              setState(() => _selectedId = null);
+                              _load();
+                            },
+                          ),
+                  ),
+                ],
+              )
+            : _buildBody(theme),
+      ),
     );
   }
 
   Widget _buildBody(ThemeData theme) {
     if (_loading && _items == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoading();
     }
     if (_error != null && _items == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => _load(),
-                child: const Text('Thử lại'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: () => _load());
     }
 
     final items = _items ?? const <AdminOrder>[];
@@ -291,7 +310,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
             order: order,
             settings: _desk,
             now: _now,
-            onTap: () => widget.onOpenOrder(order),
+            onTap: () => _openOrder(order),
           );
         },
       ),
@@ -318,9 +337,12 @@ class _OrderDeskTile extends StatelessWidget {
     final muted = theme.colorScheme.onSurfaceVariant;
     return Material(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.md,
+        side: BorderSide(color: theme.colorScheme.outline),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -419,12 +441,12 @@ class _SttBadge extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: AppRadius.md,
       ),
       child: Text(
         '$stt',
         style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
           color: theme.colorScheme.onPrimaryContainer,
         ),
       ),
@@ -441,15 +463,18 @@ class AdminOrderDetailPage extends ConsumerWidget {
   const AdminOrderDetailPage({
     super.key,
     required this.order,
-    required this.onBack,
-    required this.onCompleted,
+    this.onCompleted,
+    this.embedded = false,
   });
 
   final AdminOrder order;
-  final VoidCallback onBack;
 
   /// Called after successful complete so the desk list can reload (PENDING gone).
-  final VoidCallback onCompleted;
+  final VoidCallback? onCompleted;
+
+  /// Renders only the detail body — used as the right pane of the two-column
+  /// desk on wide screens, where the shell already provides the chrome.
+  final bool embedded;
 
   /// Missing / unset delivery pin — model defaults null API coords to `0`.
   static bool hasDeliveryCoords(double lat, double lng) {
@@ -504,7 +529,7 @@ class AdminOrderDetailPage extends ConsumerWidget {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    onCompleted();
+    onCompleted?.call();
   }
 
   @override
@@ -514,101 +539,107 @@ class AdminOrderDetailPage extends ConsumerWidget {
     final shortId = order.id.length > 8 ? order.id.substring(0, 8) : order.id;
     final canComplete = order.status.toUpperCase() == 'PENDING';
 
+    final body = SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+        children: [
+          Row(
+            children: [
+              _SttBadge(stt: order.stt),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Thứ tự giao (FIFO)',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _DetailField(label: 'Khách hàng', value: order.customerName),
+          _DetailField(label: 'SĐT', value: order.phoneMasked),
+          _DetailField(label: 'Địa chỉ', value: order.addressText),
+          _DetailField(label: 'Khoảng cách', value: _fmtKm(order.distanceKm)),
+          _DetailField(
+            label: 'Thời gian đặt',
+            value: formatOrderTime(order.createdAt),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: () => _onOpenDirections(context),
+            icon: const Icon(Icons.directions),
+            label: const Text('Dẫn đường'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: canComplete ? () => _onComplete(context, ref) : null,
+            icon: const Icon(Icons.check_circle_outline),
+            label: const Text('Hoàn tất'),
+          ),
+          const SizedBox(height: 16),
+          Divider(color: theme.colorScheme.outlineVariant),
+          const SizedBox(height: 8),
+          Text(
+            'Sản phẩm',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (order.items.isEmpty)
+            Text(
+              'Không có dòng hàng',
+              style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+            )
+          else
+            ...order.items.map(
+              (it) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${it.productName} × ${it.qty}',
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                    ),
+                    Text(
+                      formatVnd(it.lineTotal),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          _MoneyRow(label: 'Tạm tính', value: formatVnd(order.subtotal)),
+          _MoneyRow(label: 'Phí giao', value: formatVnd(order.deliveryFee)),
+          const SizedBox(height: 4),
+          _MoneyRow(
+            label: 'Tổng',
+            value: formatVnd(order.total),
+            emphasize: true,
+          ),
+        ],
+      ),
+    );
+
+    if (embedded) return body;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Đơn #$shortId'),
+        automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Quay lại',
+          onPressed: () => popOrGo(context, '/admin'),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-          children: [
-            Row(
-              children: [
-                _SttBadge(stt: order.stt),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Thứ tự giao (FIFO)',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _DetailField(label: 'Khách hàng', value: order.customerName),
-            _DetailField(label: 'SĐT', value: order.phoneMasked),
-            _DetailField(label: 'Địa chỉ', value: order.addressText),
-            _DetailField(label: 'Khoảng cách', value: _fmtKm(order.distanceKm)),
-            _DetailField(
-              label: 'Thời gian đặt',
-              value: formatOrderTime(order.createdAt),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: () => _onOpenDirections(context),
-              icon: const Icon(Icons.directions),
-              label: const Text('Dẫn đường'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.tonalIcon(
-              onPressed: canComplete ? () => _onComplete(context, ref) : null,
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Hoàn tất'),
-            ),
-            const SizedBox(height: 16),
-            Divider(color: theme.colorScheme.outlineVariant),
-            const SizedBox(height: 8),
-            Text(
-              'Sản phẩm',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (order.items.isEmpty)
-              Text(
-                'Không có dòng hàng',
-                style: theme.textTheme.bodyMedium?.copyWith(color: muted),
-              )
-            else
-              ...order.items.map(
-                (it) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${it.productName} × ${it.qty}',
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                      ),
-                      Text(
-                        formatVnd(it.lineTotal),
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            const SizedBox(height: 12),
-            _MoneyRow(label: 'Tạm tính', value: formatVnd(order.subtotal)),
-            _MoneyRow(label: 'Phí giao', value: formatVnd(order.deliveryFee)),
-            const SizedBox(height: 4),
-            _MoneyRow(
-              label: 'Tổng',
-              value: formatVnd(order.total),
-              emphasize: true,
-            ),
-          ],
-        ),
-      ),
+      body: body,
     );
   }
 }
@@ -904,7 +935,7 @@ class _MoneyRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final style = emphasize
-        ? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)
+        ? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)
         : theme.textTheme.bodyLarge;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),

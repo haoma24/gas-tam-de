@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/app_theme.dart';
+import '../../core/ui/ui.dart';
 import 'catalog_models.dart';
 
 /// Displays a catalog image and falls back to the product icon when the URL is
@@ -56,28 +56,16 @@ class _ProductImageFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.ash, AppColors.coal],
-        ),
-      ),
+    final p = context.palette;
+    return ColoredBox(
+      color: p.surfaceSubtle,
       child: Center(
         child: showProgress
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.amber,
-                ),
-              )
-            : const Icon(
-                Icons.propane_tank_rounded,
-                color: AppColors.amber,
-                size: 44,
+            ? const AppInlineSpinner()
+            : Icon(
+                Icons.propane_tank_outlined,
+                color: p.inkFaint,
+                size: 32,
               ),
       ),
     );

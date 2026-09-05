@@ -1,3 +1,5 @@
+export '../../core/format.dart' show formatVnd;
+
 /// Catalog product as returned by admin CRUD APIs.
 class Product {
   const Product({
@@ -65,16 +67,6 @@ class Product {
   }
 }
 
-/// Formats VND integer with thousand separators (e.g. `450000` → `450.000 ₫`).
-String formatVnd(int amount) {
-  final negative = amount < 0;
-  final digits = amount.abs().toString();
-  final buf = StringBuffer();
-  for (var i = 0; i < digits.length; i++) {
-    if (i > 0 && (digits.length - i) % 3 == 0) {
-      buf.write('.');
-    }
-    buf.write(digits[i]);
-  }
-  return '${negative ? '-' : ''}${buf.toString()} ₫';
-}
+// `formatVnd` moved to core/format.dart so widgets and models share one copy.
+// Re-exported here so existing `import 'catalog_models.dart'` call sites keep
+// working unchanged.

@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../core/ui/ui.dart';
 import 'desk_settings_models.dart';
 
-/// Small wait-time badge for Order Desk rows.
+/// How long an order has been waiting, escalating neutral → warning → danger.
+///
+/// The three tones come from the palette now; this widget used to carry six
+/// hardcoded hex values of its own, which is why it never matched the rest of
+/// the app in either light or dark mode.
 class WaitTimeBadge extends StatelessWidget {
   const WaitTimeBadge({
     super.key,
@@ -18,39 +23,16 @@ class WaitTimeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final created = DateTime.tryParse(createdAt)?.toLocal();
-    if (created == null) {
-      return const SizedBox.shrink();
-    }
+    if (created == null) return const SizedBox.shrink();
+
     final waited = (now ?? DateTime.now()).difference(created);
-    final urgency = waitUrgencyFor(waited, settings);
-    final label = _fmtWait(waited);
-    final colors = _colors(urgency);
+    final tone = switch (waitUrgencyFor(waited, settings)) {
+      WaitUrgency.blue => AppBadgeTone.neutral,
+      WaitUrgency.orange => AppBadgeTone.warning,
+      WaitUrgency.red => AppBadgeTone.danger,
+    };
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colors.$1,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: colors.$2,
-              fontWeight: FontWeight.w800,
-            ),
-      ),
-    );
-  }
-
-  static (Color, Color) _colors(WaitUrgency u) {
-    switch (u) {
-      case WaitUrgency.blue:
-        return (const Color(0xFFDBEAFE), const Color(0xFF1D4ED8));
-      case WaitUrgency.orange:
-        return (const Color(0xFFFFEDD5), const Color(0xFFC2410C));
-      case WaitUrgency.red:
-        return (const Color(0xFFFEE2E2), const Color(0xFFB91C1C));
-    }
+    return AppBadge(_fmtWait(waited), tone: tone);
   }
 
   static String _fmtWait(Duration d) {

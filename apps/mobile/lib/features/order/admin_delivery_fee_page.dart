@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../catalog/catalog_models.dart';
+import '../../core/ui/ui.dart';
+
 import 'delivery_fee_api.dart';
 import 'delivery_fee_models.dart';
 
@@ -10,10 +11,7 @@ import 'delivery_fee_models.dart';
 class AdminDeliveryFeePage extends ConsumerStatefulWidget {
   const AdminDeliveryFeePage({
     super.key,
-    required this.onBack,
   });
-
-  final VoidCallback onBack;
 
   @override
   ConsumerState<AdminDeliveryFeePage> createState() =>
@@ -109,7 +107,8 @@ class _AdminDeliveryFeePageState extends ConsumerState<AdminDeliveryFeePage> {
     final parsed = <_ParsedRule>[];
     for (var i = 0; i < _drafts.length; i++) {
       final d = _drafts[i];
-      final minKm = double.tryParse(d.minController.text.trim().replaceAll(',', '.'));
+      final minKm =
+          double.tryParse(d.minController.text.trim().replaceAll(',', '.'));
       if (minKm == null || minKm < 0) {
         return 'Bậc ${i + 1}: min km không hợp lệ.';
       }
@@ -264,7 +263,7 @@ class _AdminDeliveryFeePageState extends ConsumerState<AdminDeliveryFeePage> {
         title: const Text('Phí giao hàng'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onBack,
+          onPressed: () => popOrGo(context, '/admin/settings'),
         ),
         actions: [
           IconButton(
@@ -293,7 +292,7 @@ class _AdminDeliveryFeePageState extends ConsumerState<AdminDeliveryFeePage> {
 
   Widget _buildBody(ThemeData theme) {
     if (_loading && _drafts.isEmpty && _error == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoading();
     }
     if (_error != null && _drafts.isEmpty && !_loading) {
       return Center(
@@ -325,7 +324,10 @@ class _AdminDeliveryFeePageState extends ConsumerState<AdminDeliveryFeePage> {
       children: [
         Material(
           color: theme.colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(12),
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.md,
+            side: BorderSide(color: theme.colorScheme.outline),
+          ),
           child: SwitchListTile(
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -499,7 +501,10 @@ class _RuleCard extends StatelessWidget {
 
     return Material(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.md,
+        side: BorderSide(color: theme.colorScheme.outline),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 8, 16),
         child: Column(
