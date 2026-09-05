@@ -11,7 +11,7 @@ import '../../core/ui/ui.dart';
 import 'desk_settings_api.dart';
 import 'desk_settings_models.dart';
 import 'navigation_link.dart';
-import 'new_order_voice.dart';
+import 'new_order_alarm.dart';
 import 'order_api.dart';
 import 'order_models.dart';
 import 'wait_time_badge.dart';
@@ -48,6 +48,10 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
   bool _hasSynced = false;
   Set<String> _knownIds = {};
   DeskSettings _desk = DeskSettings.defaults;
+  /// «Không hiển thị lại» — silence for the rest of this desk session.
+  bool _alarmMuted = false;
+  DateTime? _alarmSnoozedUntil;
+  bool _alarmOpen = false;
   DateTime _now = DateTime.now();
   String? _selectedId;
   AdminOrderFilter _filter = AdminOrderFilter.pending;
@@ -56,9 +60,6 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Browsers publish their voice list asynchronously; discovering it now
-    // means the first alert already speaks Vietnamese instead of English.
-    NewOrderVoice.prewarm();
     _loadDeskSettings();
     _load();
     _startPolling();
@@ -72,6 +73,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
     _pollTimer?.cancel();
     _alertTimer?.cancel();
     _tickTimer?.cancel();
+    NewOrderAlarm.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -94,8 +96,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
       // The reminder counts orders still waiting — meaningless while the screen
       // is showing history.
       if (!_filter.isLiveQueue) return;
-      final n = _items?.length ?? 0;
-      if (n > 0) NewOrderVoice.announcePending(n);
+      _raiseAlarm(_items?.length ?? 0);
     });
   }
 
@@ -212,8 +213,32 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
         );
     }
     if (_desk.alertEnabled) {
-      final pending = _items?.length ?? count;
-      NewOrderVoice.announcePending(pending);
+      _raiseAlarm(_items?.length ?? count);
+    }
+  }
+
+  /// Rings the alarm and shows the modal that answers it.
+  ///
+  /// Both the periodic reminder and a fresh arrival land here, so mute and
+  /// snooze are honoured once instead of at every call site — and a second
+  /// arrival while the modal is up must not stack a second modal on it.
+  Future<void> _raiseAlarm(int pending) async {
+    if (pending <= 0 || _alarmMuted || _alarmOpen || !mounted) return;
+    final until = _alarmSnoozedUntil;
+    if (until != null && DateTime.now().isBefore(until)) return;
+
+    _alarmOpen = true;
+    await NewOrderAlarm.start();
+    final snooze = mounted
+        ? await showNewOrderAlarmDialog(context, pending: pending)
+        : null;
+    await NewOrderAlarm.stop();
+    _alarmOpen = false;
+    if (!mounted) return;
+    if (snooze == null) {
+      _alarmMuted = true;
+    } else {
+      _alarmSnoozedUntil = DateTime.now().add(snooze);
     }
   }
 

@@ -68,7 +68,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: p.ink, width: 1.5),
+        borderSide: BorderSide(color: p.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: AppRadius.md,
@@ -79,11 +79,12 @@ ThemeData buildAppTheme(Brightness brightness) {
         borderSide: BorderSide(color: p.danger, width: 1.5),
       ),
     ),
-    // Primary action is an ink block, never the accent.
+    // Primary action carries the brand colour: an all-ink UI gives the eye
+    // nothing to lock onto, which is exactly how the desk felt.
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: p.ink,
-        foregroundColor: p.onInk,
+        backgroundColor: p.primary,
+        foregroundColor: p.onPrimary,
         disabledBackgroundColor: p.surfaceSubtle,
         disabledForegroundColor: p.inkFaint,
         minimumSize: const Size(0, 48),
@@ -95,9 +96,9 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: p.ink,
+        foregroundColor: p.primary,
         disabledForegroundColor: p.inkFaint,
-        side: BorderSide(color: p.borderStrong),
+        side: BorderSide(color: p.primary.withValues(alpha: 0.45)),
         minimumSize: const Size(0, 48),
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
@@ -106,7 +107,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: p.ink,
+        foregroundColor: p.primary,
         disabledForegroundColor: p.inkFaint,
         minimumSize: const Size(0, 40),
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -120,7 +121,6 @@ ThemeData buildAppTheme(Brightness brightness) {
         highlightColor: p.surfaceSubtle,
       ),
     ),
-    // The one place accent is allowed to fill a shape.
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: p.accent,
       foregroundColor: p.onAccent,
@@ -134,7 +134,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: p.surface,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: p.surfaceSubtle,
+      indicatorColor: p.primary.withValues(alpha: 0.14),
       indicatorShape: const RoundedRectangleBorder(
         borderRadius: AppRadius.full,
       ),
@@ -144,12 +144,12 @@ ThemeData buildAppTheme(Brightness brightness) {
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
           size: 22,
-          color: states.contains(WidgetState.selected) ? p.ink : p.inkFaint,
+          color: states.contains(WidgetState.selected) ? p.primary : p.inkFaint,
         ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => textTheme.labelMedium?.copyWith(
-          color: states.contains(WidgetState.selected) ? p.ink : p.inkMuted,
+          color: states.contains(WidgetState.selected) ? p.primary : p.inkMuted,
           fontWeight: states.contains(WidgetState.selected)
               ? FontWeight.w600
               : FontWeight.w500,
@@ -159,12 +159,12 @@ ThemeData buildAppTheme(Brightness brightness) {
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: p.bg,
       elevation: 0,
-      indicatorColor: p.surfaceSubtle,
+      indicatorColor: p.primary.withValues(alpha: 0.14),
       indicatorShape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
-      selectedIconTheme: IconThemeData(color: p.ink, size: 22),
+      selectedIconTheme: IconThemeData(color: p.primary, size: 22),
       unselectedIconTheme: IconThemeData(color: p.inkFaint, size: 22),
       selectedLabelTextStyle: textTheme.labelMedium?.copyWith(
-        color: p.ink,
+        color: p.primary,
         fontWeight: FontWeight.w600,
       ),
       unselectedLabelTextStyle: textTheme.labelMedium?.copyWith(
@@ -172,7 +172,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
     listTileTheme: ListTileThemeData(
-      iconColor: p.inkMuted,
+      iconColor: p.secondary,
       textColor: p.ink,
       titleTextStyle:
           textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
@@ -185,13 +185,13 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     chipTheme: ChipThemeData(
       backgroundColor: p.surfaceSubtle,
-      selectedColor: p.ink,
+      selectedColor: p.primary,
       disabledColor: p.surfaceSubtle,
-      checkmarkColor: p.onInk,
+      checkmarkColor: p.onPrimary,
       side: BorderSide(color: p.border),
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.full),
       labelStyle: textTheme.labelLarge?.copyWith(color: p.ink),
-      secondaryLabelStyle: textTheme.labelLarge?.copyWith(color: p.onInk),
+      secondaryLabelStyle: textTheme.labelLarge?.copyWith(color: p.onPrimary),
       labelPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
@@ -202,12 +202,12 @@ ThemeData buildAppTheme(Brightness brightness) {
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? p.ink
+              ? p.primary
               : Colors.transparent,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
           (states) =>
-              states.contains(WidgetState.selected) ? p.onInk : p.inkMuted,
+              states.contains(WidgetState.selected) ? p.onPrimary : p.inkMuted,
         ),
         side: WidgetStatePropertyAll(BorderSide(color: p.border)),
         textStyle: WidgetStatePropertyAll(textTheme.labelLarge),
@@ -218,23 +218,24 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected) ? p.onInk : p.surface,
+        (states) =>
+            states.contains(WidgetState.selected) ? p.onPrimary : p.surface,
       ),
       trackColor: WidgetStateProperty.resolveWith(
         (states) =>
-            states.contains(WidgetState.selected) ? p.ink : p.surfaceSubtle,
+            states.contains(WidgetState.selected) ? p.primary : p.surfaceSubtle,
       ),
       trackOutlineColor: WidgetStateProperty.resolveWith(
         (states) =>
-            states.contains(WidgetState.selected) ? p.ink : p.borderStrong,
+            states.contains(WidgetState.selected) ? p.primary : p.borderStrong,
       ),
     ),
     checkboxTheme: CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith(
         (states) =>
-            states.contains(WidgetState.selected) ? p.ink : Colors.transparent,
+            states.contains(WidgetState.selected) ? p.primary : Colors.transparent,
       ),
-      checkColor: WidgetStatePropertyAll(p.onInk),
+      checkColor: WidgetStatePropertyAll(p.onPrimary),
       side: BorderSide(color: p.borderStrong, width: 1.5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(4)),
@@ -243,7 +244,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     radioTheme: RadioThemeData(
       fillColor: WidgetStateProperty.resolveWith(
         (states) =>
-            states.contains(WidgetState.selected) ? p.ink : p.borderStrong,
+            states.contains(WidgetState.selected) ? p.primary : p.borderStrong,
       ),
     ),
     dialogTheme: DialogThemeData(
@@ -287,15 +288,15 @@ ThemeData buildAppTheme(Brightness brightness) {
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.sm),
     ),
     tabBarTheme: TabBarThemeData(
-      labelColor: p.ink,
+      labelColor: p.primary,
       unselectedLabelColor: p.inkMuted,
-      indicatorColor: p.ink,
+      indicatorColor: p.primary,
       dividerColor: p.border,
       labelStyle: textTheme.labelLarge,
       unselectedLabelStyle: textTheme.labelLarge,
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(
-      color: p.ink,
+      color: p.primary,
       linearTrackColor: p.surfaceSubtle,
       circularTrackColor: Colors.transparent,
     ),
@@ -306,21 +307,26 @@ ThemeData buildAppTheme(Brightness brightness) {
   );
 }
 
+/// Container colours are the accent laid over the page at low alpha, flattened
+/// so a card painted with one still hides what is behind it.
+Color _tint(Color c, Color bg) =>
+    Color.alphaBlend(c.withValues(alpha: 0.12), bg);
+
 ColorScheme _schemeOf(AppPalette p, Brightness brightness) {
   return ColorScheme(
     brightness: brightness,
-    primary: p.ink,
-    onPrimary: p.onInk,
-    primaryContainer: p.surfaceSubtle,
-    onPrimaryContainer: p.ink,
-    secondary: p.accent,
-    onSecondary: p.onAccent,
-    secondaryContainer: p.surfaceSubtle,
-    onSecondaryContainer: p.ink,
-    tertiary: p.accent,
-    onTertiary: p.onAccent,
+    primary: p.primary,
+    onPrimary: p.onPrimary,
+    primaryContainer: _tint(p.primary, p.bg),
+    onPrimaryContainer: p.primary,
+    secondary: p.secondary,
+    onSecondary: p.onSecondary,
+    secondaryContainer: _tint(p.secondary, p.bg),
+    onSecondaryContainer: p.secondary,
+    tertiary: p.secondary,
+    onTertiary: p.onSecondary,
     error: p.danger,
-    onError: p.onAccent,
+    onError: p.onPrimary,
     errorContainer: p.surfaceSubtle,
     onErrorContainer: p.danger,
     surface: p.bg,

@@ -32,7 +32,7 @@ class AppSection extends StatelessWidget {
     final p = context.palette;
     final borderColor = switch (tone) {
       AppSectionTone.surface => p.border,
-      AppSectionTone.selected => p.ink,
+      AppSectionTone.selected => p.primary,
       AppSectionTone.danger => p.danger.withValues(alpha: 0.4),
     };
 
@@ -51,7 +51,10 @@ class AppSection extends StatelessWidget {
             Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 18, color: p.inkMuted),
+                  // The header icon is the section's label, not a control:
+                  // secondary keeps it findable without pulling the eye off
+                  // the primary-coloured action inside the card.
+                  Icon(icon, size: 18, color: p.secondary),
                   const HGap(AppSpacing.sm),
                 ],
                 Expanded(child: Text(title!, style: context.text.titleSmall)),

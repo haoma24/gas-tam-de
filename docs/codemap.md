@@ -51,7 +51,7 @@ endpoint → service backend. Sửa một chức năng thường phải đụng 
 | Xin quyền vị trí | `location_permission.dart` |
 | Mở Google Maps chỉ đường | `navigation_link.dart` |
 | Badge thời gian chờ | `wait_time_badge.dart` |
-| Đọc đơn mới bằng giọng nói (admin) | `new_order_voice.dart` |
+| Chuông báo đơn chờ + popup Báo lại / Không hiển thị lại (admin) | `new_order_alarm.dart` |
 
 ### 1.2 Phía admin
 
@@ -101,9 +101,9 @@ viết `TextStyle` hay mã hex trực tiếp trong màn hình.
 
 | File | Nội dung |
 |---|---|
-| `app_tokens.dart` | `AppPalette` (ThemeExtension: `ink` / `inkMuted` / `surface` / `border` / `accent`), `AppSpacing`, `AppRadius`, extension `context.palette`, `context.text` |
+| `app_tokens.dart` | `AppPalette` (ThemeExtension: `ink` / `inkMuted` / `surface` / `border` / `primary` / `secondary`, `accent` là alias của `primary`), `AppSpacing`, `AppRadius`, extension `context.palette`, `context.text` |
 | `app_theme_data.dart` | Dựng `ThemeData` light + dark từ token, theme hoá mọi component |
-| `app_theme_mode.dart` | `themeModeProvider` (lưu `SharedPreferences`) + khối UI «Giao diện» dùng chung |
+| `app_theme_mode.dart` | `themeModeProvider` (lưu `SharedPreferences`, mặc định **Sáng**) + khối UI «Giao diện» dùng chung |
 | `app_breakpoints.dart` | `AppBreakpoints`, `context.isExpanded` (mốc 900px) |
 | `app_scaffold.dart` | `AppScaffold`, `AppSectionTitle`, `VGap` |
 | `app_section.dart` | `AppSection` — card có tiêu đề + icon |
@@ -270,7 +270,7 @@ Nhánh đích là **`stag`**, không phải `main`. VPS deploy bằng
 | `admin_inventory_picker_test.dart` | Chọn sản phẩm khi chưa có dòng tồn |
 | `saved_addresses_test.dart` | Sổ địa chỉ |
 | `navigation_link_test.dart` | Link chỉ đường |
-| `new_order_voice_test.dart` | Đọc đơn bằng giọng nói |
+| `new_order_alarm_test.dart` | WAV chuông báo (header, 2 tiếng «ting», đuôi im để lặp mượt) + popup trả snooze / tắt hẳn |
 | `product_image_test.dart` | Ảnh sản phẩm + fallback |
 | `dashboard_models_test.dart` | Model báo cáo |
 | `admin_order_filter_test.dart` | Chip lọc trạng thái đơn → `status` gửi lên API, lịch sử không tự làm mới |

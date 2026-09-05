@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/ui/ui.dart';
 import 'desk_settings_api.dart';
 import 'desk_settings_models.dart';
-import 'new_order_voice.dart';
+import 'new_order_alarm.dart';
 
-/// Admin — ngưỡng màu chờ + interval TTS Order Desk.
+/// Admin — ngưỡng màu chờ + chu kỳ chuông báo Order Desk.
 class AdminDeskSettingsPage extends ConsumerStatefulWidget {
   const AdminDeskSettingsPage({super.key});
 
@@ -25,9 +25,7 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
-  bool _testingVoice = false;
-  String? _voiceStatus;
-  bool _voiceIsVietnamese = false;
+  bool _testingAlarm = false;
 
   @override
   void initState() {
@@ -148,16 +146,18 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
                   _numField(_red, 'Ngưỡng đỏ (phút)', enabled: !_saving),
                   const SizedBox(height: 28),
                   Text(
-                    'Thông báo giọng nói',
+                    'Chuông báo đơn chờ',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Bật thông báo đơn chờ'),
-                    subtitle:
-                        const Text('Đọc «Bạn có N đơn chưa giao» theo chu kỳ'),
+                    title: const Text('Bật chuông báo đơn chờ'),
+                    subtitle: const Text(
+                      'Chuông reo liên tục kèm popup, chọn «Báo lại» hoặc '
+                      'tắt hẳn cho phiên làm việc',
+                    ),
                     value: _alertEnabled,
                     onChanged: _saving
                         ? null
@@ -165,33 +165,22 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
                   ),
                   _numField(
                     _interval,
-                    'Chu kỳ thông báo (giây)',
+                    'Chu kỳ nhắc lại (giây)',
                     enabled: !_saving,
                     helper: 'Tối thiểu 30 giây (mặc định 300 = 5 phút)',
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: _testingVoice ? null : _testVoice,
-                    icon: _testingVoice
+                    onPressed: _testingAlarm ? null : _testAlarm,
+                    icon: _testingAlarm
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.volume_up),
-                    label: const Text('Nghe thử giọng đọc'),
+                    label: const Text('Nghe thử chuông báo'),
                   ),
-                  if (_voiceStatus != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _voiceStatus!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: _voiceIsVietnamese
-                            ? theme.colorScheme.onSurfaceVariant
-                            : theme.colorScheme.error,
-                      ),
-                    ),
-                  ],
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -219,28 +208,13 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
     );
   }
 
-  /// Speaks a sample and reports which voice the device actually used. When no
-  /// Vietnamese voice exists the engine silently reads Vietnamese text with an
-  /// English voice, so the shop needs to be told to install one — the app
-  /// cannot ship a voice itself.
-  Future<void> _testVoice() async {
-    setState(() {
-      _testingVoice = true;
-      _voiceStatus = null;
-    });
-    final voice = await NewOrderVoice.speakSample();
+  /// Plays a couple of loops so the shop can set the machine volume before an
+  /// order actually arrives.
+  Future<void> _testAlarm() async {
+    setState(() => _testingAlarm = true);
+    await NewOrderAlarm.preview();
     if (!mounted) return;
-    setState(() {
-      _testingVoice = false;
-      _voiceIsVietnamese = voice != null;
-      _voiceStatus = voice != null
-          ? 'Đang dùng giọng: ${voice.label}'
-          : 'Máy này chưa có giọng tiếng Việt nên hệ thống đọc bằng giọng '
-              'mặc định (tiếng Anh). Cài giọng tiếng Việt rồi tải lại trang: '
-              'Android → Cài đặt › Ngôn ngữ › Đầu ra văn bản sang lời nói › '
-              'cài dữ liệu Tiếng Việt. Windows → Settings › Time & language › '
-              'Speech › Add voices › Vietnamese.';
-    });
+    setState(() => _testingAlarm = false);
   }
 
   Widget _numField(
