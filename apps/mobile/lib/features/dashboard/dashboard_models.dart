@@ -73,6 +73,15 @@ String dayKeyVn(DateTime d) {
   return '$y-$m-$day';
 }
 
+/// Inclusive VN day range for [period] — the same window the summary covers,
+/// reshaped for endpoints that only take `from`/`to` (customer stats).
+({String from, String to}) rangeForPeriod(DashboardPeriod period) {
+  final q = queryForPeriod(period);
+  final day = q.day;
+  if (day != null) return (from: day, to: day);
+  return (from: q.from!, to: q.to!);
+}
+
 /// Query params for [DashboardPeriod] against `GET /v1/admin/dashboard/summary`.
 ({String? day, String? from, String? to}) queryForPeriod(DashboardPeriod period) {
   final now = nowVn();

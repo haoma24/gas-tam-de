@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Monorepo for the **Gas Tam Đệ** gas-delivery shop: Flutter app (`apps/mobile`, Web + Android + iOS from one codebase) + 8 Go microservices (`services/*`) + one SQLite file per service (`data/*.db`) + NATS JetStream. Docs (`docs/prd.md`, `docs/architecture.md`), `README.md` and `CHANGESLOG.md` are written in Vietnamese — keep new docs/changelog entries in Vietnamese too.
 
+**Start any change at `docs/codemap.md`** — it maps every feature to its full vertical slice (screen → route → Flutter page → API client → endpoint → gateway auth group → service → SQLite tables → events), plus the shared UI/`pkg` layers, deploy files and which tests guard what. Update it in the same commit as the change; §9 says which section to touch.
+
 ## Mandatory workflow: CHANGESLOG + workdocs
 
 `.cursor/rules/change-workdocs.mdc` is `alwaysApply` and binds any agent working here. For every meaningful change (feature, fix, refactor, large docs/config change):

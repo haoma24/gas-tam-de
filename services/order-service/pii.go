@@ -66,3 +66,32 @@ func customerOrderView(
 		Items:        items,
 	}
 }
+
+// adminOrderView builds the admin-facing order JSON. Same shape as
+// [customerOrderView] plus the full contact number and the settlement fields —
+// an admin who cannot phone the customer cannot deliver the order, and one who
+// cannot reopen a finished order cannot answer a question about it.
+func adminOrderView(o orderRow, items []orderItemView) orderView {
+	v := customerOrderView(
+		o.id, o.userID, o.customerName, o.phoneMasked, o.addressText,
+		o.lat, o.lng, o.distanceKm,
+		o.deliveryFee, o.subtotal, o.total,
+		o.status, o.createdAt, items,
+	)
+	v.CustomerPhone = displayPhone(o.customerPhone)
+	v.CompletedAt = o.completedAt
+	v.CancelledAt = o.cancelledAt
+	v.PaymentType = o.paymentType
+	v.AmountPaid = o.amountPaid
+	return v
+}
+
+// displayPhone renders a stored E.164 number the way a Vietnamese shop dials
+// it: +84901234567 → 0901234567. Anything else is passed through untouched.
+func displayPhone(raw string) string {
+	s := strings.TrimSpace(raw)
+	if strings.HasPrefix(s, "+84") && len(s) == 12 {
+		return "0" + s[3:]
+	}
+	return s
+}

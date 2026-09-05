@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/phone_link.dart';
 import '../../core/ui/ui.dart';
 import '../billing/billing_api.dart';
 import '../billing/billing_models.dart';
+import '../order/customer_stats_models.dart';
+import '../order/order_api.dart';
 import 'dashboard_api.dart';
 import 'dashboard_models.dart';
 
-/// Admin «Báo cáo» tab — period metrics plus the outstanding-debt list.
+/// Số khách hiện sẵn trong mục «Khách hàng» trước khi bấm «Xem tất cả».
+const int kCustomerPreviewCount = 10;
+
+/// Admin «Báo cáo» tab — period metrics, per-customer activity, and the
+/// outstanding-debt list.
 ///
 /// Merges what used to be two destinations (the dashboard summary at `/admin`
 /// and `/admin/debts`): debt is a number the owner reads alongside revenue, not
-/// a separate errand.
+/// a separate errand. The customer breakdown answers «khách nào đã đặt bao
+/// nhiêu đơn», which the debt list alone could not.
 class AdminReportsPage extends ConsumerStatefulWidget {
   const AdminReportsPage({super.key});
 
@@ -23,6 +31,8 @@ class _AdminReportsPageState extends ConsumerState<AdminReportsPage> {
   DashboardPeriod _period = DashboardPeriod.today;
   DashboardSummary? _summary;
   DebtsList? _debts;
+  CustomerStatsList? _customers;
+  bool _showAllCustomers = false;
   bool _loading = true;
   String? _error;
 
@@ -37,21 +47,29 @@ class _AdminReportsPageState extends ConsumerState<AdminReportsPage> {
       _loading = true;
       _error = null;
     });
+    final range = rangeForPeriod(_period);
     try {
-      // Debt is an aggregate independent of the period, so both land together.
+      // Debt is an aggregate independent of the period, so all three land
+      // together rather than making the owner wait on three separate spinners.
       final results = await Future.wait([
         ref.read(dashboardApiProvider).fetchForPeriod(_period),
         ref.read(billingApiProvider).listDebts(),
+        ref
+            .read(orderApiProvider)
+            .listCustomerStats(from: range.from, to: range.to),
       ]);
       if (!mounted) return;
       setState(() {
         _summary = results[0] as DashboardSummary;
         _debts = results[1] as DebtsList;
+        _customers = results[2] as CustomerStatsList;
         _loading = false;
       });
     } on DashboardApiException catch (e) {
       _fail(e.displayMessage);
     } on BillingApiException catch (e) {
+      _fail(e.displayMessage);
+    } on OrderApiException catch (e) {
       _fail(e.displayMessage);
     } catch (_) {
       _fail('Có lỗi xảy ra. Thử lại.');
@@ -68,7 +86,10 @@ class _AdminReportsPageState extends ConsumerState<AdminReportsPage> {
 
   Future<void> _setPeriod(DashboardPeriod period) async {
     if (period == _period) return;
-    setState(() => _period = period);
+    setState(() {
+      _period = period;
+      _showAllCustomers = false;
+    });
     await _load();
   }
 
@@ -132,16 +153,31 @@ class _AdminReportsPageState extends ConsumerState<AdminReportsPage> {
           ],
           const VGap(AppSpacing.lg),
           _MetricGrid(summary: s),
-          if (s.cogsVnd > 0 || s.revenueVnd > 0) ...[
+          if (s.revenueVnd > 0 && s.cogsVnd <= 0)
+            // Without a purchase price there is no COGS, and profit silently
+            // equals revenue — exactly the number the owner reported as wrong.
+            // Say so instead of showing a flattering total.
+            const Padding(
+              padding: EdgeInsets.only(top: AppSpacing.md),
+              child: _CogsWarning(),
+            )
+          else if (s.cogsVnd > 0) ...[
             const VGap(AppSpacing.md),
             Text(
-              'COGS (giá vốn): ${formatVnd(s.cogsVnd)} · '
-              'lợi nhuận = doanh thu − COGS',
+              'Giá vốn (COGS): ${formatVnd(s.cogsVnd)} · '
+              'lợi nhuận = doanh thu − giá vốn',
               style: context.text.bodySmall?.copyWith(
                 color: context.palette.inkMuted,
               ),
             ),
           ],
+          const VGap(AppSpacing.xl),
+          _CustomerSection(
+            stats: _customers,
+            showAll: _showAllCustomers,
+            onToggleShowAll: () =>
+                setState(() => _showAllCustomers = !_showAllCustomers),
+          ),
           const VGap(AppSpacing.xl),
           AppSectionTitle(
             'Công nợ',
@@ -183,6 +219,249 @@ class _AdminReportsPageState extends ConsumerState<AdminReportsPage> {
                 for (final item in debts.items) _DebtRow(item: item),
               ],
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Warning shown when the period has revenue but no cost of goods.
+class _CogsWarning extends StatelessWidget {
+  const _CogsWarning();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: p.warning.withValues(alpha: 0.08),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: p.warning.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 18, color: p.warning),
+          const HGap(AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Lợi nhuận đang bằng doanh thu',
+                  style: context.text.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const VGap(AppSpacing.xs),
+                Text(
+                  'Kỳ này chưa có giá nhập nên giá vốn = 0. Vào tab «Kho», '
+                  'nhập giá nhập cho từng sản phẩm — các đơn sau đó sẽ tính '
+                  'lợi nhuận = giá bán − giá nhập.',
+                  style: context.text.bodySmall?.copyWith(color: p.inkMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// «Khách hàng» — how many orders each customer placed in the period.
+class _CustomerSection extends StatelessWidget {
+  const _CustomerSection({
+    required this.stats,
+    required this.showAll,
+    required this.onToggleShowAll,
+  });
+
+  final CustomerStatsList? stats;
+  final bool showAll;
+  final VoidCallback onToggleShowAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = stats;
+    if (data == null) {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [AppSectionTitle('Khách hàng'), AppLoading()],
+      );
+    }
+
+    if (data.isEmpty) {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppSectionTitle('Khách hàng'),
+          AppSection(
+            children: [
+              AppEmpty(
+                icon: Icons.people_outline,
+                title: 'Chưa có khách đặt đơn',
+                body: 'Kỳ này chưa có đơn nào.',
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    final visible = showAll
+        ? data.customers
+        : data.customers.take(kCustomerPreviewCount).toList();
+    final hidden = data.customers.length - visible.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppSectionTitle(
+          'Khách hàng',
+          trailing: Text(
+            '${data.total} khách',
+            style: context.text.bodySmall?.copyWith(
+              color: context.palette.inkMuted,
+            ),
+          ),
+        ),
+        AppSection(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.xs,
+          ),
+          children: [
+            for (var i = 0; i < visible.length; i++) ...[
+              if (i > 0) const Divider(height: 1),
+              _CustomerRow(stat: visible[i]),
+            ],
+            if (hidden > 0 || showAll) ...[
+              const Divider(height: 1),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton(
+                  onPressed: onToggleShowAll,
+                  child: Text(showAll ? 'Thu gọn' : 'Xem tất cả ($hidden nữa)'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomerRow extends StatelessWidget {
+  const _CustomerRow({required this.stat});
+
+  final CustomerStat stat;
+
+  Future<void> _call(BuildContext context) async {
+    final result = await dialPhone(stat.customerPhone);
+    if (!context.mounted || result.isOk) return;
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(result.errorMessage!),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final callable = stat.customerPhone.isNotEmpty;
+
+    // «7 đơn» is the headline; the completed/cancelled split explains it.
+    final detail = StringBuffer('${stat.ordersCompleted} hoàn tất');
+    if (stat.ordersPending > 0) detail.write(' · ${stat.ordersPending} chờ');
+    if (stat.ordersCancelled > 0) detail.write(' · ${stat.ordersCancelled} hủy');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  stat.displayName,
+                  style: context.text.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const VGap(AppSpacing.xs),
+                InkWell(
+                  onTap: callable ? () => _call(context) : null,
+                  borderRadius: AppRadius.sm,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        stat.displayPhone,
+                        style: context.text.bodySmall?.copyWith(
+                          color: callable
+                              ? Theme.of(context).colorScheme.primary
+                              : p.inkMuted,
+                        ),
+                      ),
+                      if (callable) ...[
+                        const HGap(AppSpacing.xs),
+                        Icon(
+                          Icons.call,
+                          size: 13,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const VGap(AppSpacing.xs),
+                Text(
+                  detail.toString(),
+                  style: context.text.bodySmall?.copyWith(color: p.inkMuted),
+                ),
+              ],
+            ),
+          ),
+          const HGap(AppSpacing.md),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${stat.ordersTotal} đơn',
+                style: context.text.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: kTabularFigures,
+                ),
+              ),
+              const VGap(AppSpacing.xs),
+              Text(
+                formatVnd(stat.spentVnd),
+                style: context.text.bodySmall?.copyWith(
+                  color: p.inkMuted,
+                  fontFeatures: kTabularFigures,
+                ),
+              ),
+              if (stat.debtVnd > 0) ...[
+                const VGap(AppSpacing.xs),
+                Text(
+                  'Nợ ${formatVnd(stat.debtVnd)}',
+                  style: context.text.bodySmall?.copyWith(
+                    color: p.danger,
+                    fontFeatures: kTabularFigures,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );

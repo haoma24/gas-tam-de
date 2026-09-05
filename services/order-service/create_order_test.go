@@ -30,9 +30,9 @@ func openTestOrderDB(t *testing.T) *sql.DB {
 }
 
 type stubGeo struct {
-	result geoCheckResult
-	err    error
-	calls  int
+	result           geoCheckResult
+	err              error
+	calls            int
 	lastLat, lastLng float64
 }
 
@@ -87,6 +87,7 @@ func mountOrderTestRoutes(svc *orderService) http.Handler {
 	r.Post("/v1/orders", svc.handleCreateOrder)
 	r.Get("/v1/orders/me", svc.handleListMyOrders)
 	r.Get("/v1/admin/orders", svc.handleListAdminOrders)
+	r.Get("/v1/admin/orders/customers", svc.handleListCustomerStats)
 	r.Get("/v1/admin/orders/{id}", svc.handleGetAdminOrder)
 	r.Post("/v1/admin/orders/{id}/complete", svc.handleCompleteOrder)
 	return r
