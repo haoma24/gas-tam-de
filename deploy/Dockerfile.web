@@ -28,8 +28,15 @@ ARG GOOGLE_IOS_CLIENT_ID=""
 # load) on our own origin: it then shares the page's TLS connection instead of
 # costing a DNS + handshake to www.gstatic.com, and the site keeps working where
 # gstatic is slow or filtered. Brotli below matches what the CDN would serve.
+# --no-tree-shake-icons ships the whole MaterialIcons font instead of the
+# subset this build happens to reference. That subset changes shape whenever a
+# screen gains an icon, and Flutter serves the font from an unhashed URL, so a
+# browser still holding the previous deploy's copy draws the new icons as
+# blanks - that is what emptied the admin "Bao cao" / "Cai dat" tabs. The full
+# font is byte-identical between builds, so a cached copy can never be wrong.
 RUN flutter build web --release \
       --no-web-resources-cdn \
+      --no-tree-shake-icons \
       --dart-define=API_BASE_URL="${API_BASE_URL}" \
       --dart-define=GOOGLE_WEB_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID}" \
       --dart-define=GOOGLE_IOS_CLIENT_ID="${GOOGLE_IOS_CLIENT_ID}"

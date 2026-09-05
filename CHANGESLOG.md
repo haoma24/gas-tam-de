@@ -5,6 +5,23 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-09-05] Chuông báo đơn thay giọng đọc, thêm màu primary/secondary, giao diện mặc định Sáng
+
+- **Loại:** feat + fix
+- **Phạm vi:** `apps/mobile` (Order Desk, cấu hình desk, `core/ui`), `deploy/Dockerfile.web`, `docs/codemap.md`
+- **Tóm tắt:** Bốn việc chủ shop báo về menu admin/khách. (1) Thông báo đơn mới **đọc bằng giọng nói** nghe không rõ trong tiếng ồn, máy chưa cài voice pack tiếng Việt thì đọc giọng Anh, và nó chỉ nói đúng một lần — ai vừa rời quầy thì không bao giờ biết có đơn. Thay bằng **chuông báo thức kêu liên tục + popup «Báo lại» / «Không hiển thị lại»**. (2) Icon tab «Báo cáo» / «Cài đặt» vẫn trống dù lần trước đã sửa cache. (3) Giao diện phải mặc định **Sáng**. (4) Giao diện **đơn sắc** — thiếu primary cho nút, secondary cho thông tin.
+- **Chi tiết:**
+  - **Chuông thay giọng.** `new_order_voice.dart` + `flutter_tts` bị xoá, thay bằng `new_order_alarm.dart` + `audioplayers`. Âm thanh **sinh tại chỗ** (`buildAlarmWav()`: 1 giây PCM 16-bit mono trong header WAV 44 byte, hai tiếng «ting» C6 → E6 rồi im) thay vì commit một file nhị phân không review được. Đuôi im chính là mối nối của `ReleaseMode.loop` nên lặp không «pop»; mỗi tiếng fade 6 ms hai đầu vì cạnh vuông của sóng sin kêu lụp bụp
+  - Popup `showNewOrderAlarmDialog()` khoá cả barrier lẫn nút back (`PopScope`) và chỉ có hai lối ra: `Duration` = snooze **5 / 10 / 15 / 30 phút**, `null` = «Không hiển thị lại» (tắt hẳn cho phiên làm việc). Không có kết quả thứ ba nên không thể bấm nhầm ra ngoài mà tắt được chuông đang kêu
+  - Order Desk gom mute/snooze vào **một** hàm `_raiseAlarm()`: cả nhắc theo chu kỳ lẫn đơn mới về đều đi qua đây, và `_alarmOpen` chặn đơn thứ hai chồng popup lên popup đang mở. `alertEnabled` / `alertIntervalSec` giữ nguyên ngữ nghĩa — không đụng API hay DB
+  - **Icon tab.** Lần trước sửa **cache** (`Cache-Control: no-cache` cho `/assets/`); lần này sửa **nguyên nhân gốc**: build web với `--no-tree-shake-icons`. Font subset đổi nội dung mỗi lần thêm icon nhưng URL thì không đổi (Flutter không hash tên asset), nên bất kỳ trình duyệt/proxy nào còn giữ bản cũ đều vẽ icon mới thành ô trống. Font đầy đủ **byte-identical giữa mọi lần build** ⇒ bản cache lại không bao giờ sai được nữa
+  - **Mặc định Sáng.** `ThemeModeController._restore()` trả `ThemeMode.light` khi chưa lưu lựa chọn; «Hệ thống» vẫn chọn được, chỉ không còn là mặc định
+  - **Primary / secondary.** `AppPalette` trước chỉ có `ink` + `accent` dùng đúng một chỗ (FAB) — đó là lý do màn hình đơn sắc. Thêm `primary`/`onPrimary` (`#EA580C` / `#FB923C`) cho nút chính, FAB, chip · segment · switch · checkbox · radio khi chọn, tab + nav đang chọn, viền input focus, progress; và `secondary`/`onSecondary` (`#0284C7` / `#38BDF8`) cho icon tiêu đề `AppSection`, icon `ListTile`, `colorScheme.secondary`/`tertiary`. `accent` giữ lại làm **getter trỏ vào `primary`** nên 5 call site cũ không phải đổi tên. `primaryContainer`/`secondaryContainer` được flatten trên nền trang thay vì để alpha — card tô màu trong suốt sẽ lộ thứ nằm dưới. `ink` lui về đúng vai trò chữ
+- **Rủi ro đã biết:** font MaterialIcons đầy đủ là 1,6 MB thay vì ~10 KB subset (brotli -q 11 trong Dockerfile kéo xuống đáng kể, tải một lần rồi cache vĩnh viễn) — đổi lại icon không bao giờ trống nữa. Trình duyệt chặn audio trước tương tác đầu tiên, nhưng vào được Order Desk là đã bấm qua đăng nhập nên điều kiện đó luôn thoả. «Không hiển thị lại» tắt theo **phiên**, mở lại Order Desk là chuông sống lại — đúng ý một cái báo thức.
+- **Workdocs:** `docs/workdocs_chuong-bao-don-mau-primary-secondary_05092026/`
+- **Liên quan:** `docs/codemap.md` §1.1, §3, §8
+
+
 ## [2026-09-05] Lợi nhuận tính theo giá nhập, lịch sử đơn có bộ lọc, thống kê theo khách, admin thấy SĐT khách
 
 - **Loại:** fix + feat

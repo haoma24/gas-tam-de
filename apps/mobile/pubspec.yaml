@@ -18,7 +18,7 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   shared_preferences: ^2.3.3
-  flutter_tts: ^4.2.0
+  audioplayers: ^6.1.0
   google_fonts: ^8.2.1
   google_sign_in: 7.1.1
   google_sign_in_web: 1.1.3

@@ -14,22 +14,31 @@ Future<ProviderContainer> _container(Map<String, Object> seed) async {
 }
 
 void main() {
-  testWidgets('theme mode defaults to system and survives a restart',
+  testWidgets('theme mode defaults to light and survives a restart',
       (tester) async {
     final container = await _container({});
     addTearDown(container.dispose);
 
-    expect(container.read(themeModeProvider), ThemeMode.system);
-
-    await container.read(themeModeProvider.notifier).set(ThemeMode.light);
+    // Light is the designed look; a machine sitting in dark mode used to drag
+    // the whole app dark on first run.
     expect(container.read(themeModeProvider), ThemeMode.light);
+
+    await container.read(themeModeProvider.notifier).set(ThemeMode.dark);
+    expect(container.read(themeModeProvider), ThemeMode.dark);
 
     // A fresh container reads the same SharedPreferences the app would.
     final restarted = await _container(
-      {'gas_tam_de.theme_mode.v1': 'light'},
+      {'gas_tam_de.theme_mode.v1': 'dark'},
     );
     addTearDown(restarted.dispose);
-    expect(restarted.read(themeModeProvider), ThemeMode.light);
+    expect(restarted.read(themeModeProvider), ThemeMode.dark);
+
+    // «Hệ thống» is still reachable, it is just no longer the default.
+    final system = await _container(
+      {'gas_tam_de.theme_mode.v1': 'system'},
+    );
+    addTearDown(system.dispose);
+    expect(system.read(themeModeProvider), ThemeMode.system);
   });
 
   testWidgets('the settings section switches the app to light mode',

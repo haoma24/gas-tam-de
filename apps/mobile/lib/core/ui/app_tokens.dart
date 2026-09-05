@@ -18,8 +18,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.inkMuted,
     required this.inkFaint,
     required this.onInk,
-    required this.accent,
-    required this.onAccent,
+    required this.primary,
+    required this.onPrimary,
+    required this.secondary,
+    required this.onSecondary,
     required this.success,
     required this.warning,
     required this.danger,
@@ -43,7 +45,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// Stronger hairline for emphasis (focused input, selected card).
   final Color borderStrong;
 
-  /// Primary text — and the fill of the primary button.
+  /// Primary text, headings and icons.
   final Color ink;
 
   /// Secondary text.
@@ -55,14 +57,27 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// Text/icon on top of an [ink] fill.
   final Color onInk;
 
-  /// Reserved for the order CTA, the new-order badge and urgency escalation.
-  /// At most one accent element per viewport.
-  final Color accent;
+  /// Brand colour: fills every primary button, the FAB and the selected state
+  /// of a control. A screen built only from [ink] and greys reads as
+  /// unfinished — this is the colour that tells the eye where the action is.
+  final Color primary;
 
-  final Color onAccent;
+  final Color onPrimary;
+
+  /// Informational colour: counts, links, neutral badges — what the eye should
+  /// find quickly without it competing with [primary] for the tap.
+  final Color secondary;
+
+  final Color onSecondary;
+
   final Color success;
   final Color warning;
   final Color danger;
+
+  /// The accent and the primary action are the same brand colour, so the
+  /// existing `accent` call sites resolve here instead of being renamed.
+  Color get accent => primary;
+  Color get onAccent => onPrimary;
 
   static const light = AppPalette(
     bg: Color(0xFFFFFFFF),
@@ -75,8 +90,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     inkMuted: Color(0xFF737373),
     inkFaint: Color(0xFFA3A3A3),
     onInk: Color(0xFFFFFFFF),
-    accent: Color(0xFFEA580C),
-    onAccent: Color(0xFFFFFFFF),
+    primary: Color(0xFFEA580C),
+    onPrimary: Color(0xFFFFFFFF),
+    secondary: Color(0xFF0284C7),
+    onSecondary: Color(0xFFFFFFFF),
     success: Color(0xFF16A34A),
     warning: Color(0xFFD97706),
     danger: Color(0xFFDC2626),
@@ -93,8 +110,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     inkMuted: Color(0xFFA3A3A3),
     inkFaint: Color(0xFF737373),
     onInk: Color(0xFF171717),
-    accent: Color(0xFFFB923C),
-    onAccent: Color(0xFF1A1A1A),
+    primary: Color(0xFFFB923C),
+    onPrimary: Color(0xFF1A1A1A),
+    secondary: Color(0xFF38BDF8),
+    onSecondary: Color(0xFF0A1A22),
     success: Color(0xFF4ADE80),
     warning: Color(0xFFFBBF24),
     danger: Color(0xFFF87171),
@@ -112,8 +131,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? inkMuted,
     Color? inkFaint,
     Color? onInk,
-    Color? accent,
-    Color? onAccent,
+    Color? primary,
+    Color? onPrimary,
+    Color? secondary,
+    Color? onSecondary,
     Color? success,
     Color? warning,
     Color? danger,
@@ -129,8 +150,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
       inkMuted: inkMuted ?? this.inkMuted,
       inkFaint: inkFaint ?? this.inkFaint,
       onInk: onInk ?? this.onInk,
-      accent: accent ?? this.accent,
-      onAccent: onAccent ?? this.onAccent,
+      primary: primary ?? this.primary,
+      onPrimary: onPrimary ?? this.onPrimary,
+      secondary: secondary ?? this.secondary,
+      onSecondary: onSecondary ?? this.onSecondary,
       success: success ?? this.success,
       warning: warning ?? this.warning,
       danger: danger ?? this.danger,
@@ -151,8 +174,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
       inkMuted: Color.lerp(inkMuted, other.inkMuted, t)!,
       inkFaint: Color.lerp(inkFaint, other.inkFaint, t)!,
       onInk: Color.lerp(onInk, other.onInk, t)!,
-      accent: Color.lerp(accent, other.accent, t)!,
-      onAccent: Color.lerp(onAccent, other.onAccent, t)!,
+      primary: Color.lerp(primary, other.primary, t)!,
+      onPrimary: Color.lerp(onPrimary, other.onPrimary, t)!,
+      secondary: Color.lerp(secondary, other.secondary, t)!,
+      onSecondary: Color.lerp(onSecondary, other.onSecondary, t)!,
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
       danger: Color.lerp(danger, other.danger, t)!,

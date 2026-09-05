@@ -10,9 +10,10 @@ const _kThemeModeKey = 'gas_tam_de.theme_mode.v1';
 
 /// Light / dark preference, persisted locally.
 ///
-/// [ThemeMode.system] is the default: the app used to be light-only, so a
-/// phone or browser set to dark suddenly turned the whole UI dark with no way
-/// back. This controller is that way back.
+/// [ThemeMode.light] is the default. The shop opens the desk on whatever
+/// machine is free and several of those sit in dark mode, which used to drag
+/// the whole app dark on first run; light is the intended look and 「Hệ
+/// thống」 is the opt-in.
 class ThemeModeController extends StateNotifier<ThemeMode> {
   ThemeModeController(this._prefs) : super(_restore(_prefs));
 
@@ -24,8 +25,10 @@ class ThemeModeController extends StateNotifier<ThemeMode> {
         return ThemeMode.light;
       case 'dark':
         return ThemeMode.dark;
-      default:
+      case 'system':
         return ThemeMode.system;
+      default:
+        return ThemeMode.light;
     }
   }
 

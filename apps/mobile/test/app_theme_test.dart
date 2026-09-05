@@ -10,9 +10,17 @@ void main() {
 
       expect(palette, isNotNull, reason: '$brightness must carry AppPalette');
       expect(theme.brightness, brightness);
-      // Primary is the ink block, not the accent — the core of the palette rule.
-      expect(theme.colorScheme.primary, palette!.ink);
-      expect(theme.colorScheme.onPrimary, palette.onInk);
+      // Buttons and selected controls carry the brand colour; ink stays text.
+      expect(theme.colorScheme.primary, palette!.primary);
+      expect(theme.colorScheme.onPrimary, palette.onPrimary);
+      expect(theme.colorScheme.secondary, palette.secondary);
+      expect(
+          theme.filledButtonTheme.style?.backgroundColor
+              ?.resolve(const <WidgetState>{}),
+          palette.primary);
+      // A translucent container colour would let a card leak its background.
+      expect(theme.colorScheme.primaryContainer.a, 1.0);
+      expect(theme.colorScheme.secondaryContainer.a, 1.0);
       expect(theme.scaffoldBackgroundColor, palette.bg);
       // Elevation is expressed as a hairline, so cards stay flat.
       expect(theme.cardTheme.elevation, 0);
@@ -27,6 +35,8 @@ void main() {
     expect(light.ink, isNot(dark.ink));
     expect(light.surface, isNot(dark.surface));
     expect(light.border, isNot(dark.border));
+    expect(light.primary, isNot(dark.primary));
+    expect(light.secondary, isNot(dark.secondary));
   });
 
   testWidgets('context.palette resolves through the theme', (tester) async {
@@ -43,5 +53,7 @@ void main() {
       ),
     );
     expect(resolved.ink, AppPalette.light.ink);
+    // Legacy `accent` call sites resolve to the brand colour.
+    expect(resolved.accent, AppPalette.light.primary);
   });
 }

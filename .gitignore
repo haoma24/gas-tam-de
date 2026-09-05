@@ -57,3 +57,7 @@ apps/mobile/ios/Flutter/flutter_export_environment.sh
 # Coverage / test
 coverage/
 *.out
+
+# SQLite local data (per-service run from repo root)
+services/*/data/*.db
+services/*/data/*.db-*
