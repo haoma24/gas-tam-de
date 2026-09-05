@@ -85,7 +85,10 @@ func (j *jsOrderPublisher) PublishOrderCompleted(e orderCompletedEvent) error {
 			"product_id": it.ProductID,
 			"qty":        it.Qty,
 			"unit_price": it.UnitPrice,
-			"sku":        it.ProductSKU,
+			// COGS snapshot; report-service sums qty×unit_cost into cogs_vnd so
+			// profit stops equalling revenue (architecture §6.7).
+			"unit_cost": it.UnitCost,
+			"sku":       it.ProductSKU,
 		})
 	}
 	env := events.NewEnvelope(events.OrderCompleted, uuid.NewString(), map[string]any{

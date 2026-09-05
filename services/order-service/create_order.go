@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log/slog"
@@ -19,6 +20,7 @@ type orderService struct {
 	catalog   productCatalog
 	billing   billingRecorder
 	inventory stockReserver
+	authDir   phoneDirectory
 	bus       orderPublisher
 }
 
@@ -43,27 +45,41 @@ type orderItemView struct {
 	UnitPrice   int64  `json:"unit_price"`
 	Qty         int    `json:"qty"`
 	LineTotal   int64  `json:"line_total"`
+	// UnitCost is the COGS snapshot (VND giá nhập) taken when inventory
+	// deducted this line. 0 = unknown (order placed before the field existed,
+	// or the product has no cost price set in Kho).
+	UnitCost int64 `json:"unit_cost"`
 }
 
 type orderView struct {
 	// Stt is 1-based FIFO desk sequence (admin list only; omitted for customer APIs).
-	Stt          int             `json:"stt,omitempty"`
-	ID           string          `json:"id"`
-	UserID       string          `json:"user_id"`
-	CustomerName string          `json:"customer_name"`
-	PhoneMasked  string          `json:"phone_masked"`
-	AddressText  string          `json:"address_text"`
+	Stt          int    `json:"stt,omitempty"`
+	ID           string `json:"id"`
+	UserID       string `json:"user_id"`
+	CustomerName string `json:"customer_name"`
+	PhoneMasked  string `json:"phone_masked"`
+	// CustomerPhone is the full contact number. Only ever set by
+	// [adminOrderView]: the shop has to be able to call the customer, while
+	// customer-facing responses keep seeing phone_masked alone.
+	CustomerPhone string `json:"customer_phone,omitempty"`
+	AddressText   string `json:"address_text"`
 	// Lat/Lng are the delivery destination (WGS84) captured at place time —
 	// used by admin navigation (US-5.2).
-	Lat          float64         `json:"lat"`
-	Lng          float64         `json:"lng"`
-	DistanceKm   float64         `json:"distance_km"`
-	DeliveryFee  int64           `json:"delivery_fee"`
-	Subtotal     int64           `json:"subtotal"`
-	Total        int64           `json:"total"`
-	Status       string          `json:"status"`
-	CreatedAt    string          `json:"created_at"`
-	Items        []orderItemView `json:"items"`
+	Lat         float64 `json:"lat"`
+	Lng         float64 `json:"lng"`
+	DistanceKm  float64 `json:"distance_km"`
+	DeliveryFee int64   `json:"delivery_fee"`
+	Subtotal    int64   `json:"subtotal"`
+	Total       int64   `json:"total"`
+	Status      string  `json:"status"`
+	CreatedAt   string  `json:"created_at"`
+	// Lifecycle timestamps + payment settlement, so a finished order can be
+	// reopened and read back instead of vanishing from the desk.
+	CompletedAt string          `json:"completed_at,omitempty"`
+	CancelledAt string          `json:"cancelled_at,omitempty"`
+	PaymentType string          `json:"payment_type,omitempty"`
+	AmountPaid  int64           `json:"amount_paid,omitempty"`
+	Items       []orderItemView `json:"items"`
 }
 
 type preparedLine struct {
@@ -196,6 +212,11 @@ func (s *orderService) handleCreateOrder(w http.ResponseWriter, r *http.Request)
 	// phone_hash is not on JWT; store uid-scoped placeholder (no raw phone available).
 	phoneHash := "uid:" + userID
 
+	// The JWT only carries the masked number, so the callable one is fetched
+	// from auth-service and snapshot on the order. Best-effort: auth being down
+	// must not block a customer from ordering — fillCustomerPhones backfills later.
+	customerPhone := s.lookupCustomerPhone(r.Context(), userID)
+
 	tx, err := s.db.Begin()
 	if err != nil {
 		slog.Error("begin create order", "err", err)
@@ -206,11 +227,11 @@ func (s *orderService) handleCreateOrder(w http.ResponseWriter, r *http.Request)
 
 	_, err = tx.Exec(`
 		INSERT INTO orders (
-			id, user_id, customer_name, phone_hash, phone_masked,
+			id, user_id, customer_name, phone_hash, phone_masked, customer_phone,
 			address_text, lat, lng, distance_km, delivery_fee,
 			subtotal, total, status, created_at, completed_at, cancelled_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, NULL, NULL)`,
-		orderID, userID, customerName, phoneHash, phoneMasked,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, NULL, NULL)`,
+		orderID, userID, customerName, phoneHash, phoneMasked, customerPhone,
 		addressText, body.Lat, body.Lng, geo.DistanceKm, deliveryFee,
 		subtotal, total, now,
 	)
@@ -261,7 +282,8 @@ func (s *orderService) handleCreateOrder(w http.ResponseWriter, r *http.Request)
 				Qty:       int64(it.Qty),
 			})
 		}
-		if err := s.inventory.Reserve(r.Context(), orderID, lines); err != nil {
+		costs, err := s.inventory.Reserve(r.Context(), orderID, lines)
+		if err != nil {
 			slog.Error("inventory reserve", "order_id", orderID, "err", err)
 			// Best-effort rollback of PENDING order so stock stays consistent.
 			_, _ = s.db.Exec(`UPDATE orders SET status = 'CANCELLED', cancelled_at = ? WHERE id = ?`,
@@ -274,6 +296,11 @@ func (s *orderService) handleCreateOrder(w http.ResponseWriter, r *http.Request)
 			httpx.Error(w, http.StatusBadGateway, "INVENTORY_UNAVAILABLE", "Không trừ được tồn kho. Thử lại.")
 			return
 		}
+		// COGS snapshot from the OUT movement inventory just wrote. Persisted
+		// here so order.completed can carry it and report-service can compute
+		// profit = revenue − COGS. Best-effort: the order is already committed,
+		// and a missing cost only means that line contributes 0 COGS.
+		s.storeItemCosts(orderID, itemViews, costs)
 	}
 
 	// Publish after commit; failures are logged only (order already persisted).
@@ -290,6 +317,40 @@ func (s *orderService) handleCreateOrder(w http.ResponseWriter, r *http.Request)
 		deliveryFee, subtotal, total,
 		"PENDING", now, itemViews,
 	))
+}
+
+// lookupCustomerPhone asks auth-service for the caller's full contact number.
+// Returns "" on any failure — the order still goes through.
+func (s *orderService) lookupCustomerPhone(ctx context.Context, userID string) string {
+	if s.authDir == nil {
+		return ""
+	}
+	phones, err := s.authDir.PhonesByUserID(ctx, []string{userID})
+	if err != nil {
+		slog.Error("lookup customer phone", "user_id", userID, "err", err)
+		return ""
+	}
+	return strings.TrimSpace(phones[userID])
+}
+
+// storeItemCosts writes the reserve-time COGS snapshot onto order_items and
+// mirrors it into itemViews so the response and order.completed agree.
+func (s *orderService) storeItemCosts(orderID string, itemViews []orderItemView, costs map[string]int64) {
+	if len(costs) == 0 {
+		return
+	}
+	for i := range itemViews {
+		cost, ok := costs[itemViews[i].ProductID]
+		if !ok || cost <= 0 {
+			continue
+		}
+		itemViews[i].UnitCost = cost
+		if _, err := s.db.Exec(
+			`UPDATE order_items SET unit_cost = ? WHERE id = ?`, cost, itemViews[i].ID,
+		); err != nil {
+			slog.Error("store item cost", "order_id", orderID, "item_id", itemViews[i].ID, "err", err)
+		}
+	}
 }
 
 func requireCustomerIdentity(w http.ResponseWriter, r *http.Request) (userID, phoneMasked string, ok bool) {

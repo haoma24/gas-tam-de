@@ -60,6 +60,14 @@ func (s *inventoryService) handleReleaseStock(w http.ResponseWriter, r *http.Req
 	s.handleStockOp(w, r, false)
 }
 
+// stockOpLine is one line of the reserve response: the COGS snapshot the OUT
+// movement was written with. order-service persists it on order_items.unit_cost
+// so report-service can compute profit = revenue − COGS (architecture §6.7).
+type stockOpLine struct {
+	ProductID string `json:"product_id"`
+	UnitCost  int64  `json:"unit_cost"`
+}
+
 func (s *inventoryService) handleStockOp(w http.ResponseWriter, r *http.Request, reserve bool) {
 	var body stockOpBody
 	dec := json.NewDecoder(r.Body)
@@ -87,6 +95,7 @@ func (s *inventoryService) handleStockOp(w http.ResponseWriter, r *http.Request,
 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	refType := refTypeOrder
+	lines := make([]stockOpLine, 0, len(body.Items))
 
 	for _, it := range body.Items {
 		pid := strings.TrimSpace(it.ProductID)
@@ -95,7 +104,8 @@ func (s *inventoryService) handleStockOp(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		if reserve {
-			if err := reserveLineTx(tx, pid, strings.TrimSpace(it.SKU), it.Qty, orderID, refType, now); err != nil {
+			unitCost, err := reserveLineTx(tx, pid, strings.TrimSpace(it.SKU), it.Qty, orderID, refType, now)
+			if err != nil {
 				if errors.Is(err, errInsufficientStock) {
 					httpx.Error(w, http.StatusConflict, "INSUFFICIENT_STOCK", err.Error())
 					return
@@ -104,6 +114,7 @@ func (s *inventoryService) handleStockOp(w http.ResponseWriter, r *http.Request,
 				httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not reserve stock")
 				return
 			}
+			lines = append(lines, stockOpLine{ProductID: pid, UnitCost: unitCost})
 		} else {
 			if err := releaseLineTx(tx, pid, strings.TrimSpace(it.SKU), it.Qty, orderID, refType, now); err != nil {
 				slog.Error("release line", "err", err)
@@ -117,33 +128,38 @@ func (s *inventoryService) handleStockOp(w http.ResponseWriter, r *http.Request,
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL", "could not update stock")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"ok": true, "order_id": orderID})
+	httpx.JSON(w, http.StatusOK, map[string]any{"ok": true, "order_id": orderID, "items": lines})
 }
 
 var errInsufficientStock = fmt.Errorf("insufficient stock")
 
-func reserveLineTx(tx *sql.Tx, productID, sku string, qty int64, orderID, refType, now string) error {
+// reserveLineTx deducts one line and returns the COGS snapshot written on the
+// OUT movement, so the caller can hand it back to order-service.
+func reserveLineTx(tx *sql.Tx, productID, sku string, qty int64, orderID, refType, now string) (int64, error) {
 	item, err := loadStockItemTx(tx, productID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w for product %s (on_hand=0)", errInsufficientStock, productID)
+		return 0, fmt.Errorf("%w for product %s (on_hand=0)", errInsufficientStock, productID)
 	}
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if item.OnHand < qty {
-		return fmt.Errorf("%w for product %s (on_hand=%d, need=%d)", errInsufficientStock, productID, item.OnHand, qty)
+		return 0, fmt.Errorf("%w for product %s (on_hand=%d, need=%d)", errInsufficientStock, productID, item.OnHand, qty)
 	}
 	snap := snapshotOUTCost(item.CostPrice)
 	item.OnHand -= qty
 	item.UpdatedAt = now
 	if err := updateStockItemTx(tx, item); err != nil {
-		return err
+		return 0, err
 	}
 	uc := snap
 	note := "reserve order.placed"
 	refID := orderID
 	rt := refType
-	return insertMovementTx(tx, uuid.NewString(), productID, movementOUT, qty, &uc, &note, &rt, &refID, now, nil)
+	if err := insertMovementTx(tx, uuid.NewString(), productID, movementOUT, qty, &uc, &note, &rt, &refID, now, nil); err != nil {
+		return 0, err
+	}
+	return snap, nil
 }
 
 func releaseLineTx(tx *sql.Tx, productID, sku string, qty int64, orderID, refType, now string) error {

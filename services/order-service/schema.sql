@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_name TEXT NOT NULL,
   phone_hash    TEXT NOT NULL,
   phone_masked  TEXT NOT NULL,
+  -- Full contact number, snapshot at place time from auth-service (internal call).
+  -- Admin-only: exposed by /v1/admin/* views so the shop can call the customer;
+  -- customer-facing views keep using phone_masked.
+  customer_phone TEXT NOT NULL DEFAULT '',
   address_text  TEXT NOT NULL,
   lat           REAL NOT NULL,
   lng           REAL NOT NULL,
@@ -64,7 +68,10 @@ CREATE TABLE IF NOT EXISTS order_items (
   product_name TEXT NOT NULL,
   unit_price   INTEGER NOT NULL CHECK(unit_price >= 0),
   qty          INTEGER NOT NULL CHECK(qty >= 1),
-  line_total   INTEGER NOT NULL CHECK(line_total >= 0)
+  line_total   INTEGER NOT NULL CHECK(line_total >= 0),
+  -- COGS snapshot (VND giá nhập) returned by inventory reserve at place time.
+  -- Feeds order.completed → report-service profit = revenue − COGS (architecture §6.7).
+  unit_cost    INTEGER NOT NULL DEFAULT 0 CHECK(unit_cost >= 0)
 );
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);

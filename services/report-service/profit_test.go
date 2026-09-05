@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"gas-tam-de/pkg/events"
+)
 
 func TestSumSaleRevenue(t *testing.T) {
 	got := SumSaleRevenue([]SaleLine{
@@ -109,5 +114,75 @@ func TestBuildDailyStatsAmounts_MultiLineOrder(t *testing.T) {
 	}
 	if got.DeliveryFeeVnd != 10_000 {
 		t.Fatalf("fee=%d want 10000", got.DeliveryFeeVnd)
+	}
+}
+
+// TestOrderCompletedWithUnitCostShrinksProfit is the shop owner's bug in one
+// test: the event used to arrive without unit_cost, COGS summed to 0, and
+// profit came back equal to revenue. With the cost on the line the two numbers
+// must diverge by exactly the purchase price.
+func TestOrderCompletedWithUnitCostShrinksProfit(t *testing.T) {
+	env := events.Envelope{
+		Subject:    events.OrderCompleted,
+		EventID:    "evt-cogs-1",
+		OccurredAt: time.Date(2026, 8, 2, 3, 0, 0, 0, time.UTC),
+		Payload: map[string]any{
+			"order_id":     "ord-1",
+			"total":        float64(950000),
+			"delivery_fee": float64(50000),
+			"items": []any{
+				map[string]any{"qty": float64(2), "unit_price": float64(450000), "unit_cost": float64(380000)},
+			},
+		},
+	}
+
+	got, day, err := parseOrderCompleted(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if day != "2026-08-02" {
+		t.Fatalf("day=%q", day)
+	}
+	if got.Amounts.RevenueVnd != 900000 {
+		t.Fatalf("revenue=%d, want 900000", got.Amounts.RevenueVnd)
+	}
+	if got.Amounts.CogsVnd != 760000 {
+		t.Fatalf("cogs=%d, want 760000", got.Amounts.CogsVnd)
+	}
+	if got.Amounts.ProfitVnd != 140000 {
+		t.Fatalf("profit=%d, want 140000 (revenue − COGS)", got.Amounts.ProfitVnd)
+	}
+	if got.Amounts.ProfitVnd == got.Amounts.RevenueVnd {
+		t.Fatal("profit must not equal revenue once COGS is known")
+	}
+	// Delivery fee is tracked, never folded into profit.
+	if got.Amounts.DeliveryFeeVnd != 50000 {
+		t.Fatalf("delivery_fee=%d, want 50000", got.Amounts.DeliveryFeeVnd)
+	}
+}
+
+// TestOrderCompletedWithoutUnitCostStillWorks — orders placed before the field
+// existed carry no cost; those days keep reporting profit = revenue rather than
+// failing to be counted at all.
+func TestOrderCompletedWithoutUnitCostStillWorks(t *testing.T) {
+	env := events.Envelope{
+		Subject:    events.OrderCompleted,
+		EventID:    "evt-cogs-2",
+		OccurredAt: time.Date(2026, 8, 2, 3, 0, 0, 0, time.UTC),
+		Payload: map[string]any{
+			"order_id": "ord-2",
+			"total":    float64(450000),
+			"items": []any{
+				map[string]any{"qty": float64(1), "unit_price": float64(450000)},
+			},
+		},
+	}
+
+	got, _, err := parseOrderCompleted(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Amounts.CogsVnd != 0 || got.Amounts.ProfitVnd != 450000 {
+		t.Fatalf("cogs=%d profit=%d, want 0 / 450000", got.Amounts.CogsVnd, got.Amounts.ProfitVnd)
 	}
 }

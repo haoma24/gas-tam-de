@@ -5,6 +5,45 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-09-05] Lợi nhuận tính theo giá nhập, lịch sử đơn có bộ lọc, thống kê theo khách, admin thấy SĐT khách
+
+- **Loại:** fix + feat
+- **Phạm vi:** `services/order-service`, `services/inventory-service`, `services/auth-service`, `services/report-service` (test), `apps/mobile` (tab Đơn + tab Báo cáo), `deploy/docker-compose.yml`, `docs/codemap.md`
+- **Tóm tắt:** Bốn việc chủ shop báo, cùng một lần. (1) Lợi nhuận trên tab «Báo cáo» đang **bằng doanh thu**: công thức `profit = revenue − cogs` ở `report-service/profit.go` vốn đúng, nhưng `cogs` luôn bằng 0 vì `order_items` không có cột giá vốn và payload `order.completed` không mang `unit_cost` — report đọc `m["unit_cost"]` và luôn nhận `nil`. (2) Đơn hoàn tất **biến mất khỏi màn hình**: backend đã nhận `?status=` từ lâu nhưng Flutter không bao giờ truyền, nên tab «Đơn» luôn chỉ thấy `PENDING`. (3) Không có endpoint nào thống kê theo khách. (4) Admin chỉ thấy `090***7020` — số thật **chưa từng được lưu** trong `order.db`, chỉ auth-service có ở dạng mã hoá AES-GCM; không sửa được ở tầng UI.
+- **Chi tiết:**
+  - **Giá vốn (COGS).** Tồn kho bị trừ ngay lúc **đặt đơn** (`inventory-service/reserve.go`), nên bản chụp giá vốn đã sẵn có trong `stock_movements.unit_cost` từ thời điểm đó — chỉ là order-service không nhận lại. Nay `POST /v1/internal/stock/reserve` trả thêm `items: [{product_id, unit_cost}]`; order-service lưu vào cột mới `order_items.unit_cost` và đưa vào payload `order.completed`. Không thêm stream/consumer NATS nào: giá vốn đi nhờ lời gọi đồng bộ vốn đã tồn tại. Bên report **không phải sửa** — nó vốn đã đọc `unit_cost`
+  - Cột mới của DB đã deploy được vá bằng `ensureColumn` trong `migrate()` (copy khuôn của auth-service): `CREATE TABLE IF NOT EXISTS` không tiến hoá được bảng đã tồn tại
+  - **Lịch sử đơn.** `GET /v1/admin/orders?status=` nhận thêm `ALL`; sắp xếp theo ngữ cảnh — `PENDING` giữ FIFO (cũ nhất trước, có `stt`), mọi trạng thái khác trả mới nhất trước và không đánh số. Response bổ sung `completed_at`, `cancelled_at`, `payment_type`, `amount_paid` để mở lại đơn là thấy đã thu bao nhiêu, còn nợ bao nhiêu
+  - Tab «Đơn» có hàng chip **Chưa giao · Đã giao · Bị hủy · Tất cả**. Chỉ «Chưa giao» mới tự làm mới 10s và đọc/thông báo đơn mới — lịch sử không đổi theo thời gian, poll nó chỉ là nhiễu. Tile lịch sử hiện badge trạng thái thay cho badge thời gian chờ; nút «Hoàn tất» tự ẩn với đơn không còn `PENDING`
+  - **Thống kê theo khách.** `GET /v1/admin/orders/customers?from=&to=&limit=` (mặc định 30 ngày gần nhất) gộp thẳng từ bảng `orders`: số đơn theo từng trạng thái, tổng chi, đã trả, còn nợ, lần đặt đầu/cuối. Tiền chỉ cộng đơn `COMPLETED`, đúng luật «chỉ tính khi hoàn tất» của kiến trúc; lọc theo **ngày VN (UTC+7)** để khớp `daily_stats.day` của report-service. Không dựng read-model mới: đây là một câu `GROUP BY` trên một bảng
+  - Tab «Báo cáo» thêm mục «Khách hàng» (top 10 + «Xem tất cả»), SĐT bấm gọi được. Thêm cảnh báo khi `cogs = 0` mà `revenue > 0`: nói thẳng «lợi nhuận đang bằng doanh thu, vào tab Kho nhập giá nhập» thay vì im lặng hiện con số đẹp
+  - **SĐT khách.** auth-service mở `POST /v1/internal/users/phones` (theo lô, **không** qua gateway, cùng lớp với `/v1/internal/stock/*`), giải mã `contact_phone_e164_enc` → `phone_e164_enc` và trả dạng `0…`. order-service snapshot vào cột mới `orders.customer_phone` lúc đặt đơn; đơn cũ được vá ngược **lười theo lô** khi admin liệt kê, rồi ghi lại nên lần sau không gọi nữa. Không nhét số vào JWT: làm vậy là để số thật nằm trong localStorage của mọi phiên trình duyệt
+  - Số thật **chỉ** ra ở view admin (`pii.go:adminOrderView`); `GET /v1/orders/me` của khách vẫn masked như cũ, có test chặn rò rỉ. Trang chi tiết đơn: chạm số để gọi (`tel:`), giữ để chép; chưa có số thì không hiện nút gọi mà nói rõ khách chưa thêm SĐT liên hệ
+  - Lời gọi auth là **best-effort** ở mọi chỗ: auth chết thì khách vẫn đặt được đơn và Order Desk vẫn liệt kê được, chỉ là chưa hiện số. Vì vậy **không** thêm auth vào `/readyz` hay `depends_on` của order-service — đó đúng là cái bẫy «cả stack hỏng vì một service chậm» mà `CLAUDE.md` cảnh báo
+  - `deploy/docker-compose.yml`: order-service nhận `AUTH_SERVICE_URL`
+- **Rủi ro đã biết:** đơn đặt **trước** bản này có `unit_cost = 0` nên báo cáo kỳ cũ vẫn hiện lợi nhuận = doanh thu (giá nhập tại thời điểm đó không còn khôi phục được) — số liệu đúng dần từ ngày deploy. Nếu admin chưa nhập giá nhập ở tab «Kho» thì COGS vẫn 0, đã có cảnh báo trên UI. Khách đăng nhập Google chưa thêm SĐT liên hệ thì admin vẫn thấy `—`.
+- **Workdocs:** `docs/workdocs_bao-cao-loi-nhuan-lich-su-don-sdt-khach_05092026/`
+- **Liên quan:** `docs/codemap.md` §1, §3, §5.1, §5.2, §7, §8
+
+
+## [2026-09-05] Thêm docs/codemap.md — bản đồ chức năng ⇄ file
+
+- **Loại:** docs
+- **Phạm vi:** `docs/codemap.md` (mới), `CLAUDE.md`
+- **Tóm tắt:** `docs/` đã có 95 thư mục workdocs ghi *vì sao* từng thay đổi được làm, nhưng không có chỗ nào trả lời *hiện tại chức năng X nằm ở file nào*. Thêm một file tra cứu duy nhất, dựng theo lát cắt dọc: màn hình → route → trang Flutter → file gọi API → endpoint → nhóm quyền ở gateway → service → bảng SQLite → sự kiện.
+- **Chi tiết:**
+  - §1 bảng tra nhanh 9 chức năng khách + 13 chức năng admin, mỗi dòng là một lát cắt dọc đầy đủ nên sửa một chức năng là thấy hết chỗ phải đụng
+  - §2 tầng chung Flutter (`core/`, `core/ui/` 13 file design system) — vùng sửa vào là ảnh hưởng toàn app
+  - §3 bảng 8 service kèm cổng, endpoint, bảng SQLite, sự kiện; và `pkg/` dùng chung
+  - §4 ba nhóm quyền ở gateway, kèm cảnh báo service phía sau không kiểm role lần nữa nên thêm endpoint là phải thêm vào đúng nhóm
+  - §5 tách rõ **hai** đường giao tiếp hay bị nhầm: gọi HTTP nội bộ đồng bộ (`order-service` → inventory `/v1/internal/stock/{reserve,release}`, → billing `/v1/internal/payments`, không đi qua gateway) và sự kiện NATS bất đồng bộ
+  - Rà thực tế phát hiện 4 subject **đã khai báo trong `pkg/events/events.go` nhưng chưa ai phát và chưa ai nghe** (`auth.otp.verified`, `geo.store_config.updated`, `inventory.stock.adjusted`, `inventory.low_stock`) — ghi rõ để không tưởng nhầm là đang chạy
+  - §6 hạ tầng/deploy/CI, §7 sửa gì chạy test gì kèm 13 test Flutter và thứ mỗi test bảo vệ, §8 bẫy hay dính, §9 quy ước cập nhật theo từng loại thay đổi
+  - `CLAUDE.md` trỏ vào file này ngay đầu mục Repo, kèm yêu cầu cập nhật cùng commit
+- **Workdocs:** n/a (bản thân file là tài liệu)
+- **Liên quan:** `docs/architecture.md`, `docs/prd.md`, `.cursor/rules/change-workdocs.mdc`
+
+
 ## [2026-09-05] Thêm nút chọn giao diện Sáng/Tối và sửa mất icon tab admin
 
 - **Loại:** feat + fix

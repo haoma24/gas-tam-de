@@ -32,25 +32,27 @@ type completeOrderBody struct {
 // settlement. Billing persistence is invoked sync; order.completed is published
 // after a successful COMPLETED transition.
 type completeOrderView struct {
-	ID           string          `json:"id"`
-	UserID       string          `json:"user_id"`
-	CustomerName string          `json:"customer_name"`
-	PhoneMasked  string          `json:"phone_masked"`
-	AddressText  string          `json:"address_text"`
-	Lat          float64         `json:"lat"`
-	Lng          float64         `json:"lng"`
-	DistanceKm   float64         `json:"distance_km"`
-	DeliveryFee  int64           `json:"delivery_fee"`
-	Subtotal     int64           `json:"subtotal"`
-	Total        int64           `json:"total"`
-	Status       string          `json:"status"`
-	CreatedAt    string          `json:"created_at"`
-	CompletedAt  string          `json:"completed_at"`
-	PaymentType  string          `json:"payment_type"`
-	AmountDue    int64           `json:"amount_due"`
-	AmountPaid   int64           `json:"amount_paid"`
-	Debt         int64           `json:"debt"`
-	Items        []orderItemView `json:"items"`
+	ID           string `json:"id"`
+	UserID       string `json:"user_id"`
+	CustomerName string `json:"customer_name"`
+	PhoneMasked  string `json:"phone_masked"`
+	// Admin response — carries the callable number, like the other /v1/admin views.
+	CustomerPhone string          `json:"customer_phone,omitempty"`
+	AddressText   string          `json:"address_text"`
+	Lat           float64         `json:"lat"`
+	Lng           float64         `json:"lng"`
+	DistanceKm    float64         `json:"distance_km"`
+	DeliveryFee   int64           `json:"delivery_fee"`
+	Subtotal      int64           `json:"subtotal"`
+	Total         int64           `json:"total"`
+	Status        string          `json:"status"`
+	CreatedAt     string          `json:"created_at"`
+	CompletedAt   string          `json:"completed_at"`
+	PaymentType   string          `json:"payment_type"`
+	AmountDue     int64           `json:"amount_due"`
+	AmountPaid    int64           `json:"amount_paid"`
+	Debt          int64           `json:"debt"`
+	Items         []orderItemView `json:"items"`
 }
 
 // handleCompleteOrder serves POST /v1/admin/orders/{id}/complete.
@@ -144,25 +146,26 @@ func (s *orderService) handleCompleteOrder(w http.ResponseWriter, r *http.Reques
 	})
 
 	httpx.JSON(w, http.StatusOK, completeOrderView{
-		ID:           o.id,
-		UserID:       o.userID,
-		CustomerName: o.customerName,
-		PhoneMasked:  o.phoneMasked,
-		AddressText:  o.addressText,
-		Lat:          o.lat,
-		Lng:          o.lng,
-		DistanceKm:   o.distanceKm,
-		DeliveryFee:  o.deliveryFee,
-		Subtotal:     o.subtotal,
-		Total:        o.total,
-		Status:       "COMPLETED",
-		CreatedAt:    o.createdAt,
-		CompletedAt:  completedAt,
-		PaymentType:  paymentType,
-		AmountDue:    o.total,
-		AmountPaid:   amountPaid,
-		Debt:         debt,
-		Items:        items,
+		ID:            o.id,
+		UserID:        o.userID,
+		CustomerName:  o.customerName,
+		PhoneMasked:   o.phoneMasked,
+		CustomerPhone: displayPhone(o.customerPhone),
+		AddressText:   o.addressText,
+		Lat:           o.lat,
+		Lng:           o.lng,
+		DistanceKm:    o.distanceKm,
+		DeliveryFee:   o.deliveryFee,
+		Subtotal:      o.subtotal,
+		Total:         o.total,
+		Status:        "COMPLETED",
+		CreatedAt:     o.createdAt,
+		CompletedAt:   completedAt,
+		PaymentType:   paymentType,
+		AmountDue:     o.total,
+		AmountPaid:    amountPaid,
+		Debt:          debt,
+		Items:         items,
 	})
 }
 

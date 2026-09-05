@@ -82,6 +82,8 @@ func main() {
 	r.Post("/v1/auth/google", googleAuth.handleLogin)
 	r.Post("/v1/auth/refresh", tokens.handleRefresh)
 	r.Post("/v1/auth/logout", tokens.handleLogout)
+	// Internal: not mounted on the gateway (same class as /v1/internal/stock/*).
+	r.Post("/v1/internal/users/phones", me.handleInternalUserPhones)
 	r.Get("/v1/me", me.handleGetMe)
 	r.Patch("/v1/me", me.handlePatchMe)
 	r.Get("/v1/admin/admin-phones", adminPhones.handleList)

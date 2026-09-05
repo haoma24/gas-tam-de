@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/phone_link.dart';
 import '../../core/ui/ui.dart';
 
 import 'desk_settings_api.dart';
@@ -22,10 +23,12 @@ import 'wait_time_badge.dart';
 /// bridge can replace this without changing the list API.
 const Duration kAdminOrdersPollInterval = Duration(seconds: 10);
 
-/// Admin Order Desk — FIFO list from `GET /v1/admin/orders` (oldest first).
+/// Admin «Đơn» — hàng chờ giao **và** lịch sử đơn, chọn bằng chip lọc trạng thái.
 ///
-/// Auto-refreshes on [kAdminOrdersPollInterval]; pull-to-refresh / app-bar
-/// refresh still available. Pauses while the app is backgrounded.
+/// «Chưa giao» là hàng chờ FIFO, tự làm mới mỗi [kAdminOrdersPollInterval] và
+/// báo đơn mới. Các tab còn lại là lịch sử (mới nhất trước): không tự làm mới,
+/// không báo đơn mới — trước đây đơn hoàn tất biến mất khỏi màn hình và không
+/// có đường nào xem lại.
 class AdminOrdersPage extends ConsumerStatefulWidget {
   const AdminOrdersPage({super.key});
 
@@ -47,6 +50,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
   DeskSettings _desk = DeskSettings.defaults;
   DateTime _now = DateTime.now();
   String? _selectedId;
+  AdminOrderFilter _filter = AdminOrderFilter.pending;
 
   @override
   void initState() {
@@ -87,6 +91,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
     if (!_desk.alertEnabled) return;
     final every = Duration(seconds: _desk.alertIntervalSec);
     _alertTimer = Timer.periodic(every, (_) {
+      // The reminder counts orders still waiting — meaningless while the screen
+      // is showing history.
+      if (!_filter.isLiveQueue) return;
       final n = _items?.length ?? 0;
       if (n > 0) NewOrderVoice.announcePending(n);
     });
@@ -104,11 +111,29 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
     }
   }
 
+  /// Polling only makes sense for the pending queue — history does not change
+  /// on its own, and refetching it every 10s would be pure noise.
   void _startPolling() {
     _pollTimer?.cancel();
+    if (!_filter.isLiveQueue) return;
     _pollTimer = Timer.periodic(kAdminOrdersPollInterval, (_) {
       _load(silent: true);
     });
+  }
+
+  Future<void> _setFilter(AdminOrderFilter filter) async {
+    if (filter == _filter) return;
+    setState(() {
+      _filter = filter;
+      _items = null;
+      _selectedId = null;
+      // A fresh listing is a fresh baseline; without this, switching back to
+      // «Chưa giao» would announce every pending order as new.
+      _hasSynced = false;
+      _knownIds = {};
+    });
+    _startPolling();
+    await _load();
   }
 
   /// [silent]: background poll — no full-page spinner; keep prior list on error.
@@ -121,9 +146,15 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
         _error = null;
       });
     }
+    final filter = _filter;
     try {
-      final items = await ref.read(orderApiProvider).listAdminOrders();
+      final items = await ref
+          .read(orderApiProvider)
+          .listAdminOrders(status: filter.apiStatus);
       if (!mounted) return;
+      // A filter switch may have landed while this request was in flight;
+      // dropping the stale answer keeps the list matching the selected chip.
+      if (filter != _filter) return;
       final nextIds = items.map((o) => o.id).toSet();
       // After an empty first sync, `_knownIds` is still empty — use `_hasSynced`
       // so the first new orders still trigger a SnackBar.
@@ -135,7 +166,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
         _knownIds = nextIds;
         _hasSynced = true;
       });
-      if (newCount > 0) {
+      // Only the live queue announces arrivals; a history listing that gains a
+      // row because a filter changed is not a new order.
+      if (newCount > 0 && filter.isLiveQueue) {
         _notifyNewOrders(newCount);
       }
     } on OrderApiException catch (e) {
@@ -211,7 +244,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Order Desk'),
+        title: const Text('Đơn hàng'),
         actions: [
           IconButton(
             tooltip: 'Tải lại',
@@ -225,7 +258,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(width: 420, child: _buildBody(theme)),
+                  SizedBox(width: 420, child: _buildList(theme)),
                   VerticalDivider(width: 1, color: p.border),
                   Expanded(
                     child: _selectedOrder == null
@@ -246,8 +279,26 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
                   ),
                 ],
               )
-            : _buildBody(theme),
+            : _buildList(theme),
       ),
+    );
+  }
+
+  /// Filter chips pinned above the list — they must stay reachable while the
+  /// list scrolls, otherwise switching back to the queue means scrolling a
+  /// month of history first.
+  Widget _buildList(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _FilterBar(
+          selected: _filter,
+          enabled: !_loading,
+          onSelect: _setFilter,
+        ),
+        Divider(height: 1, color: context.palette.border),
+        Expanded(child: _buildBody(theme)),
+      ],
     );
   }
 
@@ -269,7 +320,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
           children: [
             const SizedBox(height: 80),
             Text(
-              'Không có đơn chờ giao',
+              _filter.emptyTitleVi,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
@@ -277,8 +328,10 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
             ),
             const SizedBox(height: 8),
             Text(
-              'Đơn mới sẽ tự hiện (làm mới mỗi '
-              '${kAdminOrdersPollInterval.inSeconds}s) theo thứ tự cũ nhất trước.',
+              _filter.isLiveQueue
+                  ? 'Đơn mới sẽ tự hiện (làm mới mỗi '
+                      '${kAdminOrdersPollInterval.inSeconds}s) theo thứ tự cũ nhất trước.'
+                  : 'Chưa có đơn nào ở trạng thái này.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -310,6 +363,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
             order: order,
             settings: _desk,
             now: _now,
+            // FIFO numbering and the wait badge belong to the queue; on a
+            // history row they would imply the order is still waiting.
+            queueView: _filter.isLiveQueue,
             onTap: () => _openOrder(order),
           );
         },
@@ -318,15 +374,67 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage>
   }
 }
 
+/// Status filter chips for the «Đơn» tab.
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({
+    required this.selected,
+    required this.enabled,
+    required this.onSelect,
+  });
+
+  final AdminOrderFilter selected;
+  final bool enabled;
+  final ValueChanged<AdminOrderFilter> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          for (final filter in AdminOrderFilter.values) ...[
+            ChoiceChip(
+              label: Text(filter.labelVi),
+              selected: filter == selected,
+              onSelected: enabled ? (_) => onSelect(filter) : null,
+            ),
+            if (filter != AdminOrderFilter.values.last)
+              const HGap(AppSpacing.sm),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Vietnamese status badge shown on history rows.
+AppBadge orderStatusBadge(String status) {
+  final tone = switch (status.toUpperCase()) {
+    OrderStatus.completed => AppBadgeTone.success,
+    OrderStatus.cancelled => AppBadgeTone.danger,
+    _ => AppBadgeTone.neutral,
+  };
+  return AppBadge(orderStatusLabelVi(status), tone: tone);
+}
+
 class _OrderDeskTile extends StatelessWidget {
   const _OrderDeskTile({
     required this.order,
     required this.settings,
     required this.now,
     required this.onTap,
+    this.queueView = true,
   });
 
   final AdminOrder order;
+
+  /// `true` in the pending queue (STT + wait badge); `false` in history, where
+  /// the status matters more than how long the order has been sitting there.
+  final bool queueView;
   final DeskSettings settings;
   final DateTime now;
   final VoidCallback onTap;
@@ -349,8 +457,10 @@ class _OrderDeskTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SttBadge(stt: order.stt),
-              const SizedBox(width: 12),
+              if (queueView) ...[
+                _SttBadge(stt: order.stt),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,16 +477,21 @@ class _OrderDeskTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        WaitTimeBadge(
-                          createdAt: order.createdAt,
-                          settings: settings,
-                          now: now,
-                        ),
+                        if (queueView)
+                          WaitTimeBadge(
+                            createdAt: order.createdAt,
+                            settings: settings,
+                            now: now,
+                          )
+                        else
+                          orderStatusBadge(order.status),
                       ],
                     ),
                     const SizedBox(height: 4),
+                    // The full number, not the masked one: an admin who cannot
+                    // call the customer cannot deliver the order.
                     Text(
-                      order.phoneMasked.isEmpty ? '—' : order.phoneMasked,
+                      order.displayPhone,
                       style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                     ),
                     const SizedBox(height: 6),
@@ -510,6 +625,32 @@ class AdminOrderDetailPage extends ConsumerWidget {
     }
   }
 
+  Future<void> _onCall(BuildContext context) async {
+    final result = await dialPhone(order.dialablePhone);
+    if (!context.mounted || result.isOk) return;
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(result.errorMessage!),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  Future<void> _onCopyPhone(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: order.displayPhone));
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Đã chép số điện thoại.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
   Future<void> _onComplete(BuildContext context, WidgetRef ref) async {
     final result = await showDialog<CompletedOrder>(
       context: context,
@@ -545,37 +686,63 @@ class AdminOrderDetailPage extends ConsumerWidget {
         children: [
           Row(
             children: [
-              _SttBadge(stt: order.stt),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Thứ tự giao (FIFO)',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+              if (order.stt > 0) ...[
+                _SttBadge(stt: order.stt),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Thứ tự giao (FIFO)',
+                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                  ),
                 ),
-              ),
+              ] else
+                Expanded(child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: orderStatusBadge(order.status),
+                )),
             ],
           ),
           const SizedBox(height: 24),
           _DetailField(label: 'Khách hàng', value: order.customerName),
-          _DetailField(label: 'SĐT', value: order.phoneMasked),
+          _PhoneField(
+            phone: order.displayPhone,
+            onCall: order.dialablePhone.isEmpty
+                ? null
+                : () => _onCall(context),
+            onCopy: () => _onCopyPhone(context),
+          ),
           _DetailField(label: 'Địa chỉ', value: order.addressText),
           _DetailField(label: 'Khoảng cách', value: _fmtKm(order.distanceKm)),
           _DetailField(
             label: 'Thời gian đặt',
             value: formatOrderTime(order.createdAt),
           ),
+          if (order.completedAt.isNotEmpty)
+            _DetailField(
+              label: 'Hoàn tất lúc',
+              value: formatOrderTime(order.completedAt),
+            ),
+          if (order.cancelledAt.isNotEmpty)
+            _DetailField(
+              label: 'Hủy lúc',
+              value: formatOrderTime(order.cancelledAt),
+            ),
           const SizedBox(height: 8),
           FilledButton.icon(
             onPressed: () => _onOpenDirections(context),
             icon: const Icon(Icons.directions),
             label: const Text('Dẫn đường'),
           ),
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            onPressed: canComplete ? () => _onComplete(context, ref) : null,
-            icon: const Icon(Icons.check_circle_outline),
-            label: const Text('Hoàn tất'),
-          ),
+          // A finished or cancelled order has nothing left to complete — the
+          // button is dropped rather than shown greyed out.
+          if (canComplete) ...[
+            const SizedBox(height: 12),
+            FilledButton.tonalIcon(
+              onPressed: () => _onComplete(context, ref),
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Hoàn tất'),
+            ),
+          ],
           const SizedBox(height: 16),
           Divider(color: theme.colorScheme.outlineVariant),
           const SizedBox(height: 8),
@@ -623,6 +790,30 @@ class AdminOrderDetailPage extends ConsumerWidget {
             value: formatVnd(order.total),
             emphasize: true,
           ),
+          // Settlement is the reason to reopen a finished order: what was
+          // collected and what the customer still owes.
+          if (order.paymentType.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Divider(color: theme.colorScheme.outlineVariant),
+            const SizedBox(height: 8),
+            Text(
+              'Thanh toán',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _MoneyRow(
+              label: 'Hình thức',
+              value: orderPaymentLabelVi(order.paymentType),
+            ),
+            _MoneyRow(label: 'Đã thu', value: formatVnd(order.amountPaid)),
+            _MoneyRow(
+              label: 'Còn nợ',
+              value: formatVnd(order.debt),
+              emphasize: order.debt > 0,
+            ),
+          ],
         ],
       ),
     );
@@ -914,6 +1105,75 @@ class _DetailField extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The phone row on order detail: tap to dial, long-press to copy.
+///
+/// [onCall] is null when the order has no dialable number — a masked value is
+/// shown so the admin still sees something, but the dialer is not offered.
+class _PhoneField extends StatelessWidget {
+  const _PhoneField({
+    required this.phone,
+    required this.onCall,
+    required this.onCopy,
+  });
+
+  final String phone;
+  final VoidCallback? onCall;
+  final VoidCallback onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final callable = onCall != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SĐT',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          InkWell(
+            onTap: onCall,
+            onLongPress: onCopy,
+            borderRadius: AppRadius.sm,
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    phone,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: callable ? theme.colorScheme.primary : null,
+                    ),
+                  ),
+                ),
+                if (callable) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.call, size: 18, color: theme.colorScheme.primary),
+                ],
+              ],
+            ),
+          ),
+          if (!callable)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Khách chưa có SĐT liên hệ trong hồ sơ.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
         ],
       ),
     );

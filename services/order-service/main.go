@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"log/slog"
@@ -20,6 +21,7 @@ var schemaFS embed.FS
 func main() {
 	addr := config.ListenAddr("ORDER_ADDR", ":8084")
 	dbPath := config.Get("ORDER_DB", "data/order.db")
+	authURL := config.Get("AUTH_SERVICE_URL", "http://127.0.0.1:8081")
 	geoURL := config.Get("GEO_SERVICE_URL", "http://127.0.0.1:8083")
 	catalogURL := config.Get("CATALOG_SERVICE_URL", "http://127.0.0.1:8082")
 	billingURL := config.Get("BILLING_SERVICE_URL", "http://127.0.0.1:8086")
@@ -59,6 +61,7 @@ func main() {
 		catalog:   newHTTPCatalogClient(catalogURL, nil),
 		billing:   newHTTPBillingClient(billingURL, nil),
 		inventory: newHTTPInventoryClient(inventoryURL, nil),
+		authDir:   newHTTPAuthClient(authURL, nil),
 		bus:       newJSOrderPublisher(bus),
 	}
 
@@ -81,6 +84,8 @@ func main() {
 	r.Get("/v1/orders/me/defaults", svc.handleGetMyOrderDefaults)
 	r.Get("/v1/orders/me", svc.handleListMyOrders)
 	r.Get("/v1/admin/orders", svc.handleListAdminOrders)
+	// Static segment before the {id} param — chi prefers the literal route.
+	r.Get("/v1/admin/orders/customers", svc.handleListCustomerStats)
 	r.Get("/v1/admin/orders/{id}", svc.handleGetAdminOrder)
 	r.Post("/v1/admin/orders/{id}/complete", svc.handleCompleteOrder)
 	r.Get("/v1/admin/delivery-fee", svc.handleGetAdminDeliveryFee)
@@ -88,7 +93,7 @@ func main() {
 	r.Get("/v1/admin/desk-settings", svc.handleGetDeskSettings)
 	r.Put("/v1/admin/desk-settings", svc.handlePutDeskSettings)
 
-	slog.Info("upstream urls", "geo", geoURL, "catalog", catalogURL, "billing", billingURL, "inventory", inventoryURL, "nats", natsURL)
+	slog.Info("upstream urls", "auth", authURL, "geo", geoURL, "catalog", catalogURL, "billing", billingURL, "inventory", inventoryURL, "nats", natsURL)
 
 	if err := httpx.ListenAndServe(addr, serviceName, r); err != nil {
 		slog.Error("server stopped", "err", err)
@@ -101,6 +106,51 @@ func migrate(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(string(sqlBytes))
+	if _, err = db.Exec(string(sqlBytes)); err != nil {
+		return err
+	}
+	// CREATE TABLE IF NOT EXISTS does not evolve databases already deployed.
+	// There is no migration tool in this repo, so additive columns are applied
+	// here and must stay idempotent.
+	for _, column := range []struct {
+		table, name, definition string
+	}{
+		{"order_items", "unit_cost", "INTEGER NOT NULL DEFAULT 0"},
+		{"orders", "customer_phone", "TEXT NOT NULL DEFAULT ''"},
+	} {
+		if err := ensureColumn(context.Background(), db, column.table, column.name, column.definition); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ensureColumn adds a column when an already-deployed table lacks it.
+func ensureColumn(ctx context.Context, db *sql.DB, table, name, definition string) error {
+	rows, err := db.QueryContext(ctx, "PRAGMA table_info("+table+")")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid        int
+			colName    string
+			colType    string
+			notNull    int
+			defaultVal sql.NullString
+			pk         int
+		)
+		if err := rows.Scan(&cid, &colName, &colType, &notNull, &defaultVal, &pk); err != nil {
+			return err
+		}
+		if colName == name {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, "ALTER TABLE "+table+" ADD COLUMN "+name+" "+definition)
 	return err
 }

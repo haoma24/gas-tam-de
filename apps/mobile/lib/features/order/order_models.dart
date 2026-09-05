@@ -145,6 +145,7 @@ class OrderItemView {
     required this.unitPrice,
     required this.qty,
     required this.lineTotal,
+    this.unitCost = 0,
   });
 
   final String id;
@@ -155,6 +156,15 @@ class OrderItemView {
   final int qty;
   final int lineTotal;
 
+  /// Giá nhập chốt lúc trừ kho (COGS). `0` = chưa biết — đơn đặt trước khi có
+  /// trường này, hoặc sản phẩm chưa được nhập giá trong tab «Kho».
+  final int unitCost;
+
+  /// Lãi gộp dòng hàng: `(giá bán − giá nhập) × số lượng`.
+  /// `null` khi chưa có giá nhập, để UI nói «chưa biết» thay vì báo lãi ảo.
+  int? get lineProfit =>
+      unitCost <= 0 ? null : (unitPrice - unitCost) * qty;
+
   factory OrderItemView.fromJson(Map<String, dynamic> json) {
     return OrderItemView(
       id: json['id'] as String? ?? '',
@@ -164,6 +174,7 @@ class OrderItemView {
       unitPrice: (json['unit_price'] as num?)?.toInt() ?? 0,
       qty: (json['qty'] as num?)?.toInt() ?? 0,
       lineTotal: (json['line_total'] as num?)?.toInt() ?? 0,
+      unitCost: (json['unit_cost'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -236,7 +247,10 @@ class PlacedOrder {
   }
 }
 
-/// Admin Order Desk row from `GET /v1/admin/orders` (FIFO, oldest first).
+/// Admin Order Desk / lịch sử đơn từ `GET /v1/admin/orders`.
+///
+/// PENDING trả về FIFO (cũ nhất trước, có [stt]); các trạng thái khác trả về
+/// mới nhất trước và [stt] = 0.
 class AdminOrder {
   const AdminOrder({
     required this.stt,
@@ -254,6 +268,11 @@ class AdminOrder {
     required this.status,
     required this.createdAt,
     required this.items,
+    this.customerPhone = '',
+    this.completedAt = '',
+    this.cancelledAt = '',
+    this.paymentType = '',
+    this.amountPaid = 0,
   });
 
   final int stt;
@@ -261,6 +280,11 @@ class AdminOrder {
   final String userId;
   final String customerName;
   final String phoneMasked;
+
+  /// Số điện thoại đầy đủ — chỉ có ở API admin. Rỗng khi auth-service chưa có
+  /// số của khách (tài khoản Google chưa thêm SĐT liên hệ).
+  final String customerPhone;
+
   final String addressText;
   final double lat;
   final double lng;
@@ -270,7 +294,30 @@ class AdminOrder {
   final int total;
   final String status;
   final String createdAt;
+  final String completedAt;
+  final String cancelledAt;
+  final String paymentType;
+  final int amountPaid;
   final List<OrderItemView> items;
+
+  /// Số để gọi: ưu tiên số thật, lùi về số đã che nếu chưa có.
+  String get dialablePhone => customerPhone.isNotEmpty ? customerPhone : '';
+
+  /// Số để hiển thị — không bao giờ trống hẳn.
+  String get displayPhone {
+    if (customerPhone.isNotEmpty) return customerPhone;
+    if (phoneMasked.isNotEmpty) return phoneMasked;
+    return '—';
+  }
+
+  bool get isPending => status.toUpperCase() == OrderStatus.pending;
+
+  /// Còn nợ sau khi hoàn tất. `0` cho đơn chưa hoàn tất hoặc đã thu đủ.
+  int get debt {
+    if (status.toUpperCase() != OrderStatus.completed) return 0;
+    final remaining = total - amountPaid;
+    return remaining > 0 ? remaining : 0;
+  }
 
   factory AdminOrder.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'];
@@ -287,6 +334,7 @@ class AdminOrder {
       userId: json['user_id'] as String? ?? '',
       customerName: json['customer_name'] as String? ?? '',
       phoneMasked: json['phone_masked'] as String? ?? '',
+      customerPhone: json['customer_phone'] as String? ?? '',
       addressText: json['address_text'] as String? ?? '',
       lat: _asDouble(json['lat']),
       lng: _asDouble(json['lng']),
@@ -296,6 +344,10 @@ class AdminOrder {
       total: (json['total'] as num?)?.toInt() ?? 0,
       status: json['status'] as String? ?? '',
       createdAt: json['created_at'] as String? ?? '',
+      completedAt: json['completed_at'] as String? ?? '',
+      cancelledAt: json['cancelled_at'] as String? ?? '',
+      paymentType: json['payment_type'] as String? ?? '',
+      amountPaid: (json['amount_paid'] as num?)?.toInt() ?? 0,
       items: items,
     );
   }
@@ -305,6 +357,39 @@ class AdminOrder {
     if (v is String) return double.tryParse(v) ?? 0;
     return 0;
   }
+}
+
+/// Bộ lọc trạng thái của tab «Đơn».
+///
+/// [pending] là hàng chờ giao (mặc định, tự làm mới); ba giá trị còn lại là
+/// lịch sử — chủ shop mở lại để tra đơn đã xong.
+enum AdminOrderFilter { pending, completed, cancelled, all }
+
+extension AdminOrderFilterX on AdminOrderFilter {
+  /// Giá trị gửi lên `GET /v1/admin/orders?status=`.
+  String get apiStatus => switch (this) {
+        AdminOrderFilter.pending => OrderStatus.pending,
+        AdminOrderFilter.completed => OrderStatus.completed,
+        AdminOrderFilter.cancelled => OrderStatus.cancelled,
+        AdminOrderFilter.all => 'ALL',
+      };
+
+  String get labelVi => switch (this) {
+        AdminOrderFilter.pending => 'Chưa giao',
+        AdminOrderFilter.completed => 'Đã giao',
+        AdminOrderFilter.cancelled => 'Bị hủy',
+        AdminOrderFilter.all => 'Tất cả',
+      };
+
+  /// Chỉ hàng chờ mới cần tự làm mới + đọc thông báo đơn mới; lịch sử thì không.
+  bool get isLiveQueue => this == AdminOrderFilter.pending;
+
+  String get emptyTitleVi => switch (this) {
+        AdminOrderFilter.pending => 'Không có đơn chờ giao',
+        AdminOrderFilter.completed => 'Chưa có đơn đã giao',
+        AdminOrderFilter.cancelled => 'Chưa có đơn bị hủy',
+        AdminOrderFilter.all => 'Chưa có đơn nào',
+      };
 }
 
 /// Payment types for `POST /v1/admin/orders/{id}/complete` (PRD M6).
@@ -392,5 +477,19 @@ String orderStatusLabelVi(String status) {
       return 'Đã hủy';
     default:
       return status.isEmpty ? '—' : status;
+  }
+}
+
+/// Nhãn tiếng Việt cho hình thức thanh toán khi hoàn tất đơn.
+String orderPaymentLabelVi(String paymentType) {
+  switch (paymentType.toUpperCase()) {
+    case OrderPaymentType.full:
+      return 'Thu đủ';
+    case OrderPaymentType.partial:
+      return 'Thu một phần';
+    case OrderPaymentType.unpaid:
+      return 'Chưa thu';
+    default:
+      return paymentType.isEmpty ? '—' : paymentType;
   }
 }

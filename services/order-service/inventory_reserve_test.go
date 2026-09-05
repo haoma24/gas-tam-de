@@ -16,8 +16,8 @@ import (
 func testOrderRouterWithInventory(t *testing.T, srvURL string) (*orderService, http.Handler) {
 	t.Helper()
 	svc := &orderService{
-		db:      openTestOrderDB(t),
-		geo:     &stubGeo{result: geoCheckResult{DistanceKm: 3.2, InRange: true, MaxRadiusKm: 10}},
+		db:  openTestOrderDB(t),
+		geo: &stubGeo{result: geoCheckResult{DistanceKm: 3.2, InRange: true, MaxRadiusKm: 10}},
 		catalog: &stubCatalog{products: []catalogProduct{
 			{ID: "p1", SKU: "GAS12", Name: "Gas 12kg", SalePrice: 450000, Active: true},
 		}},
@@ -149,7 +149,7 @@ func TestInventoryClientErrorNamesBaseURL(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := newHTTPInventoryClient(srv.URL, nil).
+	_, err := newHTTPInventoryClient(srv.URL, nil).
 		Reserve(t.Context(), "order-1", []stockLine{{ProductID: "p1", SKU: "GAS12", Qty: 1}})
 	if err == nil {
 		t.Fatal("expected error")

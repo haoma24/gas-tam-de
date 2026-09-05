@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../auth/auth_session.dart';
+import 'customer_stats_models.dart';
 import 'order_models.dart';
 
 final orderApiProvider = Provider<OrderApi>((ref) {
@@ -34,7 +35,43 @@ class OrderApi {
     return headers;
   }
 
-  /// `GET /v1/admin/orders` — FIFO desk list (oldest first). Default PENDING.
+  /// `GET /v1/admin/orders/customers` — thống kê theo khách trong kỳ.
+  ///
+  /// Bỏ trống [from]/[to] ⇒ backend lấy 30 ngày gần nhất (ngày VN).
+  Future<CustomerStatsList> listCustomerStats({
+    String? from,
+    String? to,
+    int? limit,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (from != null && from.isNotEmpty && to != null && to.isNotEmpty) {
+        query['from'] = from;
+        query['to'] = to;
+      }
+      if (limit != null) query['limit'] = limit;
+
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/admin/orders/customers',
+        queryParameters: query.isEmpty ? null : query,
+      );
+      final data = res.data;
+      if (data == null) {
+        throw OrderApiException(
+          code: 'EMPTY',
+          message: 'empty response',
+          statusCode: res.statusCode,
+        );
+      }
+      return CustomerStatsList.fromJson(data);
+    } on DioException catch (e) {
+      throw _mapDio(e);
+    }
+  }
+
+  /// `GET /v1/admin/orders` — hàng chờ (FIFO) hoặc lịch sử (mới nhất trước).
+  ///
+  /// [status] nhận `PENDING` (mặc định), `COMPLETED`, `CANCELLED` hoặc `ALL`.
   Future<List<AdminOrder>> listAdminOrders({String? status}) async {
     try {
       final query = <String, dynamic>{};
