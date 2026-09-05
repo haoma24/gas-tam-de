@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_theme.dart';
 import '../auth/auth_session.dart';
 import '../catalog/catalog_models.dart';
 import 'dashboard_api.dart';
@@ -103,6 +104,15 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quản trị cửa hàng'),
+        backgroundColor: AppColors.obsidian,
+        foregroundColor: AppColors.onDark,
+        titleTextStyle: theme.textTheme.titleLarge?.copyWith(
+          color: AppColors.onDark,
+          fontWeight: FontWeight.w800,
+        ),
+        flexibleSpace: const DecoratedBox(
+          decoration: BoxDecoration(gradient: AppColors.subtleHeroGradient),
+        ),
         automaticallyImplyLeading: widget.onLoggedOut == null,
         leading: widget.onLoggedOut != null
             ? null
@@ -134,25 +144,11 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
             children: [
-              Text(
-                'Xin chào, $label',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Dashboard kinh doanh và quản lý cửa hàng Gas Tam Đệ.',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 20),
+              _AdminWelcomeCard(label: label),
+              const SizedBox(height: 24),
               Text(
                 'Tổng quan',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: AppTextStyles.sectionTitle(context),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -174,9 +170,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               const SizedBox(height: 28),
               Text(
                 'Quản lý',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: AppTextStyles.sectionTitle(context),
               ),
               const SizedBox(height: 12),
               _AdminNavTile(
@@ -393,6 +387,77 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   }
 }
 
+class _AdminWelcomeCard extends StatelessWidget {
+  const _AdminWelcomeCard({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: AppColors.heroGradient,
+        borderRadius: AppRadius.lg,
+        boxShadow: AppShadow.hero,
+      ),
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: CustomPaint(painter: FlameAmbientPainter()),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.fire.withValues(alpha: .22),
+                    borderRadius: AppRadius.md,
+                    border: Border.all(
+                      color: AppColors.amber.withValues(alpha: .35),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.admin_panel_settings_rounded,
+                    color: AppColors.gold,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Xin chào, $label',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: AppColors.onDark,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Điều hành Gas Tam Đệ trong một nơi.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppColors.onDark.withValues(alpha: .72),
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MetricTile extends StatelessWidget {
   const _MetricTile({
     required this.icon,
@@ -420,14 +485,16 @@ class _MetricTile extends StatelessWidget {
         ? theme.colorScheme.onPrimaryContainer
         : theme.colorScheme.onSurface;
     final muted = emphasize
-        ? theme.colorScheme.onPrimaryContainer.withOpacity(0.85)
+        ? theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.85)
         : theme.colorScheme.onSurfaceVariant;
 
     return Material(
       color: bg,
-      borderRadius: BorderRadius.circular(12),
+      elevation: emphasize ? 0 : 1,
+      shadowColor: AppColors.ash.withValues(alpha: .12),
+      borderRadius: AppRadius.md,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -485,16 +552,26 @@ class _AdminNavTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(12),
+      color: Colors.white,
+      elevation: 1,
+      shadowColor: AppColors.ash.withValues(alpha: .14),
+      borderRadius: AppRadius.md,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.md,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: Row(
             children: [
-              Icon(icon, size: 28, color: theme.colorScheme.primary),
+              Container(
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFE9D9),
+                  borderRadius: AppRadius.sm,
+                ),
+                child: Icon(icon, size: 24, color: AppColors.fire),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
