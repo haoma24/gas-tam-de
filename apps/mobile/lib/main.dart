@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'features/auth/admin_admin_accounts_page.dart';
 import 'features/auth/admin_admin_phones_page.dart';
 import 'features/auth/admin_login_page.dart';
 import 'features/auth/auth_session.dart';
@@ -233,6 +234,7 @@ final _router = GoRouter(
             onOpenDebts: () => context.push('/admin/debts'),
             onOpenInventory: () => context.push('/admin/inventory'),
             onOpenAdminPhones: () => context.push('/admin/admin-phones'),
+            onOpenAdminAccounts: () => context.push('/admin/admin-accounts'),
             onLoggedOut: () => context.go('/'),
           );
         },
@@ -324,6 +326,12 @@ final _router = GoRouter(
     GoRoute(
       path: '/admin/admin-phones',
       builder: (context, state) => AdminPhonesPage(
+        onBack: () => _popOrGo(context, '/admin'),
+      ),
+    ),
+    GoRoute(
+      path: '/admin/admin-accounts',
+      builder: (context, state) => AdminAccountsPage(
         onBack: () => _popOrGo(context, '/admin'),
       ),
     ),

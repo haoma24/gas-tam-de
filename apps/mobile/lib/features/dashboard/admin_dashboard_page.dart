@@ -19,6 +19,7 @@ class AdminDashboardPage extends ConsumerStatefulWidget {
     required this.onOpenDebts,
     required this.onOpenInventory,
     required this.onOpenAdminPhones,
+    required this.onOpenAdminAccounts,
     this.onLoggedOut,
   });
 
@@ -31,6 +32,7 @@ class AdminDashboardPage extends ConsumerStatefulWidget {
   final VoidCallback onOpenDebts;
   final VoidCallback onOpenInventory;
   final VoidCallback onOpenAdminPhones;
+  final VoidCallback onOpenAdminAccounts;
   final VoidCallback? onLoggedOut;
 
   @override
@@ -224,6 +226,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 title: 'Tồn kho',
                 subtitle: 'Xem tồn, nhập / xuất / điều chỉnh',
                 onTap: widget.onOpenInventory,
+              ),
+              const SizedBox(height: 12),
+              _AdminNavTile(
+                icon: Icons.manage_accounts_outlined,
+                title: 'Tài khoản quản lý',
+                subtitle: 'Tạo tài khoản, đổi tên đăng nhập và mật khẩu',
+                onTap: widget.onOpenAdminAccounts,
               ),
               const SizedBox(height: 12),
               _AdminNavTile(

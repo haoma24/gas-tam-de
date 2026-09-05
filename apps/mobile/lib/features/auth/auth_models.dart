@@ -180,6 +180,14 @@ class AuthApiException implements Exception {
         return 'Không có quyền thực hiện thao tác này.';
       case 'LAST_ADMIN_PHONE':
         return 'Phải giữ lại ít nhất một số điện thoại admin.';
+      case 'USERNAME_EXISTS':
+        return 'Tên đăng nhập này đã được sử dụng.';
+      case 'WEAK_PASSWORD':
+        return 'Mật khẩu phải có từ 8 ký tự và không quá 72 byte.';
+      case 'CURRENT_PASSWORD_INVALID':
+        return 'Mật khẩu hiện tại không đúng.';
+      case 'VALIDATION_ERROR':
+        return message.isNotEmpty ? message : 'Thông tin chưa hợp lệ.';
       case 'NETWORK':
         return 'Không kết nối được máy chủ. Kiểm tra API đang chạy.';
       case 'api_unavailable':

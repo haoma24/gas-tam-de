@@ -155,6 +155,33 @@ func TestProxy_AdminPhonesGoToAuthService(t *testing.T) {
 	}
 }
 
+func TestProxy_AdminAccountsGoToAuthService(t *testing.T) {
+	secret := "secret"
+	auth, cap, mu := startMockUpstream(t)
+	r := testRouter(t, secret, upstreams{auth: auth.URL})
+	adminTok := issueTestToken(t, secret, "a1", roleAdmin, "s1", time.Hour)
+
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodGet, "/v1/admin/admin-accounts"},
+		{http.MethodPost, "/v1/admin/admin-accounts"},
+		{http.MethodPatch, "/v1/admin/admin-accounts/abc"},
+	} {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		req.Header.Set("Authorization", "Bearer "+adminTok)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s: status=%d body=%s", tc.method, tc.path, rec.Code, rec.Body.String())
+		}
+		mu.Lock()
+		gotPath, gotRole := cap.Path, cap.Header.Get("X-User-Role")
+		mu.Unlock()
+		if gotPath != tc.path || gotRole != roleAdmin {
+			t.Fatalf("path=%q role=%q", gotPath, gotRole)
+		}
+	}
+}
+
 func TestProxy_AdminPhonesRejectCustomer(t *testing.T) {
 	secret := "secret"
 	auth, _, _ := startMockUpstream(t)

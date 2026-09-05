@@ -208,6 +208,8 @@ func newGatewayRouter(jwtSecret string, corsOrigins []string, u upstreams, rl *r
 
 			admin.Handle("/admin/admin-phones", authProxy)
 			admin.Handle("/admin/admin-phones/*", authProxy)
+			admin.Handle("/admin/admin-accounts", authProxy)
+			admin.Handle("/admin/admin-accounts/*", authProxy)
 
 			admin.Handle("/admin/products", catalogProxy)
 			admin.Handle("/admin/products/*", catalogProxy)

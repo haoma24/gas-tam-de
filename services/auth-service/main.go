@@ -71,6 +71,7 @@ func main() {
 		phoneKey: derivePhoneKey(config.Get("PHONE_ENC_KEY", "dev-phone-enc-key-32bytes-min!!")),
 	}
 	adminPhones := &adminPhoneService{db: db, phonePepper: phonePepper}
+	adminAccounts := &adminAccountService{db: db}
 
 	r := httpx.NewRouter(serviceName)
 	httpx.MountHealth(r, serviceName)
@@ -86,6 +87,9 @@ func main() {
 	r.Get("/v1/admin/admin-phones", adminPhones.handleList)
 	r.Post("/v1/admin/admin-phones", adminPhones.handleCreate)
 	r.Delete("/v1/admin/admin-phones/{id}", adminPhones.handleDelete)
+	r.Get("/v1/admin/admin-accounts", adminAccounts.handleList)
+	r.Post("/v1/admin/admin-accounts", adminAccounts.handleCreate)
+	r.Patch("/v1/admin/admin-accounts/{id}", adminAccounts.handleUpdate)
 
 	if err := httpx.ListenAndServe(addr, serviceName, r); err != nil {
 		slog.Error("server stopped", "err", err)
