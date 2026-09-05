@@ -49,7 +49,7 @@ Widget hostPage(Dio dio) {
     overrides: [
       adminPhonesApiProvider.overrideWithValue(AdminPhonesApi(dio)),
     ],
-    child: MaterialApp(home: AdminPhonesPage(onBack: () {})),
+    child: const MaterialApp(home: AdminPhonesPage()),
   );
 }
 
@@ -114,8 +114,7 @@ void main() {
         listCalls++;
         return ok(o, {
           'admin_phones': [
-            if (listCalls > 1)
-              {'id': 'p2', 'phone_masked': '091***5678'},
+            if (listCalls > 1) {'id': 'p2', 'phone_masked': '091***5678'},
           ],
         });
       },

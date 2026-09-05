@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../core/ui/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -17,10 +18,7 @@ const _kDefaultZoom = 15.0;
 class AdminStorePage extends ConsumerStatefulWidget {
   const AdminStorePage({
     super.key,
-    required this.onBack,
   });
-
-  final VoidCallback onBack;
 
   @override
   ConsumerState<AdminStorePage> createState() => _AdminStorePageState();
@@ -177,8 +175,10 @@ class _AdminStorePageState extends ConsumerState<AdminStorePage> {
     setState(() => _error = null);
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final lat = double.tryParse(_latController.text.trim().replaceAll(',', '.'));
-    final lng = double.tryParse(_lngController.text.trim().replaceAll(',', '.'));
+    final lat =
+        double.tryParse(_latController.text.trim().replaceAll(',', '.'));
+    final lng =
+        double.tryParse(_lngController.text.trim().replaceAll(',', '.'));
     final radius =
         double.tryParse(_radiusController.text.trim().replaceAll(',', '.'));
     if (lat == null || lng == null || radius == null) {
@@ -224,7 +224,7 @@ class _AdminStorePageState extends ConsumerState<AdminStorePage> {
         title: const Text('Vị trí cửa hàng'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: _saving ? null : widget.onBack,
+          onPressed: _saving ? null : () => popOrGo(context, '/admin/settings'),
         ),
         actions: [
           IconButton(
@@ -236,7 +236,7 @@ class _AdminStorePageState extends ConsumerState<AdminStorePage> {
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppLoading()
             : Form(
                 key: _formKey,
                 child: ListView(
@@ -357,7 +357,8 @@ class _AdminStorePageState extends ConsumerState<AdminStorePage> {
                       decoration: const InputDecoration(
                         labelText: 'Bán kính giao (km)',
                         border: OutlineInputBorder(),
-                        helperText: 'Khách ngoài bán kính sẽ bị từ chối địa chỉ.',
+                        helperText:
+                            'Khách ngoài bán kính sẽ bị từ chối địa chỉ.',
                       ),
                       validator: (v) {
                         final n = double.tryParse(
@@ -402,7 +403,10 @@ class _AdminStorePageState extends ConsumerState<AdminStorePage> {
                       const SizedBox(height: 4),
                       Material(
                         color: theme.colorScheme.surfaceContainerLowest,
-                        borderRadius: BorderRadius.circular(8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.sm,
+                          side: BorderSide(color: theme.colorScheme.outline),
+                        ),
                         child: Column(
                           children: [
                             for (final p in _suggestions)
@@ -440,7 +444,7 @@ class _AdminStorePageState extends ConsumerState<AdminStorePage> {
                     SizedBox(
                       height: 260,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppRadius.md,
                         child: FlutterMap(
                           mapController: _mapController,
                           options: MapOptions(
@@ -450,9 +454,8 @@ class _AdminStorePageState extends ConsumerState<AdminStorePage> {
                               _mapReady = true;
                               _mapController.move(_pin, _kDefaultZoom);
                             },
-                            onTap: _saving
-                                ? null
-                                : (tap, point) => _setPin(point),
+                            onTap:
+                                _saving ? null : (tap, point) => _setPin(point),
                           ),
                           children: [
                             TileLayer(
@@ -512,8 +515,10 @@ class _AdminStorePageState extends ConsumerState<AdminStorePage> {
   }
 
   void _syncPinFromFields() {
-    final lat = double.tryParse(_latController.text.trim().replaceAll(',', '.'));
-    final lng = double.tryParse(_lngController.text.trim().replaceAll(',', '.'));
+    final lat =
+        double.tryParse(_latController.text.trim().replaceAll(',', '.'));
+    final lng =
+        double.tryParse(_lngController.text.trim().replaceAll(',', '.'));
     if (lat == null || lng == null) return;
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
     final next = LatLng(lat, lng);

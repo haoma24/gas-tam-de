@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/app_theme.dart';
+import '../../core/ui/ui.dart';
 import '../auth/auth_session.dart';
 import 'customer_order_prefill.dart';
 import 'geo_api.dart';
@@ -12,15 +12,13 @@ import 'location_permission.dart';
 import 'order_address_selection.dart';
 import 'saved_addresses.dart';
 
+/// Delivery address picker — search, GPS, and the saved address book.
+///
+/// Pushed from the order screen and popped once a location is confirmed; it is
+/// no longer a mandatory funnel step, because the order screen prefills the
+/// address from the customer's last order.
 class OrderAddressPage extends ConsumerStatefulWidget {
-  const OrderAddressPage({
-    super.key,
-    required this.onBack,
-    required this.onContinue,
-  });
-
-  final VoidCallback onBack;
-  final VoidCallback onContinue;
+  const OrderAddressPage({super.key});
 
   @override
   ConsumerState<OrderAddressPage> createState() => _OrderAddressPageState();
@@ -313,13 +311,13 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface0,
       appBar: AppBar(
-        backgroundColor: AppColors.surface0,
         title: const Text('Địa chỉ giao hàng'),
+        automaticallyImplyLeading: false,
         leading: IconButton(
-          onPressed: widget.onBack,
+          onPressed: () => popOrGo(context, '/order'),
           icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Quay lại',
         ),
       ),
       body: SafeArea(
@@ -329,7 +327,7 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
             Text(
               'Giao đến đâu?',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: -.5,
                   ),
             ),
@@ -337,7 +335,7 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
             Text(
               'Tìm và lưu nhiều địa chỉ. Lần sau app sẽ tự chọn địa chỉ mặc định.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF78716C),
+                    color: context.palette.inkMuted,
                     height: 1.45,
                   ),
             ),
@@ -345,7 +343,7 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
             Material(
               color: Colors.white,
               elevation: 5,
-              shadowColor: AppColors.obsidian.withValues(alpha: .08),
+              shadowColor: context.palette.ink.withValues(alpha: .08),
               borderRadius: AppRadius.md,
               child: TextField(
                 controller: _searchController,
@@ -386,10 +384,10 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
                         index++) ...[
                       if (index > 0) const Divider(height: 1, indent: 56),
                       ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFFFFF1E7),
+                        leading: CircleAvatar(
+                          backgroundColor: context.palette.surfaceSubtle,
                           child: Icon(Icons.location_on_outlined,
-                              color: AppColors.fire),
+                              color: context.palette.ink),
                         ),
                         title: Text(
                           _suggestions[index].label,
@@ -473,23 +471,11 @@ class _OrderAddressPageState extends ConsumerState<OrderAddressPage> {
           ],
         ),
       ),
-      bottomNavigationBar: Material(
-        color: AppColors.surface0,
-        elevation: 16,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: FilledButton(
-              onPressed: _canContinue ? widget.onContinue : null,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-                backgroundColor: AppColors.fire,
-                foregroundColor: Colors.white,
-              ),
-              child: Text(
-                  _checkLoading ? 'Đang kiểm tra…' : 'Giao đến địa chỉ này'),
-            ),
-          ),
+      bottomNavigationBar: AppBottomBar(
+        child: AppButton.primary(
+          expand: true,
+          label: _checkLoading ? 'Đang kiểm tra…' : 'Dùng địa chỉ này',
+          onPressed: _canContinue ? () => popOrGo(context, '/order') : null,
         ),
       ),
     );
@@ -510,11 +496,11 @@ class _SectionTitle extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w800)),
+                  ?.copyWith(fontWeight: FontWeight.w600)),
         ),
         if (trailing != null)
           Text(trailing!,
-              style: const TextStyle(color: Color(0xFF78716C), fontSize: 12)),
+              style: TextStyle(color: context.palette.inkMuted, fontSize: 12)),
       ],
     );
   }
@@ -538,7 +524,7 @@ class _SavedAddressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? const Color(0xFFFFF4EC) : Colors.white,
+      color: selected ? context.palette.surfaceSubtle : context.palette.surface,
       borderRadius: AppRadius.md,
       child: InkWell(
         borderRadius: AppRadius.md,
@@ -552,7 +538,8 @@ class _SavedAddressCard extends StatelessWidget {
                 address.name.toLowerCase().contains('công')
                     ? Icons.business_rounded
                     : Icons.home_rounded,
-                color: selected ? AppColors.fire : const Color(0xFF78716C),
+                color:
+                    selected ? context.palette.ink : context.palette.inkMuted,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -564,13 +551,13 @@ class _SavedAddressCard extends StatelessWidget {
                         Flexible(
                           child: Text(address.name,
                               style:
-                                  const TextStyle(fontWeight: FontWeight.w800)),
+                                  const TextStyle(fontWeight: FontWeight.w600)),
                         ),
                         if (address.isDefault) ...[
                           const SizedBox(width: 6),
-                          const Text('Mặc định',
+                          Text('Mặc định',
                               style: TextStyle(
-                                color: AppColors.fire,
+                                color: context.palette.ink,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                               )),
@@ -581,8 +568,8 @@ class _SavedAddressCard extends StatelessWidget {
                     Text(address.label,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Color(0xFF57534E), height: 1.4)),
+                        style: TextStyle(
+                            color: context.palette.inkMuted, height: 1.4)),
                   ],
                 ),
               ),
@@ -622,11 +609,12 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = error ? Theme.of(context).colorScheme.error : AppColors.fire;
+    final color =
+        error ? Theme.of(context).colorScheme.error : context.palette.ink;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: error ? const Color(0xFFFFECEB) : Colors.white,
+        color: error ? context.palette.surfaceSubtle : context.palette.surface,
         borderRadius: AppRadius.md,
         border: Border.all(color: color.withValues(alpha: .16)),
       ),

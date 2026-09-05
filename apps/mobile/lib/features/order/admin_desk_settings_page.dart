@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/ui.dart';
 import 'desk_settings_api.dart';
 import 'desk_settings_models.dart';
 import 'new_order_voice.dart';
 
 /// Admin — ngưỡng màu chờ + interval TTS Order Desk.
 class AdminDeskSettingsPage extends ConsumerStatefulWidget {
-  const AdminDeskSettingsPage({super.key, required this.onBack});
-
-  final VoidCallback onBack;
+  const AdminDeskSettingsPage({super.key});
 
   @override
   ConsumerState<AdminDeskSettingsPage> createState() =>
@@ -119,12 +118,12 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
         title: const Text('Cấu hình Order Desk'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: _saving ? null : widget.onBack,
+          onPressed: _saving ? null : () => popOrGo(context, '/admin/settings'),
         ),
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppLoading()
             : ListView(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
                 children: [
@@ -157,7 +156,8 @@ class _AdminDeskSettingsPageState extends ConsumerState<AdminDeskSettingsPage> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Bật thông báo đơn chờ'),
-                    subtitle: const Text('Đọc «Bạn có N đơn chưa giao» theo chu kỳ'),
+                    subtitle:
+                        const Text('Đọc «Bạn có N đơn chưa giao» theo chu kỳ'),
                     value: _alertEnabled,
                     onChanged: _saving
                         ? null

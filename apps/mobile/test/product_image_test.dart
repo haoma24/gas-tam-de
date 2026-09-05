@@ -45,7 +45,7 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.propane_tank_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.propane_tank_outlined), findsOneWidget);
     expect(find.byType(Image), findsNothing);
   });
 }

@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/ui.dart';
 import 'admin_accounts_api.dart';
 import 'auth_models.dart';
 import 'auth_session.dart';
 
 /// Admin username/password accounts: create managers and update credentials.
 class AdminAccountsPage extends ConsumerStatefulWidget {
-  const AdminAccountsPage({super.key, required this.onBack});
-
-  final VoidCallback onBack;
+  const AdminAccountsPage({super.key});
 
   @override
   ConsumerState<AdminAccountsPage> createState() => _AdminAccountsPageState();
@@ -158,7 +157,7 @@ class _AdminAccountsPageState extends ConsumerState<AdminAccountsPage> {
         title: const Text('Tài khoản quản lý'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: busy ? null : widget.onBack,
+          onPressed: busy ? null : () => popOrGo(context, '/admin/settings'),
         ),
         actions: [
           IconButton(
@@ -198,7 +197,10 @@ class _AdminAccountsPageState extends ConsumerState<AdminAccountsPage> {
   Widget _createCard(ThemeData theme) {
     return Material(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.md,
+        side: BorderSide(color: theme.colorScheme.outline),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -283,7 +285,7 @@ class _AdminAccountsPageState extends ConsumerState<AdminAccountsPage> {
       return const [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 32),
-          child: Center(child: CircularProgressIndicator()),
+          child: AppLoading(),
         ),
       ];
     }
@@ -297,8 +299,10 @@ class _AdminAccountsPageState extends ConsumerState<AdminAccountsPage> {
           padding: const EdgeInsets.only(bottom: 8),
           child: ListTile(
             tileColor: theme.colorScheme.surfaceContainerLowest,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadius.md,
+              side: BorderSide(color: theme.colorScheme.outline),
+            ),
             leading: Icon(Icons.manage_accounts_outlined,
                 color: theme.colorScheme.primary),
             title: Row(

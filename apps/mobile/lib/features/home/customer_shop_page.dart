@@ -1,27 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../core/app_theme.dart';
+import '../../core/ui/ui.dart';
 import '../auth/auth_session.dart';
 import '../auth/me_api.dart';
 import '../catalog/catalog_api.dart';
 import '../catalog/catalog_models.dart';
 import '../catalog/product_image.dart';
+import '../order/customer_order_prefill.dart';
+import '../order/last_order.dart';
+import '../order/order_address_selection.dart';
 import '../order/order_cart.dart';
+import '../order/geo_models.dart';
 
-/// Post-OTP brand shop — hero + catalogue cards + bottom nav.
+/// Customer home — greeting, one-tap reorder, product list.
+///
+/// The old page opened with a full-viewport gradient hero, three static
+/// marketing chips and an image grid before a single price was visible. For a
+/// shop with a handful of SKUs the products themselves are the content.
 class CustomerShopPage extends ConsumerStatefulWidget {
-  const CustomerShopPage({
-    super.key,
-    required this.onStartOrder,
-    required this.onProfile,
-    required this.onOpenProduct,
-  });
-
-  final VoidCallback onStartOrder;
-  final VoidCallback onProfile;
-  final ValueChanged<Product> onOpenProduct;
+  const CustomerShopPage({super.key});
 
   @override
   ConsumerState<CustomerShopPage> createState() => _CustomerShopPageState();
@@ -35,15 +34,15 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
   String _query = '';
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -59,660 +58,335 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
         _loading = false;
       });
     } on CatalogApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.displayMessage;
-        _loading = false;
-      });
+      _fail(e.displayMessage);
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Không tải được danh mục.';
-        _loading = false;
-      });
+      _fail('Không tải được danh mục.');
     }
+  }
+
+  void _fail(String message) {
+    if (!mounted) return;
+    setState(() {
+      _error = message;
+      _loading = false;
+    });
+  }
+
+  List<Product> get _filtered {
+    final items = _products ?? const <Product>[];
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return items;
+    return items
+        .where(
+          (p) =>
+              p.name.toLowerCase().contains(q) ||
+              p.sku.toLowerCase().contains(q) ||
+              (p.description?.toLowerCase().contains(q) ?? false),
+        )
+        .toList(growable: false);
+  }
+
+  /// The shop can only call the customer back if a phone number is on file.
+  bool _requirePhone() {
+    final session = ref.read(authSessionProvider);
+    final profile = ref.read(customerProfileProvider).valueOrNull;
+    final phone = profile?.phoneMasked ?? session?.user.phoneMasked ?? '';
+    if (phone.trim().isNotEmpty) return true;
+    context.go('/profile');
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+            content: Text('Thêm số điện thoại để cửa hàng gọi giao.')),
+      );
+    return false;
+  }
+
+  void _startOrder() {
+    if (_requirePhone()) context.push('/order');
+  }
+
+  void _addAndOrder(Product product) {
+    if (!_requirePhone()) return;
+    ref.read(orderCartProvider.notifier).increment(product);
+    context.push('/order');
+  }
+
+  /// Refills the cart and the delivery pin from the customer's last order, so
+  /// a repeat purchase is «Đặt lại» → «Đặt đơn» instead of a four-screen funnel.
+  void _reorder(LastOrderSummary last) {
+    if (!_requirePhone()) return;
+    final byId = {for (final p in _products ?? const <Product>[]) p.id: p};
+    final cart = ref.read(orderCartProvider.notifier);
+    cart.clear();
+    var added = 0;
+    for (final line in last.items) {
+      final product = byId[line.productId];
+      if (product == null) continue; // delisted since the last order
+      cart.setQuantity(product, line.qty);
+      added++;
+    }
+    if (added == 0) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Sản phẩm của đơn trước không còn bán.'),
+          ),
+        );
+      return;
+    }
+    final prefill = ref.read(customerOrderPrefillProvider).valueOrNull;
+    final defaults = prefill?.lastAddress;
+    if (prefill?.hasLastAddress ?? false) {
+      ref.read(orderAddressProvider.notifier).select(
+            SelectedAddress(
+              lat: defaults!.lat!,
+              lng: defaults.lng!,
+              label: defaults.addressText!,
+            ),
+          );
+    }
+    context.push('/order');
   }
 
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(authSessionProvider);
-    final profileAsync = ref.watch(customerProfileProvider);
-    final name = profileAsync.maybeWhen(
-      data: (p) => p?.fullName?.trim().isNotEmpty == true ? p!.fullName! : null,
-      orElse: () => null,
-    );
-    final phone = profileAsync.maybeWhen(
-          data: (p) => p?.phoneMasked,
-          orElse: () => null,
-        ) ??
-        session?.user.phoneMasked ??
-        '';
+    final p = context.palette;
+    final profile = ref.watch(customerProfileProvider).valueOrNull;
+    final name = profile?.fullName?.trim();
+    final greeting = (name != null && name.isNotEmpty) ? name : 'bạn';
+    final lastOrder = ref.watch(lastOrderProvider).valueOrNull;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
-        backgroundColor: AppColors.surface0,
-        body: RefreshIndicator(
-          onRefresh: _load,
-          color: AppColors.fire,
-          child: CustomScrollView(
+    return Scaffold(
+      backgroundColor: p.bg,
+      body: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(lastOrderProvider);
+            await _load();
+          },
+          child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              _ShopHeroSliver(
-                name: name,
-                phone: phone,
-                onStartOrder: widget.onStartOrder,
-                onProfile: widget.onProfile,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              96, // clears the FAB
+            ),
+            children: [
+              Text(
+                'Chào $greeting',
+                style: context.text.headlineSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              SliverToBoxAdapter(child: _buildSearch(context)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Sản phẩm',
-                          style: AppTextStyles.sectionTitle(context),
-                        ),
-                      ),
-                      if (_loading && _products != null)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.fire,
-                          ),
-                        ),
-                    ],
-                  ),
+              const VGap(AppSpacing.xs),
+              Text(
+                'Giao gas tận nơi, rõ phí trước khi đặt.',
+                style: context.text.bodyMedium?.copyWith(color: p.inkMuted),
+              ),
+              if (lastOrder != null) ...[
+                const VGap(AppSpacing.lg),
+                _ReorderCard(
+                  last: lastOrder,
+                  onReorder: () => _reorder(lastOrder),
                 ),
+              ],
+              const VGap(AppSpacing.xl),
+              AppSearchField(
+                controller: _searchController,
+                hint: 'Tìm bình gas, phụ kiện…',
+                onChanged: (v) => setState(() => _query = v),
               ),
-              ..._productSlivers(context),
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              const VGap(AppSpacing.xl),
+              AppSectionTitle(
+                'Sản phẩm',
+                trailing: _loading && _products != null
+                    ? const AppInlineSpinner(size: 14)
+                    : null,
+              ),
+              ..._productList(),
             ],
           ),
         ),
-        bottomNavigationBar: _ShopBottomNav(onProfile: widget.onProfile),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: _OrderFAB(onTap: widget.onStartOrder),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _startOrder,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Đặt giao gas'),
       ),
     );
   }
 
-  List<Widget> _productSlivers(BuildContext context) {
+  List<Widget> _productList() {
     if (_loading && _products == null) {
-      return [
-        const SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: CircularProgressIndicator(color: AppColors.fire),
-          ),
-        ),
-      ];
+      return [const Padding(padding: EdgeInsets.all(48), child: AppLoading())];
     }
     if (_error != null && _products == null) {
       return [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                const Icon(Icons.wifi_off_rounded,
-                    size: 48, color: AppColors.ash),
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.error, fontSize: 15),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
-              ],
-            ),
-          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+          child: AppErrorView(message: _error!, onRetry: _load),
         ),
       ];
     }
-    final items = _filteredProducts;
+    final items = _filtered;
     if (items.isEmpty) {
       return [
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(24, 48, 24, 24),
-            child: Column(
-              children: [
-                Icon(Icons.inventory_2_outlined,
-                    size: 52, color: AppColors.ash),
-                SizedBox(height: 12),
-                Text(
-                  'Cửa hàng chưa mở bán sản phẩm.',
-                  style: TextStyle(fontSize: 15, color: AppColors.ash),
-                ),
-              ],
-            ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+          child: AppEmpty(
+            icon: Icons.inventory_2_outlined,
+            title: _query.isEmpty
+                ? 'Cửa hàng chưa mở bán sản phẩm'
+                : 'Không tìm thấy sản phẩm',
+            body: _query.isEmpty ? null : 'Thử một từ khoá khác.',
           ),
         ),
       ];
     }
     return [
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-        sliver: SliverGrid.builder(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 220,
-            mainAxisExtent: 304,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: items.length,
-          itemBuilder: (context, i) => _ProductCard(
-            product: items[i],
-            onOrder: () {
-              ref.read(orderCartProvider.notifier).increment(items[i]);
-              widget.onStartOrder();
-            },
-            onOpen: () => widget.onOpenProduct(items[i]),
-          ),
+      for (var i = 0; i < items.length; i++) ...[
+        if (i > 0) const VGap(AppSpacing.sm),
+        _ProductRow(
+          product: items[i],
+          onOpen: () =>
+              context.push('/products/${items[i].id}', extra: items[i]),
+          onAdd: () => _addAndOrder(items[i]),
         ),
-      ),
+      ],
     ];
   }
-
-  List<Product> get _filteredProducts {
-    final items = _products ?? const <Product>[];
-    final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return items;
-    return items.where((product) {
-      return product.name.toLowerCase().contains(query) ||
-          product.sku.toLowerCase().contains(query) ||
-          (product.description?.toLowerCase().contains(query) ?? false);
-    }).toList(growable: false);
-  }
-
-  Widget _buildSearch(BuildContext context) {
-    final suggestions = _query.trim().isEmpty
-        ? const <Product>[]
-        : _filteredProducts.take(4).toList(growable: false);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Material(
-        color: AppColors.surface0,
-        elevation: 8,
-        shadowColor: AppColors.obsidian.withValues(alpha: .12),
-        borderRadius: AppRadius.md,
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _query = value),
-              decoration: InputDecoration(
-                hintText: 'Tìm bình gas, phụ kiện…',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _query = '');
-                        },
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 17),
-              ),
-            ),
-            if (suggestions.isNotEmpty) ...[
-              const Divider(height: 1),
-              for (final product in suggestions)
-                InkWell(
-                  onTap: () => widget.onOpenProduct(product),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: ProductImage(
-                            product: product,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                product.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                formatVnd(product.salePrice),
-                                style: const TextStyle(
-                                  color: AppColors.fire,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right_rounded),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// ─────────────────────────────────────────────
-// Hero sliver
-// ─────────────────────────────────────────────
-class _ShopHeroSliver extends StatelessWidget {
-  const _ShopHeroSliver({
-    required this.name,
-    required this.phone,
-    required this.onStartOrder,
-    required this.onProfile,
-  });
+/// One-tap repeat of the previous order.
+class _ReorderCard extends StatelessWidget {
+  const _ReorderCard({required this.last, required this.onReorder});
 
-  final String? name;
-  final String phone;
-  final VoidCallback onStartOrder;
-  final VoidCallback onProfile;
+  final LastOrderSummary last;
+  final VoidCallback onReorder;
 
   @override
   Widget build(BuildContext context) {
-    final greeting = name ?? (phone.isNotEmpty ? phone : 'bạn');
-
-    return SliverToBoxAdapter(
-      child: Container(
-        decoration: const BoxDecoration(gradient: AppColors.heroGradient),
-        child: Stack(
+    final p = context.palette;
+    return AppSection(
+      children: [
+        Row(
           children: [
-            // Ambient glow
-            const Positioned.fill(
-              child: CustomPaint(painter: FlameAmbientPainter()),
-            ),
-            SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 12, 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top bar
-                    Row(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Xin chào 👋',
-                              style: TextStyle(
-                                color: AppColors.onDark.withValues(alpha: 0.55),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              greeting,
-                              style: const TextStyle(
-                                color: AppColors.onDark,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: onProfile,
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.ash.withValues(alpha: 0.45),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.person_outline_rounded,
-                              color: AppColors.onDark,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    // Brand
-                    const Text(
-                      'Gas Tam Đệ',
-                      style: TextStyle(
-                        color: AppColors.onDark,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1.2,
-                        height: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Giao gas tận nơi — nhanh, rõ phí.',
-                      style: TextStyle(
-                        color: AppColors.onDark.withValues(alpha: 0.72),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    // Stats chips
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        const _HeroChip(
-                          icon: Icons.bolt_rounded,
-                          label: 'Giao nhanh',
-                          color: AppColors.gold,
-                        ),
-                        _HeroChip(
-                          icon: Icons.shield_outlined,
-                          label: 'An toàn',
-                          color: Colors.greenAccent.shade200,
-                        ),
-                        _HeroChip(
-                          icon: Icons.receipt_long_outlined,
-                          label: 'Rõ phí',
-                          color: Colors.lightBlueAccent.shade100,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+            Icon(Icons.history_rounded, size: 18, color: p.inkMuted),
+            const HGap(AppSpacing.sm),
+            Text(
+              'Đơn gần nhất',
+              style: context.text.labelLarge?.copyWith(color: p.inkMuted),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _HeroChip extends StatelessWidget {
-  const _HeroChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: AppRadius.pill,
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
+        const VGap(AppSpacing.sm),
+        Text(last.summaryLine, style: context.text.bodyLarge),
+        if (last.addressText.isNotEmpty) ...[
+          const VGap(2),
           Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-            ),
+            last.addressText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.text.bodySmall?.copyWith(color: p.inkMuted),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Product card
-// ─────────────────────────────────────────────
-class _ProductCard extends StatelessWidget {
-  const _ProductCard({
-    required this.product,
-    required this.onOrder,
-    required this.onOpen,
-  });
-
-  final Product product;
-  final VoidCallback onOrder;
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final desc = product.description?.trim();
-
-    return GestureDetector(
-      onTap: onOpen,
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppColors.surface1,
-          borderRadius: AppRadius.md,
-          boxShadow: AppShadow.card,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        const VGap(AppSpacing.lg),
+        Row(
           children: [
-            SizedBox(
-              height: 136,
-              child: ProductImage(
-                product: product,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        letterSpacing: -0.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (desc != null && desc.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        desc,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF78716C),
-                          fontSize: 12.5,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
-                    Text(
-                      formatVnd(product.salePrice),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        color: AppColors.fire,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: onOrder,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 7),
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [AppColors.amber, AppColors.fire],
-                          ),
-                          borderRadius: AppRadius.pill,
-                        ),
-                        child: Text(
-                          'Đặt / ${product.unit}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColors.obsidian,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            MoneyText(last.total, emphasis: MoneyEmphasis.total),
+            const Spacer(),
+            AppButton.primary(label: 'Đặt lại', onPressed: onReorder),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Bottom nav + FAB
-// ─────────────────────────────────────────────
-class _ShopBottomNav extends StatelessWidget {
-  const _ShopBottomNav({required this.onProfile});
-  final VoidCallback onProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    return NavigationBar(
-      selectedIndex: 0,
-      backgroundColor: AppColors.surface0,
-      indicatorColor: AppColors.amber.withValues(alpha: 0.18),
-      onDestinationSelected: (i) {
-        if (i == 1) onProfile();
-      },
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.storefront_outlined),
-          selectedIcon: Icon(Icons.storefront_rounded, color: AppColors.fire),
-          label: 'Cửa hàng',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline_rounded),
-          selectedIcon: Icon(Icons.person_rounded, color: AppColors.fire),
-          label: 'Hồ sơ',
         ),
       ],
     );
   }
 }
 
-class _OrderFAB extends StatefulWidget {
-  const _OrderFAB({required this.onTap});
-  final VoidCallback onTap;
+/// Compact product row — image, name, price, add.
+class _ProductRow extends StatelessWidget {
+  const _ProductRow({
+    required this.product,
+    required this.onOpen,
+    required this.onAdd,
+  });
 
-  @override
-  State<_OrderFAB> createState() => _OrderFABState();
-}
-
-class _OrderFABState extends State<_OrderFAB>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 100));
-    _scale = Tween(begin: 1.0, end: 0.94)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  final Product product;
+  final VoidCallback onOpen;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: GestureDetector(
-        onTapDown: (_) => _ctrl.forward(),
-        onTapUp: (_) {
-          _ctrl.reverse();
-          widget.onTap();
-        },
-        onTapCancel: () => _ctrl.reverse(),
-        child: ScaleTransition(
-          scale: _scale,
-          child: Container(
-            height: 52,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.amber, AppColors.fire],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: AppRadius.pill,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.fire.withValues(alpha: 0.5),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
+    final p = context.palette;
+    return Material(
+      color: p.surface,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: AppRadius.md,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.md,
+            border: Border.all(color: p.border),
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 56,
+                height: 56,
+                child: ProductImage(
+                  product: product,
+                  borderRadius: AppRadius.sm,
                 ),
-              ],
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_rounded, color: AppColors.obsidian, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Đặt giao gas ngay',
-                  style: TextStyle(
-                    color: AppColors.obsidian,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    letterSpacing: 0.2,
+              ),
+              const HGap(AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const VGap(2),
+                    Row(
+                      children: [
+                        MoneyText(product.salePrice),
+                        Text(
+                          ' / ${product.unit}',
+                          style: context.text.bodySmall?.copyWith(
+                            color: p.inkMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const HGap(AppSpacing.sm),
+              IconButton(
+                onPressed: onAdd,
+                tooltip: 'Thêm vào đơn',
+                icon: const Icon(Icons.add_rounded),
+                style: IconButton.styleFrom(
+                  backgroundColor: p.surfaceSubtle,
+                  foregroundColor: p.ink,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.sm,
+                    side: BorderSide(color: p.border),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

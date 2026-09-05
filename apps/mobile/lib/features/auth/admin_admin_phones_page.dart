@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/ui.dart';
 import 'admin_phones_api.dart';
 import 'auth_models.dart';
 
 /// Admin — số điện thoại được cấp quyền admin khi đăng nhập bằng OTP.
 class AdminPhonesPage extends ConsumerStatefulWidget {
-  const AdminPhonesPage({super.key, required this.onBack});
-
-  final VoidCallback onBack;
+  const AdminPhonesPage({super.key});
 
   @override
   ConsumerState<AdminPhonesPage> createState() => _AdminPhonesPageState();
@@ -85,7 +84,8 @@ class _AdminPhonesPageState extends ConsumerState<AdminPhonesPage> {
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã thêm ${added.phoneMasked} vào danh sách admin.')),
+        SnackBar(
+            content: Text('Đã thêm ${added.phoneMasked} vào danh sách admin.')),
       );
     } on AuthApiException catch (e) {
       if (!mounted) return;
@@ -130,7 +130,8 @@ class _AdminPhonesPageState extends ConsumerState<AdminPhonesPage> {
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã bỏ ${item.phoneMasked} khỏi danh sách admin.')),
+        SnackBar(
+            content: Text('Đã bỏ ${item.phoneMasked} khỏi danh sách admin.')),
       );
     } on AuthApiException catch (e) {
       if (!mounted) return;
@@ -157,7 +158,7 @@ class _AdminPhonesPageState extends ConsumerState<AdminPhonesPage> {
         title: const Text('Số điện thoại admin'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: busy ? null : widget.onBack,
+          onPressed: busy ? null : () => popOrGo(context, '/admin/settings'),
         ),
         actions: [
           IconButton(
@@ -197,7 +198,10 @@ class _AdminPhonesPageState extends ConsumerState<AdminPhonesPage> {
   Widget _addCard(ThemeData theme) {
     return Material(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.md,
+        side: BorderSide(color: theme.colorScheme.outline),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -261,7 +265,7 @@ class _AdminPhonesPageState extends ConsumerState<AdminPhonesPage> {
       return const [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 32),
-          child: Center(child: CircularProgressIndicator()),
+          child: AppLoading(),
         ),
       ];
     }
@@ -283,7 +287,10 @@ class _AdminPhonesPageState extends ConsumerState<AdminPhonesPage> {
           padding: const EdgeInsets.only(bottom: 8),
           child: Material(
             color: theme.colorScheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(12),
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadius.md,
+              side: BorderSide(color: theme.colorScheme.outline),
+            ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
               child: Row(

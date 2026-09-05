@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '_auth_widgets.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/ui/ui.dart';
 import 'auth_api.dart';
 import 'auth_models.dart';
 import 'auth_session.dart';
 
 /// Admin (CCH) username/password login → JWT session `role=admin`.
 class AdminLoginPage extends ConsumerStatefulWidget {
-  const AdminLoginPage({
-    super.key,
-    required this.onLoggedIn,
-    this.onBack,
-  });
-
-  final VoidCallback onLoggedIn;
-  final VoidCallback? onBack;
+  const AdminLoginPage({super.key});
 
   @override
   ConsumerState<AdminLoginPage> createState() => _AdminLoginPageState();
@@ -52,7 +47,7 @@ class _AdminLoginPageState extends ConsumerState<AdminLoginPage> {
       await ref.read(authSessionProvider.notifier).setSession(
             AuthSession.fromAdminLogin(result),
           );
-      widget.onLoggedIn();
+      if (mounted) context.go('/admin');
     } on AuthApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.displayMessage);
@@ -70,12 +65,12 @@ class _AdminLoginPageState extends ConsumerState<AdminLoginPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Đăng nhập cửa hàng'),
-        leading: widget.onBack == null
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _loading ? null : widget.onBack,
-              ),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Quay lại',
+          onPressed: _loading ? null : () => popOrGo(context, '/welcome'),
+        ),
       ),
       body: SafeArea(
         child: Padding(
