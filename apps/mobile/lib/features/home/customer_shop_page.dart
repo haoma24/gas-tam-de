@@ -236,85 +236,82 @@ class _CustomerShopPageState extends ConsumerState<CustomerShopPage> {
     final suggestions = _query.trim().isEmpty
         ? const <Product>[]
         : _filteredProducts.take(4).toList(growable: false);
-    return Transform.translate(
-      offset: const Offset(0, -16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Material(
-          color: AppColors.surface0,
-          elevation: 8,
-          shadowColor: AppColors.obsidian.withValues(alpha: .12),
-          borderRadius: AppRadius.md,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              TextField(
-                controller: _searchController,
-                onChanged: (value) => setState(() => _query = value),
-                decoration: InputDecoration(
-                  hintText: 'Tìm bình gas, phụ kiện…',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _query = '');
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 17),
-                ),
-              ),
-              if (suggestions.isNotEmpty) ...[
-                const Divider(height: 1),
-                for (final product in suggestions)
-                  InkWell(
-                    onTap: () => widget.onOpenProduct(product),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: ProductImage(
-                              product: product,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  product.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                Text(
-                                  formatVnd(product.salePrice),
-                                  style: const TextStyle(
-                                    color: AppColors.fire,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded),
-                        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Material(
+        color: AppColors.surface0,
+        elevation: 8,
+        shadowColor: AppColors.obsidian.withValues(alpha: .12),
+        borderRadius: AppRadius.md,
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: InputDecoration(
+                hintText: 'Tìm bình gas, phụ kiện…',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
                       ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 17),
+              ),
+            ),
+            if (suggestions.isNotEmpty) ...[
+              const Divider(height: 1),
+              for (final product in suggestions)
+                InkWell(
+                  onTap: () => widget.onOpenProduct(product),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: ProductImage(
+                            product: product,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                formatVnd(product.salePrice),
+                                style: const TextStyle(
+                                  color: AppColors.fire,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded),
+                      ],
                     ),
                   ),
-              ],
+                ),
             ],
-          ),
+          ],
         ),
       ),
     );

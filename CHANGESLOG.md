@@ -5,6 +5,19 @@ Quy trình: skill `.cursor/skills/change-workdocs`.
 
 ---
 
+## [2026-09-05] Đồng bộ giao diện admin và sửa ô tìm kiếm trang chủ
+
+- **Loại:** fix + refactor
+- **Phạm vi:** `apps/mobile` (theme, admin dashboard, cửa hàng khách)
+- **Tóm tắt:** Giao diện quản trị trước đây dùng phần lớn style Material mặc định nên lệch khỏi nhận diện than–cam–kem của khu vực khách. Ô tìm kiếm tại cửa hàng khách còn được kéo chồng lên hero bằng transform nên có thể bị banner/sliver che phần đầu; nay theme được chuẩn hóa toàn app và ô tìm kiếm nằm trọn bên dưới banner.
+- **Chi tiết:**
+  - Ánh xạ `AppColors`/`AppRadius` vào `ThemeData` dùng chung cho nền, app bar, card, input, button, FAB, progress và divider
+  - Làm mới dashboard admin bằng app bar tối, welcome card gradient và card điều hướng theo palette Gas Tam Đệ
+  - Bỏ offset âm của ô tìm kiếm, thay bằng khoảng cách 16 px sau hero để vùng hiển thị và tương tác không bị cắt
+  - Dart analyzer sạch, widget test trang chủ pass và Flutter Web release build thành công
+- **Workdocs:** `docs/workdocs_dong_bo_ui_admin_tim_kiem_05092026/`
+- **Liên quan:** phản hồi giao diện ngày 05/09/2026
+
 ## [2026-08-12] Tắt lộ mã OTP mặc định + cảnh báo SMS_PROVIDER sai
 
 - **Loại:** security + fix

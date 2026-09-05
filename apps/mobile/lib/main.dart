@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/app_theme.dart';
 import 'features/auth/admin_admin_accounts_page.dart';
 import 'features/auth/admin_admin_phones_page.dart';
 import 'features/auth/admin_login_page.dart';
@@ -357,20 +358,102 @@ class GasTamDeApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const seed =
-        Color(0xFFB45309); // amber/gas cylinder tone — not purple default
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: AppColors.fire,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: AppColors.fire,
+      onPrimary: AppColors.onDark,
+      secondary: AppColors.amber,
+      surface: AppColors.surface0,
+      surfaceContainerLowest: Colors.white,
+      surfaceContainerLow: AppColors.surface1,
+      surfaceContainer: AppColors.surface1,
+      surfaceContainerHigh: AppColors.surface2,
+      error: AppColors.danger,
+      outline: const Color(0xFFD6C8B8),
+      outlineVariant: const Color(0xFFE8DED2),
+    );
     final boot = ref.watch(authBootstrapProvider);
 
     return MaterialApp.router(
       title: 'Gas Tam Đệ',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seed,
-          brightness: Brightness.light,
-        ),
+        colorScheme: colorScheme,
+        scaffoldBackgroundColor: AppColors.surface0,
         textTheme: _brandTextTheme(Brightness.light),
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.surface0,
+          foregroundColor: AppColors.obsidian,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          titleTextStyle: TextStyle(
+            color: AppColors.obsidian,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        cardTheme: const CardThemeData(
+          color: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.md,
+            side: BorderSide(color: Color(0xFFE8DED2)),
+          ),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 15,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: AppRadius.md,
+            borderSide: BorderSide(color: Color(0xFFD6C8B8)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: AppRadius.md,
+            borderSide: BorderSide(color: Color(0xFFD6C8B8)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: AppRadius.md,
+            borderSide: BorderSide(color: AppColors.fire, width: 2),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.fire,
+            foregroundColor: AppColors.onDark,
+            minimumSize: const Size(0, 48),
+            shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
+            textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.fire,
+            minimumSize: const Size(0, 48),
+            side: const BorderSide(color: AppColors.fire),
+            shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
+            textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: AppColors.fire,
+          foregroundColor: AppColors.onDark,
+        ),
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: AppColors.fire,
+        ),
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFFE8DED2),
+        ),
       ),
       routerConfig: _router,
       builder: (context, child) {
