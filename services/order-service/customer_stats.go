@@ -58,6 +58,18 @@ type customerStat struct {
 //
 // Chi routes this before /v1/admin/orders/{id} — a static segment wins over a
 // param — and the gateway already proxies /v1/admin/orders/* to this service.
+// @Summary Get customer order statistics
+// @Tags Admin - Orders
+// @Produce json
+// @Security BearerAuth
+// @Param from query string false "First Vietnam calendar day (YYYY-MM-DD)"
+// @Param to query string false "Last Vietnam calendar day (YYYY-MM-DD)"
+// @Param limit query int false "Maximum customers" minimum(1) maximum(1000) default(200)
+// @Success 200 {object} customerStatsResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /admin/orders/customers [get]
 func (s *orderService) handleListCustomerStats(w http.ResponseWriter, r *http.Request) {
 	from, to, err := parseCustomerStatsRange(r, time.Now().UTC())
 	if err != nil {

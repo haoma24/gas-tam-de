@@ -27,6 +27,16 @@ type adminAccountRow struct {
 	DisabledAt   sql.NullString
 }
 
+// handleAdminLogin authenticates a username/password administrator.
+// @Summary Sign in as an administrator
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param body body adminLoginBody true "Administrator credentials"
+// @Success 200 {object} authTokenResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Router /auth/admin/login [post]
 func (s *tokenService) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	var body adminLoginBody
 	dec := json.NewDecoder(r.Body)

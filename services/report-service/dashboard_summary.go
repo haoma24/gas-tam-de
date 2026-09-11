@@ -31,6 +31,19 @@ type dashboardSummaryResponse struct {
 // handleDashboardSummary serves GET /v1/admin/dashboard/summary.
 // Query: omitted → today (VN); day=YYYY-MM-DD; or from=&to= inclusive range.
 // Gateway mounts under /v1/admin/* with role=admin RBAC.
+// @Summary Get the administrator dashboard summary
+// @Tags Admin - Reports
+// @Produce json
+// @Security BearerAuth
+// @Param day query string false "Single Vietnam calendar day (YYYY-MM-DD)"
+// @Param from query string false "First Vietnam calendar day (YYYY-MM-DD)"
+// @Param to query string false "Last Vietnam calendar day (YYYY-MM-DD)"
+// @Success 200 {object} dashboardSummaryResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 500 {object} httpx.ErrorResponse
+// @Router /admin/dashboard/summary [get]
 func (s *reportService) handleDashboardSummary(w http.ResponseWriter, r *http.Request) {
 	from, to, err := parseDashboardSummaryRange(r, time.Now().UTC())
 	if err != nil {

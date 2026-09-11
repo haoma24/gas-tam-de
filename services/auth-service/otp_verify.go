@@ -29,6 +29,17 @@ type otpChallengeRow struct {
 	ConsumedAt sql.NullString
 }
 
+// handleOTPVerify verifies an OTP and creates a customer session.
+// @Summary Verify an OTP
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param body body otpVerifyBody true "Phone number and OTP code"
+// @Success 200 {object} authTokenResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 429 {object} httpx.ErrorResponse
+// @Router /auth/otp/verify [post]
 func (s *otpService) handleOTPVerify(w http.ResponseWriter, r *http.Request) {
 	var body otpVerifyBody
 	dec := json.NewDecoder(r.Body)

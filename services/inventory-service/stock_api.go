@@ -76,6 +76,15 @@ type postMovementResponse struct {
 }
 
 // handleListStock serves GET /v1/admin/inventory — all stock rows (architecture §4.4).
+// @Summary List inventory
+// @Tags Admin - Inventory
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} listStockResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 500 {object} httpx.ErrorResponse
+// @Router /admin/inventory [get]
 func (s *inventoryService) handleListStock(w http.ResponseWriter, _ *http.Request) {
 	items, err := s.listStock()
 	if err != nil {
@@ -111,6 +120,20 @@ func (s *inventoryService) listStock() ([]stockItem, error) {
 }
 
 // handlePostMovement serves POST /v1/admin/inventory — IN / OUT / ADJUST + persist movement.
+// @Summary Record an inventory movement
+// @Description Supports IN, OUT, and ADJUST movements.
+// @Tags Admin - Inventory
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body postMovementBody true "Inventory movement"
+// @Success 201 {object} postMovementResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Router /admin/inventory [post]
 func (s *inventoryService) handlePostMovement(w http.ResponseWriter, r *http.Request) {
 	var body postMovementBody
 	dec := json.NewDecoder(r.Body)

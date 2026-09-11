@@ -32,6 +32,15 @@ type patchMeBody struct {
 }
 
 // handleGetMe serves GET /v1/me — customer profile (gateway injects X-User-*).
+// @Summary Get the current customer profile
+// @Tags Profile
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} meView
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /me [get]
 func (s *meService) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	userID, role, phoneMasked, ok := requireMeIdentity(w, r)
 	if !ok {
@@ -84,6 +93,18 @@ func (s *meService) handleGetMe(w http.ResponseWriter, r *http.Request) {
 
 // handlePatchMe updates customer profile fields. Phone is contact information;
 // Google remains the authentication method and no OTP is sent.
+// @Summary Update the current customer profile
+// @Tags Profile
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body patchMeBody true "Profile fields"
+// @Success 200 {object} meView
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /me [patch]
 func (s *meService) handlePatchMe(w http.ResponseWriter, r *http.Request) {
 	userID, role, _, ok := requireMeIdentity(w, r)
 	if !ok {

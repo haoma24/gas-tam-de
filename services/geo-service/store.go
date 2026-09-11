@@ -151,6 +151,13 @@ func publicStoreView(s storeSettings) map[string]any {
 	return out
 }
 
+// handleGetStore returns the public store location and delivery radius.
+// @Summary Get store delivery settings
+// @Tags Geo
+// @Produce json
+// @Success 200 {object} publicStoreResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /geo/store [get]
 func (s *geoService) handleGetStore(w http.ResponseWriter, _ *http.Request) {
 	row, err := getStoreSettings(s.db)
 	if err != nil {
@@ -165,6 +172,19 @@ func (s *geoService) handleGetStore(w http.ResponseWriter, _ *http.Request) {
 	httpx.JSON(w, http.StatusOK, publicStoreView(row))
 }
 
+// handlePutAdminStore updates the store location and delivery radius.
+// @Summary Update store delivery settings
+// @Tags Admin - Geo
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body putStoreBody true "Store fields to update"
+// @Success 200 {object} storeSettings
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /admin/geo/store [put]
 func (s *geoService) handlePutAdminStore(w http.ResponseWriter, r *http.Request) {
 	var body putStoreBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

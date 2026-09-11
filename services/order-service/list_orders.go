@@ -34,6 +34,14 @@ const orderListColumns = `id, user_id, customer_name, phone_masked, customer_pho
 	       COALESCE(payment_type, ''), COALESCE(amount_paid, 0)`
 
 // handleListMyOrders serves GET /v1/orders/me — customer's own orders with PII masked.
+// @Summary List the current customer's orders
+// @Tags Orders
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} orderListResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /orders/me [get]
 func (s *orderService) handleListMyOrders(w http.ResponseWriter, r *http.Request) {
 	userID, _, ok := requireCustomerIdentity(w, r)
 	if !ok {
@@ -76,6 +84,16 @@ func (s *orderService) handleListMyOrders(w http.ResponseWriter, r *http.Request
 // so it stays FIFO (oldest first, numbered by `stt`); anything else is history
 // and comes back newest first, unnumbered.
 // Gateway mounts under /v1/admin/* with role=admin RBAC.
+// @Summary List orders for the administrator desk
+// @Tags Admin - Orders
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Order status" Enums(PENDING,COMPLETED,CANCELLED,ALL) default(PENDING)
+// @Success 200 {object} adminOrderListResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /admin/orders [get]
 func (s *orderService) handleListAdminOrders(w http.ResponseWriter, r *http.Request) {
 	status, ok := parseAdminOrderStatusFilter(r.URL.Query().Get("status"))
 	if !ok {
@@ -127,6 +145,17 @@ func (s *orderService) handleListAdminOrders(w http.ResponseWriter, r *http.Requ
 // navigation. Response includes the delivery destination `lat`/`lng` (WGS84)
 // stored at place time, the full `customer_phone`, and the payment settlement
 // once the order is completed. Gateway mounts under /v1/admin/* with role=admin RBAC.
+// @Summary Get an order for administrators
+// @Tags Admin - Orders
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Order ID"
+// @Success 200 {object} orderView
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /admin/orders/{id} [get]
 func (s *orderService) handleGetAdminOrder(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {

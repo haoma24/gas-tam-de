@@ -25,6 +25,15 @@ type listDebtsResponse struct {
 // handleListDebts serves GET /v1/admin/debts — customers with outstanding balance
 // (balance > 0), highest first. Aggregate total_balance = SUM(balance).
 // Gateway mounts under /v1/admin/* with role=admin RBAC.
+// @Summary List outstanding customer debts
+// @Tags Admin - Billing
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} listDebtsResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 500 {object} httpx.ErrorResponse
+// @Router /admin/debts [get]
 func (s *billingService) handleListDebts(w http.ResponseWriter, _ *http.Request) {
 	out, err := s.listDebts()
 	if err != nil {

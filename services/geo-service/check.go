@@ -49,6 +49,19 @@ func inRange(distanceKm, maxRadiusKm float64) bool {
 	return distanceKm <= maxRadiusKm
 }
 
+// handleCheck calculates whether a delivery coordinate is in range.
+// @Summary Check delivery range
+// @Tags Geo
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body checkBody true "Delivery coordinate"
+// @Success 200 {object} checkResult
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /geo/check [post]
 func (s *geoService) handleCheck(w http.ResponseWriter, r *http.Request) {
 	var body checkBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

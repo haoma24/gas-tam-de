@@ -30,6 +30,12 @@ type stockLevel struct {
 }
 
 // handleListStockLevels serves GET /v1/stock/levels — public on_hand for catalog UI.
+// @Summary List public stock levels
+// @Tags Inventory
+// @Produce json
+// @Success 200 {object} stockLevelListResponse
+// @Failure 500 {object} httpx.ErrorResponse
+// @Router /stock/levels [get]
 func (s *inventoryService) handleListStockLevels(w http.ResponseWriter, _ *http.Request) {
 	rows, err := s.db.Query(`SELECT product_id, on_hand FROM stock_items`)
 	if err != nil {

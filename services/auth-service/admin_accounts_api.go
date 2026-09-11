@@ -45,6 +45,15 @@ type updateAdminAccountBody struct {
 	CurrentPassword string  `json:"current_password"`
 }
 
+// handleList returns active username/password administrator accounts.
+// @Summary List administrator accounts
+// @Tags Admin - Authentication
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} adminAccountListResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /admin/admin-accounts [get]
 func (s *adminAccountService) handleList(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireAdminIdentity(w, r)
 	if !ok {
@@ -86,6 +95,19 @@ func (s *adminAccountService) handleList(w http.ResponseWriter, r *http.Request)
 	httpx.JSON(w, http.StatusOK, map[string]any{"admin_accounts": items})
 }
 
+// handleCreate creates a username/password administrator account.
+// @Summary Create an administrator account
+// @Tags Admin - Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body createAdminAccountBody true "Administrator account"
+// @Success 201 {object} adminAccountView
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Router /admin/admin-accounts [post]
 func (s *adminAccountService) handleCreate(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireAdminIdentity(w, r)
 	if !ok {
@@ -137,6 +159,21 @@ func (s *adminAccountService) handleCreate(w http.ResponseWriter, r *http.Reques
 	httpx.JSON(w, http.StatusCreated, item)
 }
 
+// handleUpdate changes an administrator account or resets its password.
+// @Summary Update an administrator account
+// @Tags Admin - Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Administrator account ID"
+// @Param body body updateAdminAccountBody true "Account changes"
+// @Success 200 {object} adminAccountView
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Router /admin/admin-accounts/{id} [patch]
 func (s *adminAccountService) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireAdminIdentity(w, r)
 	if !ok {

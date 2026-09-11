@@ -14,6 +14,18 @@ import (
 )
 
 // handleCancelMyOrder serves POST /v1/orders/{id}/cancel — customer cancels own PENDING.
+// @Summary Cancel an order
+// @Tags Orders
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Order ID"
+// @Success 200 {object} cancelOrderResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Router /orders/{id}/cancel [post]
 func (s *orderService) handleCancelMyOrder(w http.ResponseWriter, r *http.Request) {
 	userID, _, ok := requireCustomerIdentity(w, r)
 	if !ok {

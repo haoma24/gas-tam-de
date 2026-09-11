@@ -64,6 +64,15 @@ func seedDeskSettings(db *sql.DB) error {
 	return err
 }
 
+// handleGetDeskSettings returns order desk wait thresholds and alert settings.
+// @Summary Get order desk settings
+// @Tags Admin - Orders
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} deskSettings
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /admin/desk-settings [get]
 func (s *orderService) handleGetDeskSettings(w http.ResponseWriter, _ *http.Request) {
 	row, err := getDeskSettings(s.db)
 	if err != nil {
@@ -74,6 +83,18 @@ func (s *orderService) handleGetDeskSettings(w http.ResponseWriter, _ *http.Requ
 	httpx.JSON(w, http.StatusOK, row)
 }
 
+// handlePutDeskSettings updates order desk wait thresholds and alerts.
+// @Summary Update order desk settings
+// @Tags Admin - Orders
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body putDeskSettingsBody true "Order desk settings"
+// @Success 200 {object} deskSettings
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /admin/desk-settings [put]
 func (s *orderService) handlePutDeskSettings(w http.ResponseWriter, r *http.Request) {
 	var body putDeskSettingsBody
 	dec := json.NewDecoder(r.Body)

@@ -47,6 +47,16 @@ type putDeliveryFeeRule struct {
 	Active    *bool    `json:"active"`
 }
 
+// handleGetAdminDeliveryFee returns the delivery fee rules.
+// @Summary Get delivery fee settings
+// @Tags Admin - Orders
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} deliveryFeeConfig
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /admin/delivery-fee [get]
 func (s *orderService) handleGetAdminDeliveryFee(w http.ResponseWriter, _ *http.Request) {
 	cfg, err := loadDeliveryFeeConfig(s.db)
 	if err != nil {
@@ -61,6 +71,19 @@ func (s *orderService) handleGetAdminDeliveryFee(w http.ResponseWriter, _ *http.
 	httpx.JSON(w, http.StatusOK, cfg)
 }
 
+// handlePutAdminDeliveryFee replaces or updates the delivery fee rules.
+// @Summary Update delivery fee settings
+// @Tags Admin - Orders
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body putDeliveryFeeBody true "Delivery fee settings"
+// @Success 200 {object} deliveryFeeConfig
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Router /admin/delivery-fee [put]
 func (s *orderService) handlePutAdminDeliveryFee(w http.ResponseWriter, r *http.Request) {
 	var body putDeliveryFeeBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

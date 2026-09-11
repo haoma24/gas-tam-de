@@ -35,6 +35,15 @@ type createAdminPhoneBody struct {
 	Label string `json:"label"`
 }
 
+// handleList returns phone numbers allowed to receive an admin OTP session.
+// @Summary List administrator phone numbers
+// @Tags Admin - Authentication
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} adminPhoneListResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /admin/admin-phones [get]
 func (s *adminPhoneService) handleList(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireAdminIdentity(w, r)
 	if !ok {
@@ -53,6 +62,19 @@ func (s *adminPhoneService) handleList(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"admin_phones": out})
 }
 
+// handleCreate adds a phone number to the administrator allow-list.
+// @Summary Add an administrator phone number
+// @Tags Admin - Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body createAdminPhoneBody true "Phone and optional label"
+// @Success 200 {object} adminPhoneView "Existing entry"
+// @Success 201 {object} adminPhoneView "Created"
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /admin/admin-phones [post]
 func (s *adminPhoneService) handleCreate(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireAdminIdentity(w, r)
 	if !ok {
@@ -96,6 +118,19 @@ func (s *adminPhoneService) handleCreate(w http.ResponseWriter, r *http.Request)
 	httpx.JSON(w, status, s.view(row, actor))
 }
 
+// handleDelete removes a phone number from the administrator allow-list.
+// @Summary Remove an administrator phone number
+// @Tags Admin - Authentication
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Administrator phone ID"
+// @Success 200 {object} deleteAdminPhoneResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Router /admin/admin-phones/{id} [delete]
 func (s *adminPhoneService) handleDelete(w http.ResponseWriter, r *http.Request) {
 	actor, ok := requireAdminIdentity(w, r)
 	if !ok {

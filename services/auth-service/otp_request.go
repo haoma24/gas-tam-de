@@ -39,6 +39,17 @@ type otpService struct {
 	devRevealOTP bool
 }
 
+// handleOTPRequest requests an OTP for a Vietnam mobile number.
+// @Summary Request an OTP
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param body body otpRequestBody true "Phone number"
+// @Success 200 {object} otpRequestResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 429 {object} httpx.ErrorResponse
+// @Failure 502 {object} httpx.ErrorResponse
+// @Router /auth/otp/request [post]
 func (s *otpService) handleOTPRequest(w http.ResponseWriter, r *http.Request) {
 	var body otpRequestBody
 	dec := json.NewDecoder(r.Body)

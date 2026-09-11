@@ -60,6 +60,21 @@ type completeOrderView struct {
 // COMPLETED, stores payment snapshot on the order, records payments/debts on
 // billing-service, then publishes order.completed.
 // Gateway mounts under /v1/admin/* with role=admin RBAC.
+// @Summary Complete an order
+// @Tags Admin - Orders
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Order ID"
+// @Param body body completeOrderBody true "Payment settlement"
+// @Success 200 {object} completeOrderView
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 404 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Failure 502 {object} httpx.ErrorResponse
+// @Router /admin/orders/{id}/complete [post]
 func (s *orderService) handleCompleteOrder(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {

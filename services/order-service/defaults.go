@@ -12,6 +12,14 @@ import (
 
 // handleGetMyOrderDefaults serves GET /v1/orders/me/defaults —
 // last delivery name+address for returning customers (by JWT user_id).
+// @Summary Get the customer's latest order defaults
+// @Tags Orders
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} orderDefaultsResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Router /orders/me/defaults [get]
 func (s *orderService) handleGetMyOrderDefaults(w http.ResponseWriter, r *http.Request) {
 	userID, _, ok := requireCustomerIdentity(w, r)
 	if !ok {

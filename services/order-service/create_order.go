@@ -93,6 +93,20 @@ type preparedLine struct {
 
 // handleCreateOrder serves POST /v1/orders — validate JWT identity headers,
 // items (catalog), geo in-range, delivery fee engine, persist PENDING + publish order.placed.
+// @Summary Create an order
+// @Tags Orders
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body createOrderBody true "Order details"
+// @Success 201 {object} orderView
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 409 {object} httpx.ErrorResponse
+// @Failure 422 {object} httpx.ErrorResponse
+// @Failure 502 {object} httpx.ErrorResponse
+// @Router /orders [post]
 func (s *orderService) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 	userID, phoneMaskedRaw, ok := requireCustomerIdentity(w, r)
 	if !ok {

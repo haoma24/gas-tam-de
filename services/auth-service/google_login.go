@@ -109,6 +109,17 @@ func newGoogleAuthService(db *sql.DB, jwtSecret string, accessTTL, refreshTTL ti
 	}
 }
 
+// handleLogin authenticates a customer with a Google ID token.
+// @Summary Sign in with Google
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param body body googleLoginBody true "Google ID token"
+// @Success 200 {object} authTokenResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 503 {object} httpx.ErrorResponse
+// @Router /auth/google [post]
 func (s *googleAuthService) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var body googleLoginBody
 	dec := json.NewDecoder(r.Body)

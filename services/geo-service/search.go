@@ -41,6 +41,17 @@ type geoService struct {
 	now      func() time.Time
 }
 
+// handleSearch returns normalized address suggestions from the geocoder.
+// @Summary Search for an address
+// @Tags Geo
+// @Produce json
+// @Param q query string true "Search text" minlength(2) maxlength(200)
+// @Param limit query int false "Maximum results" minimum(1) maximum(10) default(5)
+// @Success 200 {object} geoSearchResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 429 {object} httpx.ErrorResponse
+// @Failure 502 {object} httpx.ErrorResponse
+// @Router /geo/search [get]
 func (s *geoService) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if len(q) < minQueryLen {

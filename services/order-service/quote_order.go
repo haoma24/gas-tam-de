@@ -31,6 +31,18 @@ type quoteOrderView struct {
 
 // handleQuoteOrder serves POST /v1/orders/quote — preview distance, fee, and totals
 // without persisting. Returns in_range so clients can block place when out of radius.
+// @Summary Quote an order
+// @Tags Orders
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body quoteOrderBody true "Delivery coordinate and items"
+// @Success 200 {object} quoteOrderView
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Failure 403 {object} httpx.ErrorResponse
+// @Failure 502 {object} httpx.ErrorResponse
+// @Router /orders/quote [post]
 func (s *orderService) handleQuoteOrder(w http.ResponseWriter, r *http.Request) {
 	if _, _, ok := requireCustomerIdentity(w, r); !ok {
 		return

@@ -16,6 +16,214 @@ definitions:
       error:
         $ref: '#/definitions/httpx.ErrorBody'
     type: object
+  main.adminAccountListResponse:
+    properties:
+      admin_accounts:
+        items:
+          $ref: '#/definitions/main.adminAccountView'
+        type: array
+    type: object
+  main.adminAccountView:
+    properties:
+      created_at:
+        type: string
+      display_name:
+        type: string
+      id:
+        type: string
+      is_self:
+        type: boolean
+      username:
+        type: string
+    type: object
+  main.adminLoginBody:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  main.adminOrderListResponse:
+    properties:
+      count:
+        type: integer
+      orders:
+        items:
+          $ref: '#/definitions/main.orderView'
+        type: array
+      status:
+        type: string
+    type: object
+  main.adminPhoneListResponse:
+    properties:
+      admin_phones:
+        items:
+          $ref: '#/definitions/main.adminPhoneView'
+        type: array
+    type: object
+  main.adminPhoneView:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_self:
+        type: boolean
+      label:
+        type: string
+      phone_masked:
+        type: string
+    type: object
+  main.authTokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      ok:
+        type: boolean
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/main.authUserView'
+    type: object
+  main.authUserView:
+    properties:
+      display_name:
+        type: string
+      id:
+        type: string
+      phone_masked:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+  main.cancelOrderResponse:
+    properties:
+      cancelled_at:
+        type: string
+      ok:
+        type: boolean
+      order_id:
+        type: string
+      status:
+        type: string
+    type: object
+  main.checkBody:
+    properties:
+      lat:
+        type: number
+      lng:
+        type: number
+    type: object
+  main.checkResult:
+    properties:
+      distance_km:
+        type: number
+      in_range:
+        type: boolean
+      max_radius_km:
+        type: number
+    type: object
+  main.completeOrderBody:
+    properties:
+      amount_paid:
+        description: |-
+          AmountPaid is required for PARTIAL; optional for FULL (defaults to total)
+          and UNPAID (must be 0 or omitted).
+        type: integer
+      payment_type:
+        type: string
+    type: object
+  main.completeOrderView:
+    properties:
+      address_text:
+        type: string
+      amount_due:
+        type: integer
+      amount_paid:
+        type: integer
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      customer_name:
+        type: string
+      customer_phone:
+        description: Admin response — carries the callable number, like the other
+          /v1/admin views.
+        type: string
+      debt:
+        type: integer
+      delivery_fee:
+        type: integer
+      distance_km:
+        type: number
+      id:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/main.orderItemView'
+        type: array
+      lat:
+        type: number
+      lng:
+        type: number
+      payment_type:
+        type: string
+      phone_masked:
+        type: string
+      status:
+        type: string
+      subtotal:
+        type: integer
+      total:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  main.createAdminAccountBody:
+    properties:
+      display_name:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  main.createAdminPhoneBody:
+    properties:
+      label:
+        type: string
+      phone:
+        type: string
+    type: object
+  main.createOrderBody:
+    properties:
+      address_text:
+        type: string
+      customer_name:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/main.createOrderItemBody'
+        type: array
+      lat:
+        type: number
+      lng:
+        type: number
+    type: object
+  main.createOrderItemBody:
+    properties:
+      product_id:
+        type: string
+      qty:
+        type: integer
+    type: object
   main.createProductBody:
     properties:
       active:
@@ -37,6 +245,170 @@ definitions:
       unit:
         type: string
     type: object
+  main.customerStat:
+    properties:
+      address_text:
+        type: string
+      customer_name:
+        type: string
+      customer_phone:
+        description: |-
+          CustomerPhone is the callable number; PhoneMasked is the fallback for
+          customers auth-service has no number on file for.
+        type: string
+      debt_vnd:
+        type: integer
+      first_order_at:
+        type: string
+      last_order_at:
+        type: string
+      orders_cancelled:
+        type: integer
+      orders_completed:
+        type: integer
+      orders_pending:
+        type: integer
+      orders_total:
+        type: integer
+      paid_vnd:
+        type: integer
+      phone_masked:
+        type: string
+      spent_vnd:
+        description: |-
+          Money counts completed orders only — the same rule the rest of the system
+          follows: nothing is earned until the order is handed over.
+        type: integer
+      user_id:
+        type: string
+    type: object
+  main.customerStatsResponse:
+    properties:
+      count:
+        type: integer
+      customers:
+        items:
+          $ref: '#/definitions/main.customerStat'
+        type: array
+      from:
+        type: string
+      timezone:
+        type: string
+      to:
+        type: string
+      total:
+        type: integer
+    type: object
+  main.dashboardSummaryResponse:
+    properties:
+      cogs_vnd:
+        type: integer
+      debt_total:
+        type: integer
+      delivery_fee_vnd:
+        type: integer
+      from:
+        type: string
+      orders_completed:
+        type: integer
+      orders_placed:
+        type: integer
+      profit_vnd:
+        type: integer
+      revenue_vnd:
+        type: integer
+      timezone:
+        type: string
+      to:
+        type: string
+    type: object
+  main.debtItem:
+    properties:
+      balance:
+        type: integer
+      customer_key:
+        type: string
+      phone_masked:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  main.deleteAdminPhoneResponse:
+    properties:
+      id:
+        type: string
+      ok:
+        type: boolean
+    type: object
+  main.deliveryFeeConfig:
+    properties:
+      enabled:
+        type: boolean
+      rules:
+        items:
+          $ref: '#/definitions/main.deliveryFeeRule'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  main.deliveryFeeRule:
+    properties:
+      active:
+        type: boolean
+      fee_vnd:
+        type: integer
+      id:
+        type: string
+      max_km:
+        description: nil = +inf; half-open [min, max)
+        type: number
+      min_km:
+        type: number
+      sort_order:
+        type: integer
+    type: object
+  main.deskSettings:
+    properties:
+      alert_enabled:
+        type: boolean
+      alert_interval_sec:
+        type: integer
+      id:
+        type: string
+      updated_at:
+        type: string
+      wait_blue_max_min:
+        type: integer
+      wait_orange_max_min:
+        type: integer
+      wait_red_max_min:
+        type: integer
+    type: object
+  main.geoPlace:
+    properties:
+      label:
+        type: string
+      lat:
+        type: number
+      lng:
+        type: number
+      source:
+        type: string
+    type: object
+  main.geoSearchResponse:
+    properties:
+      cached:
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/main.geoPlace'
+        type: array
+    type: object
+  main.googleLoginBody:
+    properties:
+      id_token:
+        type: string
+    type: object
   main.helloResponse:
     properties:
       message:
@@ -44,6 +416,180 @@ definitions:
         type: string
       status:
         example: ok
+        type: string
+    type: object
+  main.listDebtsResponse:
+    properties:
+      count:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/main.debtItem'
+        type: array
+      total_balance:
+        type: integer
+    type: object
+  main.listStockResponse:
+    properties:
+      count:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/main.stockItem'
+        type: array
+    type: object
+  main.meView:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      phone_masked:
+        type: string
+      picture_url:
+        type: string
+      role:
+        type: string
+    type: object
+  main.okResponse:
+    properties:
+      ok:
+        type: boolean
+    type: object
+  main.orderDefaultsResponse:
+    properties:
+      address_text:
+        type: string
+      customer_name:
+        type: string
+      has_defaults:
+        type: boolean
+      lat:
+        type: number
+      lng:
+        type: number
+      ordered_at:
+        type: string
+    type: object
+  main.orderItemView:
+    properties:
+      id:
+        type: string
+      line_total:
+        type: integer
+      product_id:
+        type: string
+      product_name:
+        type: string
+      product_sku:
+        type: string
+      qty:
+        type: integer
+      unit_cost:
+        description: |-
+          UnitCost is the COGS snapshot (VND giá nhập) taken when inventory
+          deducted this line. 0 = unknown (order placed before the field existed,
+          or the product has no cost price set in Kho).
+        type: integer
+      unit_price:
+        type: integer
+    type: object
+  main.orderListResponse:
+    properties:
+      orders:
+        items:
+          $ref: '#/definitions/main.orderView'
+        type: array
+    type: object
+  main.orderView:
+    properties:
+      address_text:
+        type: string
+      amount_paid:
+        type: integer
+      cancelled_at:
+        type: string
+      completed_at:
+        description: |-
+          Lifecycle timestamps + payment settlement, so a finished order can be
+          reopened and read back instead of vanishing from the desk.
+        type: string
+      created_at:
+        type: string
+      customer_name:
+        type: string
+      customer_phone:
+        description: |-
+          CustomerPhone is the full contact number. Only ever set by
+          [adminOrderView]: the shop has to be able to call the customer, while
+          customer-facing responses keep seeing phone_masked alone.
+        type: string
+      delivery_fee:
+        type: integer
+      distance_km:
+        type: number
+      id:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/main.orderItemView'
+        type: array
+      lat:
+        description: |-
+          Lat/Lng are the delivery destination (WGS84) captured at place time —
+          used by admin navigation (US-5.2).
+        type: number
+      lng:
+        type: number
+      payment_type:
+        type: string
+      phone_masked:
+        type: string
+      status:
+        type: string
+      stt:
+        description: Stt is 1-based FIFO desk sequence (admin list only; omitted for
+          customer APIs).
+        type: integer
+      subtotal:
+        type: integer
+      total:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  main.otpRequestBody:
+    properties:
+      phone:
+        type: string
+    type: object
+  main.otpRequestResponse:
+    properties:
+      dev_code:
+        type: string
+      expires_in_sec:
+        type: integer
+      ok:
+        type: boolean
+      phone_masked:
+        type: string
+      resend_after_sec:
+        type: integer
+    type: object
+  main.otpVerifyBody:
+    properties:
+      code:
+        type: string
+      phone:
+        type: string
+    type: object
+  main.patchMeBody:
+    properties:
+      full_name:
+        type: string
+      phone:
         type: string
     type: object
   main.patchProductBody:
@@ -66,6 +612,45 @@ definitions:
         type: string
       unit:
         type: string
+    type: object
+  main.postMovementBody:
+    properties:
+      delta:
+        description: 'ADJUST: required, != 0'
+        type: integer
+      movement_type:
+        type: string
+      name:
+        description: required when creating stock on first IN
+        type: string
+      note:
+        type: string
+      product_id:
+        type: string
+      qty:
+        description: 'IN/OUT: required, > 0'
+        type: integer
+      ref_id:
+        type: string
+      ref_type:
+        description: default MANUAL
+        type: string
+      reorder_level:
+        description: optional on first IN
+        type: integer
+      sku:
+        description: required when creating stock on first IN
+        type: string
+      unit_cost:
+        description: 'IN: required >= 0; ADJUST: optional cost update'
+        type: integer
+    type: object
+  main.postMovementResponse:
+    properties:
+      item:
+        $ref: '#/definitions/main.stockItem'
+      movement:
+        $ref: '#/definitions/main.stockMovement'
     type: object
   main.product:
     properties:
@@ -101,12 +686,887 @@ definitions:
           $ref: '#/definitions/main.product'
         type: array
     type: object
+  main.publicStoreResponse:
+    properties:
+      address_text:
+        type: string
+      lat:
+        type: number
+      lng:
+        type: number
+      max_radius_km:
+        type: number
+      name:
+        type: string
+    type: object
+  main.putDeliveryFeeBody:
+    properties:
+      enabled:
+        type: boolean
+      rules:
+        items:
+          $ref: '#/definitions/main.putDeliveryFeeRule'
+        type: array
+    type: object
+  main.putDeliveryFeeRule:
+    properties:
+      active:
+        type: boolean
+      fee_vnd:
+        type: integer
+      id:
+        type: string
+      max_km:
+        type: number
+      min_km:
+        type: number
+      sort_order:
+        type: integer
+    type: object
+  main.putDeskSettingsBody:
+    properties:
+      alert_enabled:
+        type: boolean
+      alert_interval_sec:
+        type: integer
+      wait_blue_max_min:
+        type: integer
+      wait_orange_max_min:
+        type: integer
+      wait_red_max_min:
+        type: integer
+    type: object
+  main.putStoreBody:
+    properties:
+      address_text:
+        type: string
+      lat:
+        type: number
+      lng:
+        type: number
+      max_radius_km:
+        type: number
+      name:
+        type: string
+    type: object
+  main.quoteOrderBody:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/main.quoteOrderItemBody'
+        type: array
+      lat:
+        type: number
+      lng:
+        type: number
+    type: object
+  main.quoteOrderItemBody:
+    properties:
+      product_id:
+        type: string
+      qty:
+        type: integer
+    type: object
+  main.quoteOrderView:
+    properties:
+      delivery_fee:
+        type: integer
+      distance_km:
+        type: number
+      in_range:
+        type: boolean
+      max_radius_km:
+        type: number
+      subtotal:
+        type: integer
+      total:
+        type: integer
+    type: object
+  main.refreshBody:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  main.refreshResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      ok:
+        type: boolean
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  main.stockItem:
+    properties:
+      cost_price:
+        type: integer
+      name:
+        type: string
+      on_hand:
+        type: integer
+      product_id:
+        type: string
+      reorder_level:
+        type: integer
+      sku:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  main.stockLevel:
+    properties:
+      on_hand:
+        type: integer
+      product_id:
+        type: string
+    type: object
+  main.stockLevelListResponse:
+    properties:
+      count:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/main.stockLevel'
+        type: array
+    type: object
+  main.stockMovement:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      delta:
+        description: signed effect on on_hand
+        type: integer
+      id:
+        type: string
+      movement_type:
+        type: string
+      note:
+        type: string
+      product_id:
+        type: string
+      qty:
+        type: integer
+      ref_id:
+        type: string
+      ref_type:
+        type: string
+      unit_cost:
+        type: integer
+    type: object
+  main.storeSettings:
+    properties:
+      address_text:
+        type: string
+      id:
+        type: string
+      lat:
+        type: number
+      lng:
+        type: number
+      max_radius_km:
+        type: number
+      name:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+    type: object
+  main.updateAdminAccountBody:
+    properties:
+      current_password:
+        type: string
+      display_name:
+        type: string
+      new_password:
+        type: string
+      username:
+        type: string
+    type: object
 info:
   contact: {}
   description: Public API gateway for Gas Tam De customers and administrators.
   title: Gas Tam De API
   version: "1.0"
 paths:
+  /admin/admin-accounts:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.adminAccountListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List administrator accounts
+      tags:
+      - Admin - Authentication
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Administrator account
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.createAdminAccountBody'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.adminAccountView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an administrator account
+      tags:
+      - Admin - Authentication
+  /admin/admin-accounts/{id}:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Administrator account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Account changes
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.updateAdminAccountBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.adminAccountView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an administrator account
+      tags:
+      - Admin - Authentication
+  /admin/admin-phones:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.adminPhoneListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List administrator phone numbers
+      tags:
+      - Admin - Authentication
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Phone and optional label
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.createAdminPhoneBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Existing entry
+          schema:
+            $ref: '#/definitions/main.adminPhoneView'
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.adminPhoneView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add an administrator phone number
+      tags:
+      - Admin - Authentication
+  /admin/admin-phones/{id}:
+    delete:
+      parameters:
+      - description: Administrator phone ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.deleteAdminPhoneResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove an administrator phone number
+      tags:
+      - Admin - Authentication
+  /admin/dashboard/summary:
+    get:
+      parameters:
+      - description: Single Vietnam calendar day (YYYY-MM-DD)
+        in: query
+        name: day
+        type: string
+      - description: First Vietnam calendar day (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: Last Vietnam calendar day (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.dashboardSummaryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the administrator dashboard summary
+      tags:
+      - Admin - Reports
+  /admin/debts:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.listDebtsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List outstanding customer debts
+      tags:
+      - Admin - Billing
+  /admin/delivery-fee:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.deliveryFeeConfig'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get delivery fee settings
+      tags:
+      - Admin - Orders
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Delivery fee settings
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.putDeliveryFeeBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.deliveryFeeConfig'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update delivery fee settings
+      tags:
+      - Admin - Orders
+  /admin/desk-settings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.deskSettings'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get order desk settings
+      tags:
+      - Admin - Orders
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Order desk settings
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.putDeskSettingsBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.deskSettings'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update order desk settings
+      tags:
+      - Admin - Orders
+  /admin/geo/store:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Store fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.putStoreBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.storeSettings'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update store delivery settings
+      tags:
+      - Admin - Geo
+  /admin/inventory:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.listStockResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List inventory
+      tags:
+      - Admin - Inventory
+    post:
+      consumes:
+      - application/json
+      description: Supports IN, OUT, and ADJUST movements.
+      parameters:
+      - description: Inventory movement
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.postMovementBody'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.postMovementResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Record an inventory movement
+      tags:
+      - Admin - Inventory
+  /admin/orders:
+    get:
+      parameters:
+      - default: PENDING
+        description: Order status
+        enum:
+        - PENDING
+        - COMPLETED
+        - CANCELLED
+        - ALL
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.adminOrderListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List orders for the administrator desk
+      tags:
+      - Admin - Orders
+  /admin/orders/{id}:
+    get:
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.orderView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get an order for administrators
+      tags:
+      - Admin - Orders
+  /admin/orders/{id}/complete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Payment settlement
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.completeOrderBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.completeOrderView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete an order
+      tags:
+      - Admin - Orders
+  /admin/orders/customers:
+    get:
+      parameters:
+      - description: First Vietnam calendar day (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: Last Vietnam calendar day (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      - default: 200
+        description: Maximum customers
+        in: query
+        maximum: 1000
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.customerStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get customer order statistics
+      tags:
+      - Admin - Orders
   /admin/products:
     get:
       responses:
@@ -238,6 +1698,282 @@ paths:
       summary: Update a product
       tags:
       - Admin - Products
+  /auth/admin/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Administrator credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.adminLoginBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.authTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Sign in as an administrator
+      tags:
+      - Authentication
+  /auth/google:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Google ID token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.googleLoginBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.authTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Sign in with Google
+      tags:
+      - Authentication
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.refreshBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Sign out a device session
+      tags:
+      - Authentication
+  /auth/otp/request:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Phone number
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.otpRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.otpRequestResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Request an OTP
+      tags:
+      - Authentication
+  /auth/otp/verify:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Phone number and OTP code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.otpVerifyBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.authTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Verify an OTP
+      tags:
+      - Authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.refreshBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.refreshResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Refresh an access token
+      tags:
+      - Authentication
+  /geo/check:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Delivery coordinate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.checkBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.checkResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Check delivery range
+      tags:
+      - Geo
+  /geo/search:
+    get:
+      parameters:
+      - description: Search text
+        in: query
+        maxLength: 200
+        minLength: 2
+        name: q
+        required: true
+        type: string
+      - default: 5
+        description: Maximum results
+        in: query
+        maximum: 10
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.geoSearchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Search for an address
+      tags:
+      - Geo
+  /geo/store:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.publicStoreResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Get store delivery settings
+      tags:
+      - Geo
   /hello:
     get:
       description: Returns a lightweight response when the public gateway is serving
@@ -250,6 +1986,240 @@ paths:
       summary: Check the API gateway
       tags:
       - System
+  /me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.meView'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the current customer profile
+      tags:
+      - Profile
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Profile fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.patchMeBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.meView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update the current customer profile
+      tags:
+      - Profile
+  /orders:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Order details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.createOrderBody'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.orderView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an order
+      tags:
+      - Orders
+  /orders/{id}/cancel:
+    post:
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.cancelOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel an order
+      tags:
+      - Orders
+  /orders/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.orderListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List the current customer's orders
+      tags:
+      - Orders
+  /orders/me/defaults:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.orderDefaultsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the customer's latest order defaults
+      tags:
+      - Orders
+  /orders/quote:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Delivery coordinate and items
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.quoteOrderBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.quoteOrderView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Quote an order
+      tags:
+      - Orders
   /products:
     get:
       description: Returns products currently available to customers.
@@ -265,6 +2235,22 @@ paths:
       summary: List active products
       tags:
       - Products
+  /stock/levels:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.stockLevelListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: List public stock levels
+      tags:
+      - Inventory
 produces:
 - application/json
 schemes:

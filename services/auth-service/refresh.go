@@ -21,6 +21,14 @@ type refreshBody struct {
 // handleLogout revokes the current device session. The response is idempotent
 // so callers can always clear local state, even when the token was rotated or
 // already revoked.
+// @Summary Sign out a device session
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param body body refreshBody true "Refresh token"
+// @Success 200 {object} okResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Router /auth/logout [post]
 func (s *tokenService) handleLogout(w http.ResponseWriter, r *http.Request) {
 	var body refreshBody
 	dec := json.NewDecoder(r.Body)
@@ -56,6 +64,16 @@ type sessionRow struct {
 	RevokedAt   sql.NullString
 }
 
+// handleRefresh rotates a refresh token and returns a new token pair.
+// @Summary Refresh an access token
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param body body refreshBody true "Refresh token"
+// @Success 200 {object} refreshResponse
+// @Failure 400 {object} httpx.ErrorResponse
+// @Failure 401 {object} httpx.ErrorResponse
+// @Router /auth/refresh [post]
 func (s *tokenService) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	var body refreshBody
 	dec := json.NewDecoder(r.Body)
